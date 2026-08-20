@@ -1,15 +1,27 @@
-body {
+html, body {
     margin: 0;
     padding: 0;
     color: rgba(255, 255, 255, 0.87);
     background-color: #0f0f0f;
+    /* iOS Safari's dynamic toolbar makes 100vh taller than the visible area;
+       dvh tracks what's actually on screen. See HANDOFF.md §8/§10. */
+    height: 100dvh;
+    overscroll-behavior: none;
+    touch-action: none;
 }
 
 #app {
     width: 100%;
-    height: 100vh;
+    height: 100%;
     overflow: hidden;
     display: flex;
     justify-content: center;
     align-items: center;
+}
+
+/* The ScaleManager needs a parent with real, calculable bounds — an
+   unstyled div reports zero size and breaks FIT-mode centering. */
+#game-container {
+    width: 100%;
+    height: 100%;
 }

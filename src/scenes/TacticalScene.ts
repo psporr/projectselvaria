@@ -8,9 +8,16 @@ import { TERRAIN, teamOf, type Unit } from '../game/types';
 import { UnitSprite } from '../entities/UnitSprite';
 import { createGameClient, type GameClient } from '../systems/gameClient';
 
-const TILE_SIZE = 72;
-const BOARD_ORIGIN_X = 40;
-const BOARD_ORIGIN_Y = 90;
+// Sized against main.ts's 480x854 portrait design resolution (HANDOFF.md
+// §10) — the ScaleManager (Scale.FIT) handles fitting that to the real
+// viewport, this only has to lay out inside the fixed base canvas. The board
+// is 7 tiles wide, so 64px tiles with 16px side margins fill it exactly
+// (7*64 + 2*16 = 480); the log panel stacks below the board rather than
+// beside it, since portrait width has no room for a side panel.
+const TILE_SIZE = 64;
+const BOARD_ORIGIN_X = 16;
+const BOARD_ORIGIN_Y = 56;
+const LOG_ORIGIN_Y = BOARD_ORIGIN_Y + 8 * TILE_SIZE + 16;
 
 const TERRAIN_COLOR: Record<string, number> = {
   plain: 0x3a3f4b,
@@ -68,17 +75,17 @@ export class TacticalScene extends Scene {
     this.client = createGameClient();
     this.cameras.main.setBackgroundColor('#111318');
 
-    this.phaseText = this.add.text(BOARD_ORIGIN_X, 24, '', {
+    this.phaseText = this.add.text(BOARD_ORIGIN_X, 16, '', {
       fontFamily: 'monospace',
-      fontSize: '18px',
+      fontSize: '15px',
       color: '#e0e0e0',
     });
 
-    this.logText = this.add.text(BOARD_ORIGIN_X + 7 * TILE_SIZE + 30, BOARD_ORIGIN_Y, '', {
+    this.logText = this.add.text(BOARD_ORIGIN_X, LOG_ORIGIN_Y, '', {
       fontFamily: 'monospace',
       fontSize: '13px',
       color: '#9099a8',
-      wordWrap: { width: 260 },
+      wordWrap: { width: 7 * TILE_SIZE },
     });
 
     this.gameOverText = this.add
