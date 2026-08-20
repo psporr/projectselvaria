@@ -10,10 +10,18 @@ import type { ShuffleAPI } from './maps';
  * unit, some just bump a running total in G.modifiers — rather than forcing
  * every effect through a per-unit shape that only fit the original 3.
  */
+export type BlessingRarity = 'common' | 'rare' | 'legendary';
+
 export interface Blessing {
   id: string;
   name: string;
   description: string;
+  /**
+   * Display-only classification by effect magnitude — the pick is still
+   * drawn uniformly (drawBlessings below), rarity doesn't weight the odds.
+   * Tier-weighted draws are a deliberate non-goal for now.
+   */
+  rarity: BlessingRarity;
   apply: (G: GameState) => void;
   /** Hidden from the draw pool unless this returns true — used by The Fallen, which needs someone to revive. */
   isAvailable?: (G: GameState) => boolean;
@@ -34,6 +42,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'fury',
     name: 'Blessing of Fury',
     description: '+2 Atk for every surviving unit.',
+    rarity: 'common',
     apply: (G) => {
       for (const unit of unitsOf(G, 'player')) unit.atk += 2;
     },
@@ -42,6 +51,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'stone',
     name: 'Blessing of Stone',
     description: '+2 Def for every surviving unit.',
+    rarity: 'common',
     apply: (G) => {
       for (const unit of unitsOf(G, 'player')) unit.def += 2;
     },
@@ -50,6 +60,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'vitality',
     name: 'Blessing of Vitality',
     description: 'Fully heal every surviving unit.',
+    rarity: 'rare',
     apply: (G) => {
       for (const unit of unitsOf(G, 'player')) unit.hp = unit.maxHp;
     },
@@ -58,6 +69,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'growth',
     name: 'Blessing of Growth',
     description: '+4 max HP for every surviving unit, healed by the same amount.',
+    rarity: 'rare',
     apply: (G) => {
       for (const unit of unitsOf(G, 'player')) {
         unit.maxHp += 4;
@@ -69,6 +81,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'vanguard',
     name: 'Blessing of the Vanguard',
     description: '+3 Atk for every melee unit (range 1).',
+    rarity: 'rare',
     apply: (G) => {
       for (const unit of unitsOf(G, 'player')) if (unit.range <= 1) unit.atk += 3;
     },
@@ -77,6 +90,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'farsight',
     name: 'Blessing of Farsight',
     description: '+2 Atk for every ranged unit (range 2+).',
+    rarity: 'rare',
     apply: (G) => {
       for (const unit of unitsOf(G, 'player')) if (unit.range >= 2) unit.atk += 2;
     },
@@ -85,6 +99,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'bulwark',
     name: 'Blessing of the Bulwark',
     description: '+3 Def for every melee unit (range 1).',
+    rarity: 'rare',
     apply: (G) => {
       for (const unit of unitsOf(G, 'player')) if (unit.range <= 1) unit.def += 3;
     },
@@ -93,6 +108,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'underdog',
     name: "Blessing of the Underdog",
     description: 'Your lowest-level unit gets +2 Atk, +2 Def, +6 max HP.',
+    rarity: 'common',
     apply: (G) => {
       const unit = lowestLevelUnit(unitsOf(G, 'player'));
       if (!unit) return;
@@ -106,6 +122,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'champion',
     name: 'Blessing of the Champion',
     description: 'Your highest-level unit gets +3 Atk.',
+    rarity: 'common',
     apply: (G) => {
       const unit = highestLevelUnit(unitsOf(G, 'player'));
       if (unit) unit.atk += 3;
@@ -115,6 +132,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'renewal',
     name: 'Blessing of Renewal',
     description: "Every unit's skill is ready to use again immediately.",
+    rarity: 'common',
     apply: (G) => {
       for (const unit of unitsOf(G, 'player')) unit.skillCooldown = 0;
     },
@@ -123,6 +141,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'swiftness',
     name: 'Blessing of Swiftness',
     description: '+1 Move for every surviving unit.',
+    rarity: 'common',
     apply: (G) => {
       for (const unit of unitsOf(G, 'player')) unit.move += 1;
     },
@@ -131,6 +150,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'wisdom',
     name: 'Blessing of Wisdom',
     description: `+${WISDOM_EXP} EXP for every surviving unit.`,
+    rarity: 'common',
     apply: (G) => {
       for (const unit of unitsOf(G, 'player')) {
         grantExp(unit, WISDOM_EXP, (leveled) => pushLog(G, `${leveled.name} reached level ${leveled.level}!`));
@@ -141,6 +161,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'the-fallen',
     name: 'Blessing of the Fallen',
     description: 'Revive one fallen ally at half HP.',
+    rarity: 'legendary',
     isAvailable: (G) => G.fallenUnits.length > 0,
     apply: (G) => {
       const revived = G.fallenUnits.shift();
@@ -156,6 +177,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'fortune',
     name: 'Blessing of Fortune',
     description: "Doubles next wave's item drop chance.",
+    rarity: 'common',
     apply: (G) => {
       G.modifiers.dropChanceMultiplier = 2;
     },
@@ -164,6 +186,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'thorns',
     name: 'Blessing of Thorns',
     description: 'Permanent: your counterattacks deal +2 damage.',
+    rarity: 'rare',
     apply: (G) => {
       G.modifiers.counterBonus += 2;
     },
@@ -172,6 +195,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'focus',
     name: 'Blessing of Focus',
     description: 'Permanent: skill cooldowns are 1 turn shorter (minimum 1).',
+    rarity: 'rare',
     apply: (G) => {
       G.modifiers.cooldownReduction += 1;
     },
@@ -180,6 +204,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'mending',
     name: 'Blessing of Mending',
     description: 'Permanent: the squad heals 2 HP at the start of every player phase.',
+    rarity: 'rare',
     apply: (G) => {
       G.modifiers.healPerTurn += 2;
     },
@@ -188,6 +213,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'ironclad',
     name: 'Blessing of the Ironclad',
     description: 'Permanent: doubles the defence bonus your units get from terrain.',
+    rarity: 'legendary',
     apply: (G) => {
       G.modifiers.terrainDefMultiplier *= 2;
     },
@@ -196,6 +222,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'executioner',
     name: "Blessing of the Executioner",
     description: 'Permanent: +3 damage against enemies at or below half HP.',
+    rarity: 'legendary',
     apply: (G) => {
       G.modifiers.executionerBonus += 3;
     },
@@ -204,6 +231,7 @@ export const BLESSINGS: Blessing[] = [
     id: 'guardian-angel',
     name: 'Blessing of the Guardian Angel',
     description: 'Permanent: once per wave, a lethal hit leaves a unit at 1 HP instead.',
+    rarity: 'legendary',
     apply: (G) => {
       G.modifiers.guardianAngelMax += 1;
     },

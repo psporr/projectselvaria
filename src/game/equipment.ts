@@ -2,11 +2,19 @@ import type { ClassStats } from './classes';
 import type { GameState, Item, ItemSlot, Unit } from './types';
 import type { ShuffleAPI } from './maps';
 
+export type ItemRarity = 'common' | 'rare' | 'legendary';
+
 export interface ItemDef {
   id: string;
   slot: ItemSlot;
   name: string;
   description: string;
+  /**
+   * Display-only classification by stat magnitude — rollDrop below still
+   * picks uniformly across all items regardless of tier. Tier-weighted
+   * drops are a deliberate non-goal for now, same call as Blessing.rarity.
+   */
+  rarity: ItemRarity;
   atk?: number;
   def?: number;
   move?: number;
@@ -27,46 +35,57 @@ export interface ItemDef {
  * per-class rates (classes.ts) have been played and tuned.
  */
 export const ITEMS: Record<string, ItemDef> = {
-  'iron-blade': { id: 'iron-blade', slot: 'weapon', name: 'Iron Blade', description: '+2 Atk', atk: 2 },
-  'heavy-axe': { id: 'heavy-axe', slot: 'weapon', name: 'Heavy Axe', description: '+4 Atk, -1 Mov', atk: 4, move: -1 },
-  'long-lance': { id: 'long-lance', slot: 'weapon', name: 'Long Lance', description: '+1 Atk, +1 Rng', atk: 1, range: 1 },
-  'swift-dagger': { id: 'swift-dagger', slot: 'weapon', name: 'Swift Dagger', description: '+1 Atk, +1 Mov', atk: 1, move: 1 },
-  'steel-blade': { id: 'steel-blade', slot: 'weapon', name: 'Steel Blade', description: '+3 Atk', atk: 3 },
-  'war-hammer': { id: 'war-hammer', slot: 'weapon', name: 'War Hammer', description: '+5 Atk, -1 Def', atk: 5, def: -1 },
-  glaive: { id: 'glaive', slot: 'weapon', name: 'Glaive', description: '+2 Atk, +1 Rng, -1 Mov', atk: 2, range: 1, move: -1 },
+  'iron-blade': { id: 'iron-blade', slot: 'weapon', name: 'Iron Blade', description: '+2 Atk', rarity: 'common', atk: 2 },
+  'heavy-axe': { id: 'heavy-axe', slot: 'weapon', name: 'Heavy Axe', description: '+4 Atk, -1 Mov', rarity: 'legendary', atk: 4, move: -1 },
+  'long-lance': { id: 'long-lance', slot: 'weapon', name: 'Long Lance', description: '+1 Atk, +1 Rng', rarity: 'common', atk: 1, range: 1 },
+  'swift-dagger': { id: 'swift-dagger', slot: 'weapon', name: 'Swift Dagger', description: '+1 Atk, +1 Mov', rarity: 'common', atk: 1, move: 1 },
+  'steel-blade': { id: 'steel-blade', slot: 'weapon', name: 'Steel Blade', description: '+3 Atk', rarity: 'rare', atk: 3 },
+  'war-hammer': { id: 'war-hammer', slot: 'weapon', name: 'War Hammer', description: '+5 Atk, -1 Def', rarity: 'legendary', atk: 5, def: -1 },
+  glaive: { id: 'glaive', slot: 'weapon', name: 'Glaive', description: '+2 Atk, +1 Rng, -1 Mov', rarity: 'rare', atk: 2, range: 1, move: -1 },
   'vampiric-fang': {
     id: 'vampiric-fang',
     slot: 'weapon',
     name: 'Vampiric Fang',
     description: '+1 Atk, heals 3 HP on a kill',
+    rarity: 'rare',
     atk: 1,
     killHeal: 3,
   },
 
-  'iron-plate': { id: 'iron-plate', slot: 'armor', name: 'Iron Plate', description: '+3 Def', def: 3 },
-  'leather-vest': { id: 'leather-vest', slot: 'armor', name: 'Leather Vest', description: '+1 Def, +1 Mov', def: 1, move: 1 },
-  towershield: { id: 'towershield', slot: 'armor', name: 'Tower Shield', description: '+5 Def, -1 Mov', def: 5, move: -1 },
-  'steel-plate': { id: 'steel-plate', slot: 'armor', name: 'Steel Plate', description: '+4 Def', def: 4 },
-  'spiked-mail': { id: 'spiked-mail', slot: 'armor', name: 'Spiked Mail', description: '+2 Def, +1 Atk', def: 2, atk: 1 },
+  'iron-plate': { id: 'iron-plate', slot: 'armor', name: 'Iron Plate', description: '+3 Def', rarity: 'rare', def: 3 },
+  'leather-vest': { id: 'leather-vest', slot: 'armor', name: 'Leather Vest', description: '+1 Def, +1 Mov', rarity: 'common', def: 1, move: 1 },
+  towershield: { id: 'towershield', slot: 'armor', name: 'Tower Shield', description: '+5 Def, -1 Mov', rarity: 'legendary', def: 5, move: -1 },
+  'steel-plate': { id: 'steel-plate', slot: 'armor', name: 'Steel Plate', description: '+4 Def', rarity: 'rare', def: 4 },
+  'spiked-mail': { id: 'spiked-mail', slot: 'armor', name: 'Spiked Mail', description: '+2 Def, +1 Atk', rarity: 'rare', def: 2, atk: 1 },
   dragonscale: {
     id: 'dragonscale',
     slot: 'armor',
     name: 'Dragonscale',
     description: '+3 Def, -1 Mov, counters against you deal 1 less',
+    rarity: 'legendary',
     def: 3,
     move: -1,
     counterReduction: 1,
   },
 
-  'warrior-band': { id: 'warrior-band', slot: 'accessory', name: "Warrior's Band", description: '+1 Atk, +1 Def', atk: 1, def: 1 },
-  'boots-of-haste': { id: 'boots-of-haste', slot: 'accessory', name: 'Boots of Haste', description: '+1 Mov', move: 1 },
-  'hawk-eye': { id: 'hawk-eye', slot: 'accessory', name: 'Hawk Eye', description: '+1 Rng', range: 1 },
-  'power-ring': { id: 'power-ring', slot: 'accessory', name: 'Power Ring', description: '+2 Atk', atk: 2 },
+  'warrior-band': {
+    id: 'warrior-band',
+    slot: 'accessory',
+    name: "Warrior's Band",
+    description: '+1 Atk, +1 Def',
+    rarity: 'common',
+    atk: 1,
+    def: 1,
+  },
+  'boots-of-haste': { id: 'boots-of-haste', slot: 'accessory', name: 'Boots of Haste', description: '+1 Mov', rarity: 'common', move: 1 },
+  'hawk-eye': { id: 'hawk-eye', slot: 'accessory', name: 'Hawk Eye', description: '+1 Rng', rarity: 'common', range: 1 },
+  'power-ring': { id: 'power-ring', slot: 'accessory', name: 'Power Ring', description: '+2 Atk', rarity: 'rare', atk: 2 },
   'seven-league-boots': {
     id: 'seven-league-boots',
     slot: 'accessory',
     name: 'Seven-League Boots',
     description: '+2 Mov, -1 Def',
+    rarity: 'legendary',
     move: 2,
     def: -1,
   },
@@ -75,6 +94,7 @@ export const ITEMS: Record<string, ItemDef> = {
     slot: 'accessory',
     name: 'Forest Talisman',
     description: 'Forest costs 1 movement instead of 2',
+    rarity: 'rare',
     forestMoveCost: 1,
   },
 };
