@@ -1,5 +1,6 @@
 import { GameObjects, Scene } from 'phaser';
 import type { Unit } from '../game/types';
+import { DPR } from '../systems/viewport';
 
 const CLASS_LETTER: Record<string, string> = {
   Swordsman: 'S',
@@ -40,6 +41,7 @@ export class UnitSprite extends GameObjects.Container {
         fontFamily: 'monospace',
         fontSize: `${Math.round(tileSize * 0.28)}px`,
         color: '#ffffff',
+        resolution: DPR,
       })
       .setOrigin(0.5);
 

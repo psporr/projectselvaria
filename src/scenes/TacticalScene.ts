@@ -9,6 +9,7 @@ import { canUseSkill, describeSkillEffect, novaBlastCoords, skillTargets, SKILLS
 import { TERRAIN, teamOf, type GameState, type Unit } from '../game/types';
 import { UnitSprite } from '../entities/UnitSprite';
 import { createGameClient, type GameClient } from '../systems/gameClient';
+import { applyDprZoom, DPR } from '../systems/viewport';
 import type { ActionMenuChoice, ActionMenuOption } from '../ui/ActionMenu';
 import { formatAttackForecast } from '../ui/ForecastPanel';
 import type { UIScene } from './UIScene';
@@ -94,6 +95,7 @@ export class TacticalScene extends Scene {
   create() {
     this.client = createGameClient();
     this.cameras.main.setBackgroundColor('#111318');
+    applyDprZoom(this);
 
     this.scene.launch('UI', { client: this.client, tactical: this });
     this.ui = this.scene.get('UI') as UIScene;
@@ -196,7 +198,7 @@ export class TacticalScene extends Scene {
 
   private spawnFloatingText(x: number, y: number, text: string, colorHex: string): void {
     const floating = this.add
-      .text(x, y - TILE_SIZE * 0.35, text, { fontFamily: 'monospace', fontSize: '15px', color: colorHex, fontStyle: 'bold' })
+      .text(x, y - TILE_SIZE * 0.35, text, { fontFamily: 'monospace', fontSize: '15px', color: colorHex, fontStyle: 'bold', resolution: DPR })
       .setOrigin(0.5)
       .setDepth(3);
     this.tweens.add({

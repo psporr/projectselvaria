@@ -1,6 +1,7 @@
 import { GameObjects, Scene } from 'phaser';
 
 import type { Blessing, BlessingRarity } from '../game/blessings';
+import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 
 const CARD_WIDTH = 132;
 const CARD_HEIGHT = 260;
@@ -30,7 +31,8 @@ export class BlessingPicker extends GameObjects.Container {
 
   constructor(scene: Scene) {
     super(scene, 0, 0);
-    const { width, height } = scene.scale;
+    const width = LOGICAL_WIDTH;
+    const height = LOGICAL_HEIGHT;
 
     const backdrop = scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7);
     const heading = scene.add
@@ -38,6 +40,7 @@ export class BlessingPicker extends GameObjects.Container {
         fontFamily: 'monospace',
         fontSize: '18px',
         color: '#e0e0e0',
+        resolution: DPR,
       })
       .setOrigin(0.5);
 
@@ -51,7 +54,8 @@ export class BlessingPicker extends GameObjects.Container {
     this.onPick = onPick;
     for (const node of this.cardNodes.splice(0)) node.destroy();
 
-    const { width, height } = this.scene.scale;
+    const width = LOGICAL_WIDTH;
+    const height = LOGICAL_HEIGHT;
     const totalWidth = blessings.length * CARD_WIDTH + (blessings.length - 1) * CARD_GAP;
     const startX = width / 2 - totalWidth / 2 + CARD_WIDTH / 2;
     const centerY = height / 2;
@@ -71,6 +75,7 @@ export class BlessingPicker extends GameObjects.Container {
           fontFamily: 'monospace',
           fontSize: '14px',
           color: `#${color.toString(16).padStart(6, '0')}`,
+          resolution: DPR,
         })
         .setOrigin(0.5);
 
@@ -81,6 +86,7 @@ export class BlessingPicker extends GameObjects.Container {
           color: '#e0e0e0',
           align: 'center',
           wordWrap: { width: CARD_WIDTH - 16 },
+          resolution: DPR,
         })
         .setOrigin(0.5, 0);
 
@@ -92,6 +98,7 @@ export class BlessingPicker extends GameObjects.Container {
           align: 'center',
           wordWrap: { width: CARD_WIDTH - 16 },
           lineSpacing: 4,
+          resolution: DPR,
         })
         .setOrigin(0.5, 0);
 

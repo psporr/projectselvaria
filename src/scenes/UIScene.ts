@@ -4,6 +4,7 @@ import type { Blessing } from '../game/blessings';
 import type { GameOver } from '../game/game';
 import { teamOf } from '../game/types';
 import type { GameClient } from '../systems/gameClient';
+import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { ActionMenu, type ActionMenuChoice, type ActionMenuOption } from '../ui/ActionMenu';
 import { BlessingPicker } from '../ui/BlessingPicker';
 import { EquipScreen } from '../ui/EquipScreen';
@@ -43,32 +44,38 @@ export class UIScene extends Scene {
   create(data: UISceneData) {
     this.client = data.client;
     this.tactical = data.tactical;
+    applyDprZoom(this);
 
     this.phaseText = this.add.text(16, 16, '', {
       fontFamily: 'monospace',
       fontSize: '15px',
       color: '#e0e0e0',
+      resolution: DPR,
     });
 
     this.add
-      .rectangle(this.scale.width - 48, 20, 72, 26, 0x2d3348)
+      .rectangle(LOGICAL_WIDTH - 48, 20, 72, 26, 0x2d3348)
       .setStrokeStyle(1, 0x4a90d9)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.openEquipScreen());
-    this.add.text(this.scale.width - 48, 20, 'Squad', { fontFamily: 'monospace', fontSize: '12px', color: '#e0e0e0' }).setOrigin(0.5);
+    this.add
+      .text(LOGICAL_WIDTH - 48, 20, 'Squad', { fontFamily: 'monospace', fontSize: '12px', color: '#e0e0e0', resolution: DPR })
+      .setOrigin(0.5);
 
     this.logText = this.add.text(16, 584, '', {
       fontFamily: 'monospace',
       fontSize: '13px',
       color: '#9099a8',
-      wordWrap: { width: this.scale.width - 32 },
+      wordWrap: { width: LOGICAL_WIDTH - 32 },
+      resolution: DPR,
     });
 
     this.gameOverText = this.add
-      .text(this.scale.width / 2, this.scale.height / 2, '', {
+      .text(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2, '', {
         fontFamily: 'monospace',
         fontSize: '48px',
         color: '#ffffff',
+        resolution: DPR,
       })
       .setOrigin(0.5)
       .setDepth(10)
@@ -128,12 +135,13 @@ export class UIScene extends Scene {
   /** A brief toast for a fresh drop — TacticalScene diffs G.nextItemInstance client-side to call this, rather than a synced "pending drop" G field (HANDOFF.md §9). */
   showLootToast(text: string): void {
     const toast = this.add
-      .text(this.scale.width / 2, 120, text, {
+      .text(LOGICAL_WIDTH / 2, 120, text, {
         fontFamily: 'monospace',
         fontSize: '14px',
         color: '#f0ad4e',
         backgroundColor: '#1c2030',
         padding: { x: 10, y: 6 },
+        resolution: DPR,
       })
       .setOrigin(0.5)
       .setDepth(15);

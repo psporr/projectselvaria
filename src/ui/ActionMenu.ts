@@ -1,4 +1,5 @@
 import { GameObjects, Scene } from 'phaser';
+import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 
 export type ActionMenuChoice = 'attack' | 'skill' | 'wait' | 'cancel';
 
@@ -28,7 +29,8 @@ export class ActionMenu extends GameObjects.Container {
 
   constructor(scene: Scene) {
     super(scene, 0, 0);
-    const { width, height } = scene.scale;
+    const width = LOGICAL_WIDTH;
+    const height = LOGICAL_HEIGHT;
 
     this.backdrop = scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.4).setInteractive();
     this.backdrop.on('pointerdown', () => this.choose('cancel'));
@@ -45,7 +47,8 @@ export class ActionMenu extends GameObjects.Container {
     this.onChoose = onChoose;
     for (const row of this.rows.splice(0)) row.destroy();
 
-    const { width, height } = this.scene.scale;
+    const width = LOGICAL_WIDTH;
+    const height = LOGICAL_HEIGHT;
     const cardHeight = TOP_PADDING + BOTTOM_PADDING + options.length * ROW_HEIGHT + (options.length - 1) * ROW_GAP;
     this.card.setSize(CARD_WIDTH, cardHeight);
 
@@ -59,6 +62,7 @@ export class ActionMenu extends GameObjects.Container {
           fontFamily: 'monospace',
           fontSize: '15px',
           color: option.enabled ? '#e0e0e0' : '#5a6070',
+          resolution: DPR,
         })
         .setOrigin(0.5);
 

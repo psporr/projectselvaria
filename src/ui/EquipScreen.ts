@@ -4,6 +4,7 @@ import { effectiveStats, ITEMS } from '../game/equipment';
 import { unitsOf } from '../game/grid';
 import type { GameState, ItemSlot } from '../game/types';
 import type { GameClient } from '../systems/gameClient';
+import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 
 type EquipView = { kind: 'roster' } | { kind: 'unit'; unitId: string } | { kind: 'slot'; unitId: string; slot: ItemSlot };
 
@@ -36,7 +37,8 @@ export class EquipScreen extends GameObjects.Container {
   constructor(scene: Scene, client: GameClient) {
     super(scene, 0, 0);
     this.client = client;
-    const { width, height } = scene.scale;
+    const width = LOGICAL_WIDTH;
+    const height = LOGICAL_HEIGHT;
     const centerX = width / 2;
     const centerY = height / 2;
     const cardWidth = Math.min(CARD_WIDTH, width - 32);
@@ -48,7 +50,7 @@ export class EquipScreen extends GameObjects.Container {
     const card = scene.add.rectangle(centerX, centerY, cardWidth, cardHeight, 0x1c2030, 0.98).setStrokeStyle(2, 0x4a90d9);
 
     this.headerText = scene.add
-      .text(centerX, centerY - cardHeight / 2 + 14, '', { fontFamily: 'monospace', fontSize: '15px', color: '#e0e0e0' })
+      .text(centerX, centerY - cardHeight / 2 + 14, '', { fontFamily: 'monospace', fontSize: '15px', color: '#e0e0e0', resolution: DPR })
       .setOrigin(0.5, 0);
 
     this.backButton = scene.add
@@ -56,7 +58,12 @@ export class EquipScreen extends GameObjects.Container {
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.goBack());
     this.backLabel = scene.add
-      .text(centerX - cardWidth / 2 + 46, centerY - cardHeight / 2 + 16, '< Back', { fontFamily: 'monospace', fontSize: '11px', color: '#e0e0e0' })
+      .text(centerX - cardWidth / 2 + 46, centerY - cardHeight / 2 + 16, '< Back', {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#e0e0e0',
+        resolution: DPR,
+      })
       .setOrigin(0.5);
 
     const closeButton = scene.add
@@ -64,7 +71,12 @@ export class EquipScreen extends GameObjects.Container {
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.hide());
     const closeLabel = scene.add
-      .text(centerX + cardWidth / 2 - 38, centerY - cardHeight / 2 + 16, 'Close', { fontFamily: 'monospace', fontSize: '11px', color: '#e0e0e0' })
+      .text(centerX + cardWidth / 2 - 38, centerY - cardHeight / 2 + 16, 'Close', {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#e0e0e0',
+        resolution: DPR,
+      })
       .setOrigin(0.5);
 
     this.add([backdrop, card, this.headerText, this.backButton, this.backLabel, closeButton, closeLabel]);
@@ -185,7 +197,8 @@ export class EquipScreen extends GameObjects.Container {
   }
 
   private addRow(index: number, label: string, onTap: (() => void) | undefined): void {
-    const { width, height } = this.scene.scale;
+    const width = LOGICAL_WIDTH;
+    const height = LOGICAL_HEIGHT;
     const cardHeight = Math.min(CARD_HEIGHT, height - 32);
     const cardWidth = Math.min(CARD_WIDTH, width - 32);
     const centerX = width / 2;
@@ -195,7 +208,7 @@ export class EquipScreen extends GameObjects.Container {
     const fill = onTap ? 0x2d3348 : 0x22262f;
     const button = this.scene.add.rectangle(centerX, y, cardWidth - 32, ROW_HEIGHT, fill).setStrokeStyle(1, 0x3a4258);
     const text = this.scene.add
-      .text(centerX - cardWidth / 2 + 24, y, label, { fontFamily: 'monospace', fontSize: '12px', color: onTap ? '#e0e0e0' : '#5a6070' })
+      .text(centerX - cardWidth / 2 + 24, y, label, { fontFamily: 'monospace', fontSize: '12px', color: onTap ? '#e0e0e0' : '#5a6070', resolution: DPR })
       .setOrigin(0, 0.5);
 
     if (onTap) button.setInteractive({ useHandCursor: true }).on('pointerdown', onTap);

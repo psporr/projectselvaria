@@ -3,6 +3,7 @@ import { GameObjects, Scene } from 'phaser';
 import type { CombatForecast } from '../game/combat';
 import { terrainAt } from '../game/grid';
 import type { GameState, Unit } from '../game/types';
+import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 
 const CARD_WIDTH = 420;
 const CARD_HEIGHT = 220;
@@ -46,7 +47,8 @@ export class ForecastPanel extends GameObjects.Container {
 
   constructor(scene: Scene) {
     super(scene, 0, 0);
-    const { width, height } = scene.scale;
+    const width = LOGICAL_WIDTH;
+    const height = LOGICAL_HEIGHT;
     const centerX = width / 2;
     const centerY = height / 2;
 
@@ -64,6 +66,7 @@ export class ForecastPanel extends GameObjects.Container {
         align: 'left',
         wordWrap: { width: cardWidth - 32 },
         lineSpacing: 8,
+        resolution: DPR,
       })
       .setOrigin(0.5, 0);
 
@@ -73,7 +76,7 @@ export class ForecastPanel extends GameObjects.Container {
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.confirm());
     const confirmLabel = scene.add
-      .text(centerX + 80, buttonY, 'Confirm', { fontFamily: 'monospace', fontSize: '14px', color: '#ffffff' })
+      .text(centerX + 80, buttonY, 'Confirm', { fontFamily: 'monospace', fontSize: '14px', color: '#ffffff', resolution: DPR })
       .setOrigin(0.5);
 
     const cancelButton = scene.add
@@ -81,7 +84,7 @@ export class ForecastPanel extends GameObjects.Container {
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.cancel());
     const cancelLabel = scene.add
-      .text(centerX - 80, buttonY, 'Cancel', { fontFamily: 'monospace', fontSize: '14px', color: '#ffffff' })
+      .text(centerX - 80, buttonY, 'Cancel', { fontFamily: 'monospace', fontSize: '14px', color: '#ffffff', resolution: DPR })
       .setOrigin(0.5);
 
     this.add([backdrop, card, this.bodyText, confirmButton, confirmLabel, cancelButton, cancelLabel]);
