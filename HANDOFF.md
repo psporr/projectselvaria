@@ -642,6 +642,10 @@ the eventual wrap is uneventful:
   licence and source. Current: SSCAP tileset (CC-BY 3.0), Kenney SFX (CC0),
   original unit sprites (drawn by a friend, no external licence).
 - **Clean up scratch files** — test scripts and scratch dirs never get committed.
+- **Multiple AIs work on this repo.** README.md's "Project Status" section is
+  the shared coordination point — read it before starting, update it before
+  stopping. It's a summary for fast orientation, not a replacement for git
+  history or for reading the actual code.
 
 ---
 

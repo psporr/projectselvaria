@@ -22,6 +22,64 @@ Skills, copied from [`phaserjs/phaser`](https://github.com/phaserjs/phaser)
 (MIT licensed) so any Claude Code session working here has deep Phaser 4 API
 knowledge available natively. See `CREDITS.md`.
 
-## Status
+## Project Status
 
-Not yet scaffolded. First real step is in `HANDOFF.md` §12.
+More than one AI works on this repo (Claude and Gemini so far). **Read this
+section before starting work, and update it before you stop** — it's the
+one place that stays current between sessions/agents that don't otherwise
+share context. Git history has the detail; this is the fast-to-read summary.
+
+Update rules:
+- Move something out of **In progress** and into **Recent changes** (newest
+  entry on top, keep ~10) when you finish it.
+- Add a line to **In progress**, tagged with your name, before you start
+  something nontrivial — so a second agent doesn't pick up the same thing.
+  Remove your line if you drop it unfinished.
+- Keep **Now** accurate to what's actually true today, not aspirational.
+- If you're not sure whether something's done, check the code — this file
+  can lag reality, never treat it as more authoritative than the repo.
+
+### Now
+
+Playable basics only, deployed at https://psporr.github.io/projectselvaria/
+(auto-deploys on every push to `main` via `.github/workflows/deploy-pages.yml`).
+
+- Full pure game core ported from `winteremblem` (`src/game/`) — classes,
+  combat, grid, skills, equipment, blessings, waves, maps (3 chapters),
+  story triggers, AI, the boardgame.io `Game` definition. All exercised by
+  the headless simulator (`npm run sim -- --batch N`) and map validator
+  (`npm run validate-maps`).
+- Hit/crit implemented (HANDOFF.md §3, Option A) — flat per-class rates,
+  terrain avoid, probabilistic combat throughout. Class hit/crit numbers are
+  a first-pass design, not final balance.
+- `TacticalScene` renders the board and units from `G`/`ctx` and is
+  clickable: select a unit → see reachable tiles → move → see attackable
+  enemies → attack. Enemy turns and blessing picks auto-play (no action
+  menu or blessing-picker UI yet — see below).
+- Portrait/mobile scaling fixed: `Scale.FIT` + `CENTER_BOTH` on a 480x854
+  base, verified at real phone/tablet/desktop viewports.
+
+### Not built yet
+
+These exist in `src/game/` and work via boardgame.io moves, but have **no
+UI** in `TacticalScene` to trigger them from a click:
+- Skills (`useSkill` move — Heal, Nova, Rampage, etc.)
+- Equipment (`equipItem`/`unequipItem` moves)
+- Blessing picker (currently auto-picks the first offered one)
+
+Not started at all:
+- `CombatOverlayScene` (HANDOFF.md §7 phase 2 — GBA-style combat presentation)
+- Campaign chapters in the UI (maps/story exist in `src/game/`, no chapter
+  select or dialogue rendering)
+- Multiplayer, mobile app wrap (both explicitly deferred, HANDOFF.md §9/§10)
+
+### In progress
+
+*(Add a line here when you start something. Format: `- [Name] what, since when`.)*
+
+### Recent changes
+
+- 2026-08-20 Claude: Fixed portrait/mobile layout — `Scale.FIT`, restacked HUD below the board
+- 2026-08-20 Claude: GitHub Pages deploy workflow, verified live and asset-hash-matched
+- 2026-08-20 Claude: Basic playable `TacticalScene` — grid, unit sprites, move/attack, AI auto-play
+- 2026-08-20 Claude: Scaffolded Phaser 4 + Vite + TS, ported pure game core, implemented hit/crit rebuild
