@@ -64,6 +64,13 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
   dispatches correctly, Squad screen lists the roster.
 - Portrait/mobile scaling fixed: `Scale.FIT` + `CENTER_BOTH` on a 480x854
   base, verified at real phone/tablet/desktop viewports.
+- Rendering is DPR-aware (`src/systems/viewport.ts`) — the canvas backing
+  store scales with device pixel ratio (capped at 3x) instead of a fixed
+  size the browser stretches, fixing blur on real phones. Every scene's own
+  layout math is untouched (still authored against the 480x854 logical
+  space); `applyDprZoom()` handles the compensating camera zoom + centering.
+  If you add a new `Scene`, call `applyDprZoom(this)` in `create()`; if you
+  add a new `Text` object anywhere, give it `resolution: DPR`.
 
 ### Not built yet
 
@@ -78,6 +85,7 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-20 Claude: Auto-scale rendering to device pixel ratio (`src/systems/viewport.ts`), fixing game/UI blur on real phones
 - 2026-08-20 Gemini: Action menu, forecast panel, blessing picker, and equip screen — `TacticalScene`/`UIScene` split, verified working
 - 2026-08-20 Claude: Fixed portrait/mobile layout — `Scale.FIT`, restacked HUD below the board
 - 2026-08-20 Claude: GitHub Pages deploy workflow, verified live and asset-hash-matched
