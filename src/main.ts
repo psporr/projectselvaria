@@ -1,6 +1,7 @@
 import { AUTO, Game, Scale, Types } from 'phaser';
 import { BootScene } from './scenes/BootScene';
 import { TacticalScene } from './scenes/TacticalScene';
+import { UIScene } from './scenes/UIScene';
 
 // Phaser config + Vite entry point. Scenes render from boardgame.io's G/ctx and
 // dispatch moves back — they never own authoritative state. See HANDOFF.md §7.
@@ -20,7 +21,7 @@ const config: Types.Core.GameConfig = {
         width: 480,
         height: 854
     },
-    scene: [BootScene, TacticalScene]
+    scene: [BootScene, TacticalScene, UIScene]
 };
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -1,12 +1,17 @@
 import { GameObjects, Scene } from 'phaser';
 
-import type { GameOver } from '../game/game';
-import { BLESSINGS } from '../game/blessings';
+import { BLESSINGS, type Blessing } from '../game/blessings';
 import { decideAction } from '../game/ai';
+import { forecastCombat } from '../game/combat';
 import { computeReachable, targetsFrom, tileKey } from '../game/grid';
-import { TERRAIN, teamOf, type Unit } from '../game/types';
+import { ITEMS } from '../game/equipment';
+import { canUseSkill, describeSkillEffect, novaBlastCoords, skillTargets, SKILLS } from '../game/skills';
+import { TERRAIN, teamOf, type GameState, type Unit } from '../game/types';
 import { UnitSprite } from '../entities/UnitSprite';
 import { createGameClient, type GameClient } from '../systems/gameClient';
+import type { ActionMenuChoice, ActionMenuOption } from '../ui/ActionMenu';
+import { formatAttackForecast } from '../ui/ForecastPanel';
+import type { UIScene } from './UIScene';
 
 // Sized against main.ts's 480x854 portrait design resolution (HANDOFF.md
 // §10) — the ScaleManager (Scale.FIT) handles fitting that to the real
@@ -17,7 +22,6 @@ import { createGameClient, type GameClient } from '../systems/gameClient';
 const TILE_SIZE = 64;
 const BOARD_ORIGIN_X = 16;
 const BOARD_ORIGIN_Y = 56;
-const LOG_ORIGIN_Y = BOARD_ORIGIN_Y + 8 * TILE_SIZE + 16;
 
 const TERRAIN_COLOR: Record<string, number> = {
   plain: 0x3a3f4b,
@@ -28,44 +32,60 @@ const TERRAIN_COLOR: Record<string, number> = {
 
 const MOVE_HIGHLIGHT = 0x4a90d9;
 const TARGET_HIGHLIGHT = 0xd9534f;
+const SKILL_HIGHLIGHT = 0xf0ad4e;
 const ENEMY_STEP_DELAY_MS = 450;
 const BLESSING_DELAY_MS = 700;
 
 /**
  * UI interaction mode — the second, separate state machine (HANDOFF.md §7).
  * boardgame.io owns whose turn it is; this only owns what a click does next.
- * It never decides turn order, and every branch derives its legality from a
- * fresh read of G/ctx rather than trusting its own memory of "am I allowed
- * to click this" — so a state change from the AI mid-selection (it can't
- * happen today since only one side acts at a time, but the check is cheap
- * and keeps this scene honest about G being the only truth).
+ * Every branch derives its legality from a fresh read of G/ctx rather than
+ * trusting its own memory of "am I allowed to click this."
+ *
+ * A move is held speculatively — 'unit-selected' → 'action-menu' does not
+ * dispatch moveUnit yet, only after the player confirms an action, so Cancel
+ * never has to undo anything already committed to G (moveUnit has no undo
+ * primitive in game.ts). 'action-menu' and 'confirming' are driven by
+ * UIScene's own panel buttons/backdrop, so onTileClicked doesn't branch on
+ * them — a board tap underneath just does nothing while they're open.
  */
-type UiMode = 'idle' | 'unit-selected' | 'awaiting-target';
+type UiMode = 'idle' | 'unit-selected' | 'action-menu' | 'awaiting-target' | 'skill-targeting' | 'confirming';
 
 /**
- * The grid, unit sprites, movement/attack input, and the enemy auto-play
- * loop. Renders entirely from the boardgame.io client's G/ctx and dispatches
- * moves back — it never owns authoritative state (HANDOFF.md §6/§7).
+ * The grid, unit sprites, movement/attack/skill input, and the enemy
+ * auto-play loop. Renders entirely from the boardgame.io client's G/ctx and
+ * dispatches moves back — it never owns authoritative state (HANDOFF.md
+ * §6/§7). HUD text and the interactive panels (action menu, forecast) live
+ * in UIScene; this scene still owns the click-driven state machine and just
+ * calls UIScene's show methods with data + callbacks.
  *
  * On-grid combat presentation only (HANDOFF.md §7 phase 1): floating damage
- * numbers and a hit flash, no CombatOverlayScene yet. Blessing picks and the
- * action menu (skills, equip) aren't built either — a wave clear auto-picks
- * the first offered blessing so the roguelike loop keeps running, and every
- * unit only ever does a plain move + attack. Both are the next layer on top
- * of these basics, not a rules gap — the moves already exist in src/game/.
+ * numbers and a hit flash, no CombatOverlayScene yet.
  */
 export class TacticalScene extends Scene {
   private client!: GameClient;
+  private ui!: UIScene;
   private readonly unitSprites = new Map<string, UnitSprite>();
   private readonly highlightRects: GameObjects.Rectangle[] = [];
   private lastUnits: Record<string, Unit> = {};
 
   private mode: UiMode = 'idle';
   private selectedUnitId: string | null = null;
-
-  private phaseText!: GameObjects.Text;
-  private logText!: GameObjects.Text;
-  private gameOverText!: GameObjects.Text;
+  /** The tile picked in 'unit-selected', held until an action is confirmed — see UiMode. */
+  private pendingDestination: { x: number; y: number } | null = null;
+  /** Guards against re-opening the blessing picker on every state change while it's already up. */
+  private blessingPickerOpen = false;
+  /** Set by UIScene while a screen not driven by `mode` (the equip screen) is open, so a board tap underneath does nothing. */
+  private inputSuspended = false;
+  /**
+   * Last-seen G.nextItemInstance, used to fire a loot toast exactly once per
+   * drop (syncUnits diffs unit.hp the same way). Diffing this rather than
+   * G.inventory.length matters: inventory.length also grows when a player
+   * unequips gear back into the shared pool (equipItem/unequipItem,
+   * game.ts), which would otherwise misfire the toast. nextItemInstance only
+   * ever moves in rollDrop (equipment.ts) — a real drop.
+   */
+  private lastDropCount = 0;
 
   constructor() {
     super('Tactical');
@@ -75,32 +95,12 @@ export class TacticalScene extends Scene {
     this.client = createGameClient();
     this.cameras.main.setBackgroundColor('#111318');
 
-    this.phaseText = this.add.text(BOARD_ORIGIN_X, 16, '', {
-      fontFamily: 'monospace',
-      fontSize: '15px',
-      color: '#e0e0e0',
-    });
-
-    this.logText = this.add.text(BOARD_ORIGIN_X, LOG_ORIGIN_Y, '', {
-      fontFamily: 'monospace',
-      fontSize: '13px',
-      color: '#9099a8',
-      wordWrap: { width: 7 * TILE_SIZE },
-    });
-
-    this.gameOverText = this.add
-      .text(this.scale.width / 2, this.scale.height / 2, '', {
-        fontFamily: 'monospace',
-        fontSize: '48px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5)
-      .setDepth(10)
-      .setVisible(false);
+    this.scene.launch('UI', { client: this.client, tactical: this });
+    this.ui = this.scene.get('UI') as UIScene;
 
     this.drawBoard();
     this.syncUnits();
-    this.refreshHud();
+    this.lastDropCount = this.client.getState()!.G.nextItemInstance;
 
     const unsubscribe = this.client.subscribe(() => this.onStateChange());
     this.events.once('shutdown', unsubscribe);
@@ -129,8 +129,22 @@ export class TacticalScene extends Scene {
 
   private onStateChange(): void {
     this.syncUnits();
-    this.refreshHud();
+    this.checkForLoot();
     this.scheduleAutoAdvance();
+  }
+
+  /** Diffs G.nextItemInstance against the last-seen snapshot (same trick syncUnits uses for HP) rather than adding a "pending drop" field to synced G (HANDOFF.md §9) — see the field comment for why not G.inventory.length. */
+  private checkForLoot(): void {
+    const { G } = this.client.getState()!;
+    for (let i = this.lastDropCount; i < G.nextItemInstance; i++) {
+      const item = G.inventory.find((it) => it.instanceId === `item-${i}`);
+      this.ui.showLootToast(item ? `Found ${ITEMS[item.defId].name}!` : 'Item found!');
+    }
+    this.lastDropCount = G.nextItemInstance;
+  }
+
+  setInputSuspended(suspended: boolean): void {
+    this.inputSuspended = suspended;
   }
 
   /** Reconciles every unit sprite to G.units, diffing against the last known snapshot for hit feedback. */
@@ -195,25 +209,6 @@ export class TacticalScene extends Scene {
     });
   }
 
-  private refreshHud(): void {
-    const { G, ctx } = this.client.getState()!;
-
-    if (ctx.gameover) {
-      const gameover = ctx.gameover as GameOver;
-      this.gameOverText.setText(gameover.winner === 'player' ? 'VICTORY' : 'DEFEAT').setVisible(true);
-    }
-
-    const phase = ctx.gameover
-      ? ''
-      : G.awaitingBlessing
-        ? 'Choosing blessing…'
-        : teamOf(ctx.currentPlayer) === 'player'
-          ? 'Player Phase'
-          : 'Enemy Phase';
-    this.phaseText.setText(`${G.chapterShortName}   Wave ${G.wave}   ${phase}`);
-    this.logText.setText(G.log.slice(0, 12).join('\n'));
-  }
-
   // --- highlights -------------------------------------------------------
 
   private clearHighlights(): void {
@@ -231,6 +226,7 @@ export class TacticalScene extends Scene {
   // --- player input -------------------------------------------------------
 
   private onTileClicked(x: number, y: number): void {
+    if (this.inputSuspended) return;
     const state = this.client.getState();
     if (!state) return;
     const { G, ctx } = state;
@@ -253,8 +249,8 @@ export class TacticalScene extends Scene {
       }
 
       if (computeReachable(G, unit).has(tileKey(x, y))) {
-        this.client.moves.moveUnit(unit.id, x, y);
-        this.afterMove(unit.id);
+        this.pendingDestination = { x, y };
+        this.openActionMenu(G, unit);
         return;
       }
 
@@ -268,71 +264,193 @@ export class TacticalScene extends Scene {
     }
 
     if (this.mode === 'awaiting-target') {
-      const unitId = this.selectedUnitId!;
-      const attacker = G.units[unitId];
+      const unit = G.units[this.selectedUnitId!];
+      const dest = this.pendingDestination;
+      if (!unit || !dest) {
+        this.finishSelection();
+        return;
+      }
+
+      const synthetic: Unit = { ...unit, x: dest.x, y: dest.y };
       const targetInRange =
-        attacker && unitAtTile && unitAtTile.team === 'enemy'
-          ? targetsFrom(G, attacker, attacker.x, attacker.y).some((t) => t.id === unitAtTile.id)
+        unitAtTile && unitAtTile.team === 'enemy'
+          ? targetsFrom(G, synthetic, dest.x, dest.y).some((t) => t.id === unitAtTile.id)
           : false;
 
-      if (attacker && targetInRange) {
-        this.client.moves.attackUnit(unitId, unitAtTile!.id);
-      } else if (attacker) {
-        // Anything else — including clicking the unit's own tile — ends its
-        // action. There's no action menu yet (HANDOFF.md §7 phase 1), so a
-        // moved unit with nothing worth attacking just waits.
-        this.client.moves.waitUnit(unitId);
+      if (targetInRange && unitAtTile) {
+        this.enterAttackConfirm(G, synthetic, unitAtTile);
+      } else {
+        this.finishSelection();
       }
-      this.finishSelection();
       return;
     }
+
+    if (this.mode === 'skill-targeting') {
+      const unit = G.units[this.selectedUnitId!];
+      const dest = this.pendingDestination;
+      if (!unit || !dest) {
+        this.finishSelection();
+        return;
+      }
+
+      const synthetic: Unit = { ...unit, x: dest.x, y: dest.y };
+      const validTarget = unitAtTile ? skillTargets(G, synthetic).some((t) => t.id === unitAtTile.id) : false;
+
+      if (validTarget && unitAtTile) {
+        this.enterSkillConfirm(G, unit, synthetic, unitAtTile);
+      } else {
+        this.finishSelection();
+      }
+      return;
+    }
+
+    // 'action-menu' and 'confirming': UIScene's own panel handles input.
   }
 
   private selectUnit(unitId: string): void {
     this.mode = 'unit-selected';
     this.selectedUnitId = unitId;
+    this.pendingDestination = null;
     this.clearHighlights();
     const { G } = this.client.getState()!;
     this.highlightTiles(computeReachable(G, G.units[unitId]).values(), MOVE_HIGHLIGHT);
   }
 
-  private afterMove(unitId: string): void {
+  private openActionMenu(G: GameState, unit: Unit): void {
+    const dest = this.pendingDestination!;
+    const synthetic: Unit = { ...unit, x: dest.x, y: dest.y };
+    const skill = SKILLS[unit.className];
+
     this.clearHighlights();
+    const options: ActionMenuOption[] = [
+      { id: 'attack', label: 'Attack', enabled: targetsFrom(G, synthetic, dest.x, dest.y).length > 0 },
+      { id: 'skill', label: skill.name, enabled: canUseSkill(G, synthetic) },
+      { id: 'wait', label: 'Wait', enabled: true },
+      { id: 'cancel', label: 'Cancel', enabled: true },
+    ];
+
+    this.mode = 'action-menu';
+    this.ui.showActionMenu(options, (choice) => this.onActionChosen(unit, choice));
+  }
+
+  private onActionChosen(unit: Unit, choice: ActionMenuChoice): void {
+    const dest = this.pendingDestination;
+    if (!dest) {
+      this.finishSelection();
+      return;
+    }
     const { G } = this.client.getState()!;
-    const unit = G.units[unitId];
-    if (!unit) {
+
+    if (choice === 'cancel') {
       this.finishSelection();
       return;
     }
 
-    const targets = targetsFrom(G, unit, unit.x, unit.y);
-    if (targets.length === 0) {
-      this.client.moves.waitUnit(unitId);
+    if (choice === 'wait') {
+      this.client.moves.moveUnit(unit.id, dest.x, dest.y);
+      this.client.moves.waitUnit(unit.id);
       this.finishSelection();
       return;
     }
 
+    if (choice === 'attack') {
+      this.beginAttackTargeting(G, unit, dest);
+      return;
+    }
+
+    // 'skill'
+    this.beginSkillTargeting(G, unit, dest);
+  }
+
+  private beginAttackTargeting(G: GameState, unit: Unit, dest: { x: number; y: number }): void {
+    const synthetic: Unit = { ...unit, x: dest.x, y: dest.y };
     this.mode = 'awaiting-target';
+    this.clearHighlights();
     this.highlightTiles(
-      targets.map((t) => ({ x: t.x, y: t.y })),
+      targetsFrom(G, synthetic, dest.x, dest.y).map((t) => ({ x: t.x, y: t.y })),
       TARGET_HIGHLIGHT,
+    );
+  }
+
+  private beginSkillTargeting(G: GameState, unit: Unit, dest: { x: number; y: number }): void {
+    const synthetic: Unit = { ...unit, x: dest.x, y: dest.y };
+    this.mode = 'skill-targeting';
+    this.clearHighlights();
+    this.highlightTiles(
+      skillTargets(G, synthetic).map((t) => ({ x: t.x, y: t.y })),
+      SKILL_HIGHLIGHT,
+    );
+  }
+
+  /** Re-enters targeting for `unitId` off the freshest G, or gives up back to idle if the unit's gone missing (shouldn't happen mid-selection, but G is the only truth). */
+  private resumeTargeting(unitId: string, kind: 'attack' | 'skill'): void {
+    const state = this.client.getState();
+    const dest = this.pendingDestination;
+    const unit = state?.G.units[unitId];
+    if (!state || !dest || !unit) {
+      this.finishSelection();
+      return;
+    }
+    if (kind === 'attack') this.beginAttackTargeting(state.G, unit, dest);
+    else this.beginSkillTargeting(state.G, unit, dest);
+  }
+
+  private enterAttackConfirm(G: GameState, attacker: Unit, defender: Unit): void {
+    this.clearHighlights();
+    const forecast = forecastCombat(G, attacker, defender);
+    const lines = formatAttackForecast(G, attacker, defender, forecast);
+
+    this.mode = 'confirming';
+    this.ui.showForecast(
+      lines,
+      () => {
+        const dest = this.pendingDestination!;
+        this.client.moves.moveUnit(attacker.id, dest.x, dest.y);
+        this.client.moves.attackUnit(attacker.id, defender.id);
+        this.finishSelection();
+      },
+      () => this.resumeTargeting(attacker.id, 'attack'),
+    );
+  }
+
+  private enterSkillConfirm(G: GameState, unit: Unit, synthetic: Unit, target: Unit): void {
+    this.clearHighlights();
+    const skill = SKILLS[unit.className];
+    // Nova hits a plus-shaped blast, not just the tapped tile — show what it
+    // will actually hit before the player commits (skills.ts).
+    if (skill.id === 'nova') {
+      this.highlightTiles(novaBlastCoords(target), TARGET_HIGHLIGHT);
+    }
+    const lines = [`${unit.name} uses ${skill.name} on ${target.name}.`, describeSkillEffect(G, synthetic, target)];
+
+    this.mode = 'confirming';
+    this.ui.showForecast(
+      lines,
+      () => {
+        const dest = this.pendingDestination!;
+        this.client.moves.moveUnit(unit.id, dest.x, dest.y);
+        this.client.moves.useSkill(unit.id, target.id);
+        this.finishSelection();
+      },
+      () => this.resumeTargeting(unit.id, 'skill'),
     );
   }
 
   private finishSelection(): void {
     this.mode = 'idle';
     this.selectedUnitId = null;
+    this.pendingDestination = null;
     this.clearHighlights();
   }
 
   // --- CPU / blessing auto-play -------------------------------------------------------
 
   /**
-   * Steps exactly one enemy action or one blessing pick per call, then
-   * relies on the resulting state change (via subscribe) to call this again
-   * — the same "one action at a time, animate between" pattern HANDOFF.md §3
-   * asks the AI to support. There's no blessing-picker UI yet, so a wave
-   * clear auto-selects the first offered blessing after a beat.
+   * Steps exactly one enemy action per call, then relies on the resulting
+   * state change (via subscribe) to call this again — the same "one action
+   * at a time, animate between" pattern HANDOFF.md §3 asks the AI to
+   * support. A wave clear opens the blessing picker (guarded so it doesn't
+   * reopen on every subsequent state change while the player is choosing).
    */
   private scheduleAutoAdvance(): void {
     const state = this.client.getState();
@@ -340,12 +458,21 @@ export class TacticalScene extends Scene {
     const { G, ctx } = state;
 
     if (G.awaitingBlessing) {
+      if (this.blessingPickerOpen) return;
+      this.blessingPickerOpen = true;
       this.time.delayedCall(BLESSING_DELAY_MS, () => {
         const fresh = this.client.getState();
-        if (!fresh || !fresh.G.awaitingBlessing) return;
-        const offeredId = fresh.G.offeredBlessingIds[0];
-        const blessing = BLESSINGS.find((b) => b.id === offeredId) ?? BLESSINGS[0];
-        this.client.moves.chooseBlessing(blessing.id);
+        if (!fresh || !fresh.G.awaitingBlessing) {
+          this.blessingPickerOpen = false;
+          return;
+        }
+        const offered = fresh.G.offeredBlessingIds
+          .map((id) => BLESSINGS.find((b) => b.id === id))
+          .filter((b): b is Blessing => b !== undefined);
+        this.ui.showBlessingPicker(offered, (id) => {
+          this.blessingPickerOpen = false;
+          this.client.moves.chooseBlessing(id);
+        });
       });
       return;
     }
