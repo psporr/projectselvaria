@@ -41,8 +41,9 @@ Update rules:
 
 ### Now
 
-Playable basics only, deployed at https://psporr.github.io/projectselvaria/
-(auto-deploys on every push to `main` via `.github/workflows/deploy-pages.yml`).
+Playable with the full action loop, deployed at
+https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
+`main` via `.github/workflows/deploy-pages.yml`).
 
 - Full pure game core ported from `winteremblem` (`src/game/`) — classes,
   combat, grid, skills, equipment, blessings, waves, maps (3 chapters),
@@ -52,22 +53,20 @@ Playable basics only, deployed at https://psporr.github.io/projectselvaria/
 - Hit/crit implemented (HANDOFF.md §3, Option A) — flat per-class rates,
   terrain avoid, probabilistic combat throughout. Class hit/crit numbers are
   a first-pass design, not final balance.
-- `TacticalScene` renders the board and units from `G`/`ctx` and is
-  clickable: select a unit → see reachable tiles → move → see attackable
-  enemies → attack. Enemy turns and blessing picks auto-play (no action
-  menu or blessing-picker UI yet — see below).
+- `TacticalScene` + `UIScene` (HUD/panels split out per HANDOFF.md §7) render
+  the board and units from `G`/`ctx`. Full click flow: select a unit → move
+  → **action menu** (Attack / class skill / Wait / Cancel, each gated on
+  real legality) → target → **forecast panel** (hit%/crit%/damage preview)
+  → confirm. Wave clears open a real **blessing picker** (3 cards, rarity-
+  colored). A **Squad** button opens an **equip screen** per unit. Enemy
+  turns still auto-play. Verified in-browser (Playwright): action menu
+  correctly enables/disables per unit, per-class skill label shows, Wait
+  dispatches correctly, Squad screen lists the roster.
 - Portrait/mobile scaling fixed: `Scale.FIT` + `CENTER_BOTH` on a 480x854
   base, verified at real phone/tablet/desktop viewports.
 
 ### Not built yet
 
-These exist in `src/game/` and work via boardgame.io moves, but have **no
-UI** in `TacticalScene` to trigger them from a click:
-- Skills (`useSkill` move — Heal, Nova, Rampage, etc.)
-- Equipment (`equipItem`/`unequipItem` moves)
-- Blessing picker (currently auto-picks the first offered one)
-
-Not started at all:
 - `CombatOverlayScene` (HANDOFF.md §7 phase 2 — GBA-style combat presentation)
 - Campaign chapters in the UI (maps/story exist in `src/game/`, no chapter
   select or dialogue rendering)
@@ -79,6 +78,7 @@ Not started at all:
 
 ### Recent changes
 
+- 2026-08-20 Gemini: Action menu, forecast panel, blessing picker, and equip screen — `TacticalScene`/`UIScene` split, verified working
 - 2026-08-20 Claude: Fixed portrait/mobile layout — `Scale.FIT`, restacked HUD below the board
 - 2026-08-20 Claude: GitHub Pages deploy workflow, verified live and asset-hash-matched
 - 2026-08-20 Claude: Basic playable `TacticalScene` — grid, unit sprites, move/attack, AI auto-play
