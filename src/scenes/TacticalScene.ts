@@ -211,6 +211,22 @@ export class TacticalScene extends Scene {
     });
   }
 
+  /**
+   * Tweens a unit's sprite to a picked destination as soon as it's picked —
+   * before the action menu, before a target is chosen — so the player sees
+   * their unit actually standing where they're about to act from, instead
+   * of the action menu opening over a sprite that hasn't moved yet. G is
+   * untouched here (moveUnit isn't dispatched until the action is confirmed,
+   * see UiMode's doc comment); finishSelection() snaps the sprite back to
+   * G's real position if the player backs out without confirming.
+   */
+  private previewMoveTo(unitId: string, x: number, y: number): void {
+    const sprite = this.unitSprites.get(unitId);
+    if (!sprite) return;
+    const { px, py } = this.tileCenter(x, y);
+    this.tweens.add({ targets: sprite, x: px, y: py, duration: 180, ease: 'Quad.easeOut' });
+  }
+
   // --- highlights -------------------------------------------------------
 
   private clearHighlights(): void {
@@ -252,6 +268,7 @@ export class TacticalScene extends Scene {
 
       if (computeReachable(G, unit).has(tileKey(x, y))) {
         this.pendingDestination = { x, y };
+        this.previewMoveTo(unit.id, x, y);
         this.openActionMenu(G, unit);
         return;
       }
@@ -438,11 +455,26 @@ export class TacticalScene extends Scene {
     );
   }
 
+  /**
+   * Backs out to idle. If the selected unit's previewMoveTo() was never
+   * followed by a confirmed action, its sprite is still sitting at the
+   * previewed destination while G still has it at the real (unmoved) tile —
+   * snap it back. If the action WAS confirmed, G's position already matches
+   * the preview, so this is a no-op.
+   */
   private finishSelection(): void {
+    const unitId = this.selectedUnitId;
     this.mode = 'idle';
     this.selectedUnitId = null;
     this.pendingDestination = null;
     this.clearHighlights();
+
+    const unit = unitId ? this.client.getState()?.G.units[unitId] : undefined;
+    const sprite = unitId ? this.unitSprites.get(unitId) : undefined;
+    if (unit && sprite) {
+      const { px, py } = this.tileCenter(unit.x, unit.y);
+      this.tweens.add({ targets: sprite, x: px, y: py, duration: 150, ease: 'Quad.easeOut' });
+    }
   }
 
   // --- CPU / blessing auto-play -------------------------------------------------------
