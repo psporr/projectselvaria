@@ -3,6 +3,7 @@ import { BootScene } from './scenes/BootScene';
 import { TacticalScene } from './scenes/TacticalScene';
 import { UIScene } from './scenes/UIScene';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from './systems/viewport';
+import { GAME_VERSION } from './version';
 
 // Phaser config + Vite entry point. Scenes render from boardgame.io's G/ctx and
 // dispatch moves back — they never own authoritative state. See HANDOFF.md §7.
@@ -20,6 +21,7 @@ import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from './systems/viewport';
 const config: Types.Core.GameConfig = {
     type: AUTO,
     parent: 'game-container',
+    version: GAME_VERSION,
     backgroundColor: '#1a1a2e',
     fps: {
         target: 60,

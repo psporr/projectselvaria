@@ -5,6 +5,7 @@ import type { GameOver } from '../game/game';
 import { teamOf } from '../game/types';
 import type { GameClient } from '../systems/gameClient';
 import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
+import { GAME_VERSION } from '../version';
 import { ActionMenu, type ActionMenuChoice, type ActionMenuOption } from '../ui/ActionMenu';
 import { BlessingPicker } from '../ui/BlessingPicker';
 import { EquipScreen } from '../ui/EquipScreen';
@@ -113,6 +114,17 @@ export class UIScene extends Scene {
       wordWrap: { width: LOGICAL_WIDTH - 32 },
       resolution: DPR,
     });
+
+    // Version label (bottom right)
+    this.add
+      .text(LOGICAL_WIDTH - 12, LOGICAL_HEIGHT - 12, `v${GAME_VERSION}`, {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#5a6070',
+        resolution: DPR,
+      })
+      .setOrigin(1, 1)
+      .setDepth(10);
 
     // Game Over modal dialog with interactive restart
     this.gameOverBackdrop = this.add
