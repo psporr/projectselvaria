@@ -9,6 +9,7 @@ import { ActionMenu, type ActionMenuChoice, type ActionMenuOption } from '../ui/
 import { BlessingPicker } from '../ui/BlessingPicker';
 import { EquipScreen } from '../ui/EquipScreen';
 import { ForecastPanel } from '../ui/ForecastPanel';
+import { SystemMenu, type SystemMenuChoice, type SystemMenuOption } from '../ui/SystemMenu';
 import type { TacticalScene } from './TacticalScene';
 
 interface UISceneData {
@@ -21,8 +22,8 @@ interface UISceneData {
  * HANDOFF.md §7 so grid camera work never drags the UI around with it.
  * Owns no game truth: the phase/log text is a passive read of G/ctx via its
  * own subscription (mirroring TacticalScene's), and the interactive panels
- * (action menu, forecast) are shown/driven imperatively by TacticalScene,
- * which still owns the click-driven UI state machine.
+ * (action menu, forecast, system menu) are shown/driven imperatively by
+ * TacticalScene, which still owns the click-driven UI state machine.
  */
 export class UIScene extends Scene {
   private client!: GameClient;
@@ -30,12 +31,23 @@ export class UIScene extends Scene {
 
   private phaseText!: GameObjects.Text;
   private logText!: GameObjects.Text;
+
+  private endTurnButton!: GameObjects.Rectangle;
+  private endTurnText!: GameObjects.Text;
+  private dangerButton!: GameObjects.Rectangle;
+  private dangerText!: GameObjects.Text;
+
+  private gameOverBackdrop!: GameObjects.Rectangle;
+  private gameOverCard!: GameObjects.Rectangle;
   private gameOverText!: GameObjects.Text;
+  private gameOverRestartButton!: GameObjects.Rectangle;
+  private gameOverRestartText!: GameObjects.Text;
 
   actionMenu!: ActionMenu;
   forecastPanel!: ForecastPanel;
   blessingPicker!: BlessingPicker;
   equipScreen!: EquipScreen;
+  systemMenu!: SystemMenu;
 
   constructor() {
     super('UI');
@@ -46,45 +58,112 @@ export class UIScene extends Scene {
     this.tactical = data.tactical;
     applyDprZoom(this);
 
-    this.phaseText = this.add.text(16, 16, '', {
+    // Top status banner
+    this.phaseText = this.add.text(16, 20, '', {
       fontFamily: 'monospace',
-      fontSize: '15px',
+      fontSize: '13px',
       color: '#e0e0e0',
       resolution: DPR,
-    });
+    }).setOrigin(0, 0.5);
 
+    // Top bar: Menu button
     this.add
-      .rectangle(LOGICAL_WIDTH - 48, 20, 72, 26, 0x2d3348)
+      .rectangle(LOGICAL_WIDTH - 110, 20, 56, 26, 0x2d3348)
+      .setStrokeStyle(1, 0x4a90d9)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => this.tactical.openSystemMenu());
+    this.add
+      .text(LOGICAL_WIDTH - 110, 20, 'Menu', { fontFamily: 'monospace', fontSize: '12px', color: '#e0e0e0', resolution: DPR })
+      .setOrigin(0.5);
+
+    // Top bar: Squad button
+    this.add
+      .rectangle(LOGICAL_WIDTH - 44, 20, 64, 26, 0x2d3348)
       .setStrokeStyle(1, 0x4a90d9)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.openEquipScreen());
     this.add
-      .text(LOGICAL_WIDTH - 48, 20, 'Squad', { fontFamily: 'monospace', fontSize: '12px', color: '#e0e0e0', resolution: DPR })
+      .text(LOGICAL_WIDTH - 44, 20, 'Squad', { fontFamily: 'monospace', fontSize: '12px', color: '#e0e0e0', resolution: DPR })
       .setOrigin(0.5);
 
-    this.logText = this.add.text(16, 584, '', {
+    // Sub-board HUD Action Bar (y = 588)
+    this.endTurnButton = this.add
+      .rectangle(120, 588, 192, 30, 0x2d3348)
+      .setStrokeStyle(1, 0x4a90d9)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => this.tactical.endTurn());
+    this.endTurnText = this.add
+      .text(120, 588, 'End Turn', { fontFamily: 'monospace', fontSize: '13px', color: '#e0e0e0', resolution: DPR })
+      .setOrigin(0.5);
+
+    this.dangerButton = this.add
+      .rectangle(352, 588, 208, 30, 0x2d3348)
+      .setStrokeStyle(1, 0x4a90d9)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => this.tactical.toggleThreatOverlay());
+    this.dangerText = this.add
+      .text(352, 588, 'Danger: OFF', { fontFamily: 'monospace', fontSize: '13px', color: '#e0e0e0', resolution: DPR })
+      .setOrigin(0.5);
+
+    // Battle log text
+    this.logText = this.add.text(16, 616, '', {
       fontFamily: 'monospace',
-      fontSize: '13px',
+      fontSize: '12px',
       color: '#9099a8',
       wordWrap: { width: LOGICAL_WIDTH - 32 },
       resolution: DPR,
     });
 
+    // Game Over modal dialog with interactive restart
+    this.gameOverBackdrop = this.add
+      .rectangle(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2, LOGICAL_WIDTH, LOGICAL_HEIGHT, 0x000000, 0.65)
+      .setInteractive()
+      .setDepth(30)
+      .setVisible(false);
+
+    this.gameOverCard = this.add
+      .rectangle(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2, 320, 180, 0x1c2030, 0.97)
+      .setStrokeStyle(2, 0x4a90d9)
+      .setDepth(31)
+      .setVisible(false);
+
     this.gameOverText = this.add
-      .text(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2, '', {
+      .text(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2 - 30, '', {
         fontFamily: 'monospace',
-        fontSize: '48px',
+        fontSize: '36px',
         color: '#ffffff',
+        fontStyle: 'bold',
         resolution: DPR,
       })
       .setOrigin(0.5)
-      .setDepth(10)
+      .setDepth(32)
+      .setVisible(false);
+
+    this.gameOverRestartButton = this.add
+      .rectangle(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2 + 36, 180, 40, 0x3a8f4a)
+      .setStrokeStyle(1, 0x5ab56a)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(32)
+      .setVisible(false)
+      .on('pointerdown', () => this.tactical.restartBattle());
+
+    this.gameOverRestartText = this.add
+      .text(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2 + 36, 'Restart Battle', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+        resolution: DPR,
+      })
+      .setOrigin(0.5)
+      .setDepth(33)
       .setVisible(false);
 
     this.forecastPanel = new ForecastPanel(this);
     this.actionMenu = new ActionMenu(this);
     this.blessingPicker = new BlessingPicker(this);
     this.equipScreen = new EquipScreen(this, this.client);
+    this.systemMenu = new SystemMenu(this);
 
     this.refreshHud();
     const unsubscribe = this.client.subscribe(() => {
@@ -94,7 +173,7 @@ export class UIScene extends Scene {
     this.events.once('shutdown', unsubscribe);
   }
 
-  private openEquipScreen(): void {
+  openEquipScreen(): void {
     this.tactical.setInputSuspended(true);
     this.equipScreen.show(() => this.tactical.setInputSuspended(false));
   }
@@ -106,22 +185,51 @@ export class UIScene extends Scene {
 
     if (ctx.gameover) {
       const gameover = ctx.gameover as GameOver;
-      this.gameOverText.setText(gameover.winner === 'player' ? 'VICTORY' : 'DEFEAT').setVisible(true);
+      const isVictory = gameover.winner === 'player';
+      this.gameOverText.setText(isVictory ? 'VICTORY' : 'DEFEAT');
+      this.gameOverText.setColor(isVictory ? '#7cd992' : '#ff6b6b');
+      this.gameOverBackdrop.setVisible(true);
+      this.gameOverCard.setVisible(true);
+      this.gameOverText.setVisible(true);
+      this.gameOverRestartButton.setVisible(true);
+      this.gameOverRestartText.setVisible(true);
+    } else {
+      this.gameOverBackdrop.setVisible(false);
+      this.gameOverCard.setVisible(false);
+      this.gameOverText.setVisible(false);
+      this.gameOverRestartButton.setVisible(false);
+      this.gameOverRestartText.setVisible(false);
     }
 
+    const isPlayerTurn = !ctx.gameover && !G.awaitingBlessing && teamOf(ctx.currentPlayer) === 'player';
     const phase = ctx.gameover
       ? ''
       : G.awaitingBlessing
         ? 'Choosing blessing…'
-        : teamOf(ctx.currentPlayer) === 'player'
+        : isPlayerTurn
           ? 'Player Phase'
           : 'Enemy Phase';
     this.phaseText.setText(`${G.chapterShortName}   Wave ${G.wave}   ${phase}`);
-    this.logText.setText(G.log.slice(0, 12).join('\n'));
+    this.logText.setText(G.log.slice(0, 10).join('\n'));
+
+    // Update End Turn button state
+    this.endTurnButton.setFillStyle(isPlayerTurn ? 0x2d3348 : 0x1f232b);
+    this.endTurnText.setColor(isPlayerTurn ? '#e0e0e0' : '#5a6070');
+
+    // Update Danger Zone button state
+    const threatOn = this.tactical?.isThreatOverlayVisible?.() ?? false;
+    this.dangerButton.setFillStyle(threatOn ? 0x5a2d33 : 0x2d3348);
+    this.dangerButton.setStrokeStyle(1, threatOn ? 0xd9534f : 0x4a90d9);
+    this.dangerText.setText(threatOn ? 'Danger: ON' : 'Danger: OFF');
+    this.dangerText.setColor(threatOn ? '#ff9999' : '#e0e0e0');
   }
 
   showActionMenu(options: ActionMenuOption[], onChoose: (id: ActionMenuChoice) => void): void {
     this.actionMenu.show(options, onChoose);
+  }
+
+  showSystemMenu(options: SystemMenuOption[], onChoose: (id: SystemMenuChoice) => void): void {
+    this.systemMenu.show(options, onChoose);
   }
 
   showForecast(lines: string[], onConfirm: () => void, onCancel: () => void): void {
@@ -155,3 +263,4 @@ export class UIScene extends Scene {
     });
   }
 }
+

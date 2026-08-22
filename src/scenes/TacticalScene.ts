@@ -3,7 +3,7 @@ import { GameObjects, Scene } from 'phaser';
 import { BLESSINGS, type Blessing } from '../game/blessings';
 import { decideAction } from '../game/ai';
 import { forecastCombat } from '../game/combat';
-import { computeReachable, targetsFrom, tileKey } from '../game/grid';
+import { computeReachable, computeThreatTiles, targetsFrom, tileKey, unitsOf } from '../game/grid';
 import { ITEMS } from '../game/equipment';
 import { canUseSkill, describeSkillEffect, novaBlastCoords, skillTargets, SKILLS } from '../game/skills';
 import { TERRAIN, teamOf, type GameState, type Unit } from '../game/types';
@@ -12,6 +12,7 @@ import { createGameClient, type GameClient } from '../systems/gameClient';
 import { applyDprZoom, DPR } from '../systems/viewport';
 import type { ActionMenuChoice, ActionMenuOption } from '../ui/ActionMenu';
 import { formatAttackForecast } from '../ui/ForecastPanel';
+import type { SystemMenuChoice, SystemMenuOption } from '../ui/SystemMenu';
 import type { UIScene } from './UIScene';
 
 // Sized against main.ts's 480x854 portrait design resolution (HANDOFF.md
@@ -56,8 +57,8 @@ type UiMode = 'idle' | 'unit-selected' | 'action-menu' | 'awaiting-target' | 'sk
  * The grid, unit sprites, movement/attack/skill input, and the enemy
  * auto-play loop. Renders entirely from the boardgame.io client's G/ctx and
  * dispatches moves back — it never owns authoritative state (HANDOFF.md
- * §6/§7). HUD text and the interactive panels (action menu, forecast) live
- * in UIScene; this scene still owns the click-driven state machine and just
+ * §6/§7). HUD text and the interactive panels (action menu, forecast, system menu)
+ * live in UIScene; this scene still owns the click-driven state machine and just
  * calls UIScene's show methods with data + callbacks.
  *
  * On-grid combat presentation only (HANDOFF.md §7 phase 1): floating damage
@@ -68,6 +69,8 @@ export class TacticalScene extends Scene {
   private ui!: UIScene;
   private readonly unitSprites = new Map<string, UnitSprite>();
   private readonly highlightRects: GameObjects.Rectangle[] = [];
+  private readonly threatRects: GameObjects.Rectangle[] = [];
+  private threatOverlayVisible = false;
   private lastUnits: Record<string, Unit> = {};
 
   private mode: UiMode = 'idle';
@@ -132,6 +135,7 @@ export class TacticalScene extends Scene {
   private onStateChange(): void {
     this.syncUnits();
     this.checkForLoot();
+    this.refreshThreatOverlay();
     this.scheduleAutoAdvance();
   }
 
@@ -255,7 +259,11 @@ export class TacticalScene extends Scene {
     const unitAtTile = Object.values(G.units).find((u) => u.x === x && u.y === y);
 
     if (this.mode === 'idle') {
-      if (unitAtTile && unitAtTile.team === 'player' && !unitAtTile.hasActed) this.selectUnit(unitAtTile.id);
+      if (unitAtTile && unitAtTile.team === 'player' && !unitAtTile.hasActed) {
+        this.selectUnit(unitAtTile.id);
+      } else if (!unitAtTile) {
+        this.openSystemMenu();
+      }
       return;
     }
 
@@ -453,6 +461,98 @@ export class TacticalScene extends Scene {
       },
       () => this.resumeTargeting(unit.id, 'skill'),
     );
+  }
+
+  /** Opens the field/system menu (End Turn / Squad / Danger Zone / Restart / Cancel). */
+  openSystemMenu(): void {
+    if (this.inputSuspended) return;
+    const state = this.client.getState();
+    if (!state) return;
+    if (this.mode !== 'idle') this.finishSelection();
+
+    const { G, ctx } = state;
+    const isPlayerTurn = teamOf(ctx.currentPlayer) === 'player' && !ctx.gameover && !G.awaitingBlessing;
+    const options: SystemMenuOption[] = [
+      { id: 'end-turn', label: 'End Turn', enabled: isPlayerTurn },
+      { id: 'squad', label: 'Squad / Equip', enabled: true },
+      { id: 'threat', label: this.threatOverlayVisible ? 'Danger Zone: ON' : 'Danger Zone: OFF', enabled: true },
+      { id: 'restart', label: 'Restart Battle', enabled: true },
+      { id: 'cancel', label: 'Cancel', enabled: true },
+    ];
+    this.ui.showSystemMenu(options, (choice) => this.onSystemMenuChosen(choice));
+  }
+
+  private onSystemMenuChosen(choice: SystemMenuChoice): void {
+    if (choice === 'end-turn') {
+      this.endTurn();
+    } else if (choice === 'squad') {
+      this.ui.openEquipScreen();
+    } else if (choice === 'threat') {
+      this.toggleThreatOverlay();
+    } else if (choice === 'restart') {
+      this.restartBattle();
+    }
+  }
+
+  /**
+   * Ends the player's phase immediately, passing the turn to the enemy army.
+   * Cancels any speculative move and marks all remaining player units as waited.
+   */
+  endTurn(): void {
+    if (this.inputSuspended) return;
+    const state = this.client.getState();
+    if (!state) return;
+    const { G, ctx } = state;
+    if (ctx.gameover || G.awaitingBlessing || teamOf(ctx.currentPlayer) !== 'player') return;
+
+    this.finishSelection();
+
+    for (const unit of unitsOf(G, 'player')) {
+      if (!unit.hasActed) {
+        this.client.moves.waitUnit(unit.id);
+      }
+    }
+    this.client.events.endTurn?.();
+  }
+
+  /** Toggles the danger zone (enemy threat range overlay) on/off. */
+  toggleThreatOverlay(): boolean {
+    this.threatOverlayVisible = !this.threatOverlayVisible;
+    this.refreshThreatOverlay();
+    return this.threatOverlayVisible;
+  }
+
+  isThreatOverlayVisible(): boolean {
+    return this.threatOverlayVisible;
+  }
+
+  private refreshThreatOverlay(): void {
+    for (const rect of this.threatRects.splice(0)) rect.destroy();
+    if (!this.threatOverlayVisible) return;
+
+    const state = this.client.getState();
+    if (!state || state.ctx.gameover) return;
+    const { G } = state;
+
+    const threatened = new Set<string>();
+    for (const enemy of unitsOf(G, 'enemy')) {
+      const reachable = computeReachable(G, enemy);
+      const threat = computeThreatTiles(G, enemy, reachable);
+      for (const key of threat) threatened.add(key);
+    }
+
+    for (const key of threatened) {
+      const [x, y] = key.split(',').map(Number);
+      const { px, py } = this.tileCenter(x, y);
+      const rect = this.add.rectangle(px, py, TILE_SIZE - 4, TILE_SIZE - 4, 0xd9534f, 0.28).setDepth(1);
+      this.threatRects.push(rect);
+    }
+  }
+
+  /** Restarts the scene with a fresh game client and cleans up previous state. */
+  restartBattle(): void {
+    this.scene.stop('UI');
+    this.scene.restart();
   }
 
   /**

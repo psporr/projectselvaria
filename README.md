@@ -58,10 +58,11 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
   → **action menu** (Attack / class skill / Wait / Cancel, each gated on
   real legality) → target → **forecast panel** (hit%/crit%/damage preview)
   → confirm. Wave clears open a real **blessing picker** (3 cards, rarity-
-  colored). A **Squad** button opens an **equip screen** per unit. Enemy
-  turns still auto-play. Verified in-browser (Playwright): action menu
-  correctly enables/disables per unit, per-class skill label shows, Wait
-  dispatches correctly, Squad screen lists the roster.
+  colored). A **Squad** button opens an **equip screen** per unit. **End Turn**
+  button instantly advances the phase; **Danger Zone** toggle paints enemy
+  threat ranges across the map; tapping an empty tile opens the tactical **System Menu**
+  (End Turn, Squad, Danger Zone, Restart, Cancel). Victory/Defeat dialog includes
+  interactive battle restart. Enemy turns still auto-play.
 - Portrait/mobile scaling fixed: `Scale.FIT` + `CENTER_BOTH` on a 480x854
   base, verified at real phone/tablet/desktop viewports.
 - Rendering is DPR-aware (`src/systems/viewport.ts`) — the canvas backing
@@ -85,6 +86,7 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-22 Gemini: Restored tactical menus & HUD controls — End Turn button, Danger Zone (enemy threat range) overlay toggle, Map/System Menu, and Victory/Defeat restart dialog
 - 2026-08-21 Claude: Unit sprite now previews the move to its destination before the action menu opens (reverts on Cancel)
 - 2026-08-20 Claude: Auto-scale rendering to device pixel ratio (`src/systems/viewport.ts`), fixing game/UI blur on real phones
 - 2026-08-20 Gemini: Action menu, forecast panel, blessing picker, and equip screen — `TacticalScene`/`UIScene` split, verified working
