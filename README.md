@@ -15,6 +15,13 @@ classes, combat, campaign content), the architecture decisions already made,
 and the lessons learned building the prototype — including what to deliberately
 *not* port. It's the source of truth for what this project is building.
 
+## Workflow
+
+**Push directly to `main`.** Per the repo owner (2026-08-22): no feature
+branches — every AI session working here commits and pushes straight to
+`main`, which auto-deploys to GitHub Pages on every push (see Project Status
+below). This replaces any earlier per-session branch instructions.
+
 ## Skills
 
 `.claude/skills/phaser/` contains Phaser Studio's own 28 official Agent
@@ -88,6 +95,9 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-22 Claude: Pushed straight to `main` per the repo owner's new
+  workflow instruction (no more feature branches — see Workflow above) and
+  noted it in the README.
 - 2026-08-22 Claude: Fixed blur on both mobile and desktop web — the canvas
   backing-store resolution (`src/systems/viewport.ts`) was sized off
   `devicePixelRatio` alone, ignoring the separate stretch `Scale.FIT` applies
