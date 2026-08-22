@@ -507,12 +507,14 @@ export class TacticalScene extends Scene {
 
     this.finishSelection();
 
-    for (const unit of unitsOf(G, 'player')) {
-      if (!unit.hasActed) {
+    const unacted = unitsOf(G, 'player').filter((u) => !u.hasActed);
+    if (unacted.length > 0) {
+      for (const unit of unacted) {
         this.client.moves.waitUnit(unit.id);
       }
+    } else {
+      this.client.events.endTurn?.();
     }
-    this.client.events.endTurn?.();
   }
 
   /** Toggles the danger zone (enemy threat range overlay) on/off. */
