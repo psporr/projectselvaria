@@ -88,6 +88,16 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-22 Claude: Fixed blur on both mobile and desktop web — the canvas
+  backing-store resolution (`src/systems/viewport.ts`) was sized off
+  `devicePixelRatio` alone, ignoring the separate stretch `Scale.FIT` applies
+  to fit the actual container box. `DPR` now folds in the measured display
+  scale too, so the buffer always matches what FIT displays it at, at the
+  screen's real density — verified the backing-store/CSS pixel ratio now
+  matches real device pixel ratio exactly across a phone viewport and two
+  desktop viewports (1x and 2x). Also restores the 3x quality ceiling the
+  Aug 22 perf-cap commit had narrowed to 2x, now applied to the combined
+  multiplier instead of DPR alone so the GPU-cost tradeoff still holds.
 - 2026-08-22 Gemini: Added game version system (`src/version.ts`) initialized at `0.01` with bottom-right HUD watermark in `UIScene` and title subtitle in `BootScene`
 - 2026-08-22 Gemini: Optimized mobile browser performance — capped DPR to 2x (cutting GPU fill-rate by >55%), capped FPS at 60 (preventing 120Hz thermal throttling), enabled high-performance WebGL render flags, and guarded redundant UI text re-rasterization
 - 2026-08-22 Gemini: Restored tactical menus & HUD controls — End Turn button, Danger Zone (enemy threat range) overlay toggle, Map/System Menu, and Victory/Defeat restart dialog
