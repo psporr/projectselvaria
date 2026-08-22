@@ -209,8 +209,14 @@ export class UIScene extends Scene {
         : isPlayerTurn
           ? 'Player Phase'
           : 'Enemy Phase';
-    this.phaseText.setText(`${G.chapterShortName}   Wave ${G.wave}   ${phase}`);
-    this.logText.setText(G.log.slice(0, 10).join('\n'));
+    const nextPhaseText = `${G.chapterShortName}   Wave ${G.wave}   ${phase}`;
+    if (this.phaseText.text !== nextPhaseText) {
+      this.phaseText.setText(nextPhaseText);
+    }
+    const nextLogText = G.log.slice(0, 10).join('\n');
+    if (this.logText.text !== nextLogText) {
+      this.logText.setText(nextLogText);
+    }
 
     // Update End Turn button state
     this.endTurnButton.setFillStyle(isPlayerTurn ? 0x2d3348 : 0x1f232b);

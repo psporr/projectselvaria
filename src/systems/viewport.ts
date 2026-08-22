@@ -26,8 +26,8 @@ import type { Scene } from 'phaser';
  * phone renders 3x sharper — rather than a fixed multiplier chosen up front.
  */
 
-/** Capped to bound GPU fill-rate/memory on extreme-DPR devices — visual returns diminish well before 3x anyway. */
-export const DPR = Math.min(window.devicePixelRatio || 1, 3);
+/** Capped at 2x to bound GPU fill-rate/memory bandwidth on mobile devices — visual returns diminish past 2x. */
+export const DPR = Math.min(window.devicePixelRatio || 1, 2);
 
 /** The world-space every scene and UI panel is authored in. Never multiply this by DPR yourself — see module comment. */
 export const LOGICAL_WIDTH = 480;

@@ -66,10 +66,12 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 - Portrait/mobile scaling fixed: `Scale.FIT` + `CENTER_BOTH` on a 480x854
   base, verified at real phone/tablet/desktop viewports.
 - Rendering is DPR-aware (`src/systems/viewport.ts`) — the canvas backing
-  store scales with device pixel ratio (capped at 3x) instead of a fixed
-  size the browser stretches, fixing blur on real phones. Every scene's own
-  layout math is untouched (still authored against the 480x854 logical
-  space); `applyDprZoom()` handles the compensating camera zoom + centering.
+  store scales with device pixel ratio (capped at 2x) instead of a fixed
+  size the browser stretches, fixing blur on real phones while preventing
+  GPU fill-rate bottlenecks. 60 FPS cap and high-performance WebGL settings
+  prevent mobile thermal throttling. Every scene's own layout math is untouched
+  (still authored against the 480x854 logical space); `applyDprZoom()` handles
+  the compensating camera zoom + centering.
   If you add a new `Scene`, call `applyDprZoom(this)` in `create()`; if you
   add a new `Text` object anywhere, give it `resolution: DPR`.
 
@@ -86,6 +88,7 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-22 Gemini: Optimized mobile browser performance — capped DPR to 2x (cutting GPU fill-rate by >55%), capped FPS at 60 (preventing 120Hz thermal throttling), enabled high-performance WebGL render flags, and guarded redundant UI text re-rasterization
 - 2026-08-22 Gemini: Restored tactical menus & HUD controls — End Turn button, Danger Zone (enemy threat range) overlay toggle, Map/System Menu, and Victory/Defeat restart dialog
 - 2026-08-21 Claude: Unit sprite now previews the move to its destination before the action menu opens (reverts on Cancel)
 - 2026-08-20 Claude: Auto-scale rendering to device pixel ratio (`src/systems/viewport.ts`), fixing game/UI blur on real phones

@@ -21,6 +21,17 @@ const config: Types.Core.GameConfig = {
     type: AUTO,
     parent: 'game-container',
     backgroundColor: '#1a1a2e',
+    fps: {
+        target: 60,
+        limit: 60,
+        smoothStep: true
+    },
+    render: {
+        powerPreference: 'high-performance',
+        antialias: false,
+        antialiasGL: false,
+        roundPixels: true
+    },
     scale: {
         mode: Scale.FIT,
         autoCenter: Scale.CENTER_BOTH,
