@@ -123,6 +123,13 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-22 Claude: Attack/Skill no longer appear in the action menu at
+  all when there's no target in range from the picked destination —
+  previously they showed grayed-out. A skill with a target still on
+  cooldown stays visible-but-disabled (useful info: "could hit something,
+  just not yet"); only "no target" hides the option entirely. Small fix,
+  typecheck/build/sim green, not independently re-verified with Playwright
+  — please check it looks right.
 - 2026-08-22 Claude: Fixed `ActionMenu`'s card covering half the acting
   unit's tile — the margin math predated the card's own padding around the
   buttons, so the card's near edge landed ~2px from the tile center instead

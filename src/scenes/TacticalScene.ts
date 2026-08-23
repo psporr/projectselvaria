@@ -386,12 +386,20 @@ export class TacticalScene extends Scene {
     const skill = SKILLS[unit.className];
 
     this.clearHighlights();
-    const options: ActionMenuOption[] = [
-      { id: 'attack', label: 'Attack', enabled: targetsFrom(G, synthetic, dest.x, dest.y).length > 0 },
-      { id: 'skill', label: skill.name, enabled: canUseSkill(G, synthetic) },
-      { id: 'wait', label: 'Wait', enabled: true },
-      { id: 'cancel', label: 'Cancel', enabled: true },
-    ];
+    // Attack/Skill only appear at all when there's an actual target in
+    // range from this destination — no point offering an action that can
+    // never legally be taken from here. A skill with a target but still on
+    // cooldown stays visible-but-disabled (canUseSkill), since that's
+    // useful information ("could hit something, just not yet"), unlike "no
+    // target" which never becomes true this turn regardless of cooldown.
+    const options: ActionMenuOption[] = [];
+    if (targetsFrom(G, synthetic, dest.x, dest.y).length > 0) {
+      options.push({ id: 'attack', label: 'Attack', enabled: true });
+    }
+    if (skillTargets(G, synthetic).length > 0) {
+      options.push({ id: 'skill', label: skill.name, enabled: canUseSkill(G, synthetic) });
+    }
+    options.push({ id: 'wait', label: 'Wait', enabled: true }, { id: 'cancel', label: 'Cancel', enabled: true });
 
     this.mode = 'action-menu';
     const { px, py } = this.tileCenter(dest.x, dest.y);
