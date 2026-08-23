@@ -241,7 +241,11 @@ export class UIScene extends Scene {
     // G/ctx update within a turn (unit moves, attacks, etc. don't touch it).
     if (!ctx.gameover && ctx.turn !== this.lastTurnSeen) {
       this.lastTurnSeen = ctx.turn;
-      this.phaseBanner.show(teamOf(ctx.currentPlayer));
+      const team = teamOf(ctx.currentPlayer);
+      // TacticalScene's scheduleAutoAdvance() deliberately does nothing for
+      // a fresh enemy phase's opening action until this fires — see its
+      // onEnemyPhaseBannerDone().
+      this.phaseBanner.show(team, team === 'enemy' ? () => this.tactical.onEnemyPhaseBannerDone() : undefined);
     }
 
     const isPlayerTurn = !ctx.gameover && !G.awaitingBlessing && teamOf(ctx.currentPlayer) === 'player';

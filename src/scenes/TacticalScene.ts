@@ -90,6 +90,8 @@ export class TacticalScene extends Scene {
    * ever moves in rollDrop (equipment.ts) — a real drop.
    */
   private lastDropCount = 0;
+  /** ctx.turn of the enemy phase whose opening action we've already handed off to onEnemyPhaseBannerDone() — see scheduleAutoAdvance(). */
+  private enemyPhaseIntroDone: number | null = null;
 
   constructor() {
     super('Tactical');
@@ -116,6 +118,7 @@ export class TacticalScene extends Scene {
     this.pendingDestination = null;
     this.blessingPickerOpen = false;
     this.inputSuspended = false;
+    this.enemyPhaseIntroDone = null;
 
     this.client = createGameClient();
     this.cameras.main.setBackgroundColor('#111318');
@@ -636,19 +639,41 @@ export class TacticalScene extends Scene {
     }
 
     if (teamOf(ctx.currentPlayer) === 'enemy') {
-      this.time.delayedCall(ENEMY_STEP_DELAY_MS, () => {
-        const fresh = this.client.getState();
-        if (!fresh || fresh.ctx.gameover || teamOf(fresh.ctx.currentPlayer) !== 'enemy') return;
-
-        const action = decideAction(fresh.G, 'enemy');
-        if (!action) {
-          this.client.events.endTurn?.();
-          return;
-        }
-        if (action.type === 'move') this.client.moves.moveUnit(action.unitId, action.x, action.y);
-        else if (action.type === 'attack') this.client.moves.attackUnit(action.attackerId, action.targetId);
-        else this.client.moves.waitUnit(action.unitId);
-      });
+      // The opening action of a fresh enemy phase is held until UIScene's
+      // "Enemy Phase" banner actually finishes — not a guessed matching
+      // delay here, which would mean two independently-run Phaser timers
+      // (this scene's delayedCall and the banner's own tween chain) each
+      // assuming the same duration and hoping they don't drift apart.
+      // Instead this just marks the phase as seen and returns; UIScene
+      // detects the same ctx.turn change on its own subscription and calls
+      // onEnemyPhaseBannerDone() below once the banner's slide-out tween
+      // actually completes. Every later action within the same phase
+      // (ctx.turn unchanged) falls through to the normal pacing gap.
+      if (this.enemyPhaseIntroDone !== ctx.turn) {
+        this.enemyPhaseIntroDone = ctx.turn;
+        return;
+      }
+      this.time.delayedCall(ENEMY_STEP_DELAY_MS, () => this.stepEnemyAi());
     }
+  }
+
+  /** UIScene calls this once its "Enemy Phase" banner has fully slid out — see scheduleAutoAdvance()'s isFreshPhase branch above. */
+  onEnemyPhaseBannerDone(): void {
+    this.stepEnemyAi();
+  }
+
+  /** Dispatches exactly one enemy action, or ends the enemy turn if the AI has nothing left to do. */
+  private stepEnemyAi(): void {
+    const fresh = this.client.getState();
+    if (!fresh || fresh.ctx.gameover || teamOf(fresh.ctx.currentPlayer) !== 'enemy') return;
+
+    const action = decideAction(fresh.G, 'enemy');
+    if (!action) {
+      this.client.events.endTurn?.();
+      return;
+    }
+    if (action.type === 'move') this.client.moves.moveUnit(action.unitId, action.x, action.y);
+    else if (action.type === 'attack') this.client.moves.attackUnit(action.attackerId, action.targetId);
+    else this.client.moves.waitUnit(action.unitId);
   }
 }

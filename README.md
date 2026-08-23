@@ -102,6 +102,23 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-22 Claude: Held enemy AI actions off until the "Enemy Phase"
+  banner is fully gone, per request. First attempt used a second
+  `delayedCall` in `TacticalScene` guessing the banner's total animation
+  duration (`PHASE_BANNER_TOTAL_MS`) — verified via Playwright screenshots
+  that this actually fired the CPU's first move while the banner was still
+  fully visible on screen. Root cause: Phaser's `Time`/`Tweens` clocks
+  didn't advance 1:1 with wall time in this sandbox's software-rendered
+  headless Chromium, so two independently-run timers assuming the same
+  nominal duration drifted apart. Replaced with an event-driven handshake:
+  `PhaseBanner.show()` now takes an `onComplete` callback, fired only once
+  the slide-out tween genuinely finishes; `TacticalScene.scheduleAutoAdvance()`
+  holds off entirely on a fresh enemy phase and waits for UIScene to call
+  its new `onEnemyPhaseBannerDone()` instead of guessing a delay. Re-verified
+  via Playwright (both a fresh battle and after `restartBattle()`): enemies
+  provably stationary while the banner is up, first move starts right after
+  it's gone. Bumped to `0.2.1` (fix, since it corrects `0.2.0`'s shipped
+  banner behavior rather than adding new gameplay surface).
 - 2026-08-22 Claude: Added the classic Fire Emblem "Player Phase"/"Enemy
   Phase" banner (`src/ui/PhaseBanner.ts`) — slides across the board on
   every real turn transition, colored per team. `UIScene` triggers it off a

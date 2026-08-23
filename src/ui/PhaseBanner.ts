@@ -56,7 +56,13 @@ export class PhaseBanner extends GameObjects.Container {
     this.setVisible(false);
   }
 
-  show(team: Team): void {
+  /**
+   * `onComplete` fires once the banner has fully slid back out — TacticalScene
+   * uses this (for the enemy team only) to hold the CPU's opening move until
+   * the banner is genuinely gone, rather than a separately-run timer guessing
+   * this animation's total duration and hoping the two don't drift apart.
+   */
+  show(team: Team, onComplete?: () => void): void {
     const style = TEAM_STYLE[team];
     this.bar.setFillStyle(style.bar, 0.94);
     this.accentTop.setFillStyle(style.accent);
@@ -78,7 +84,10 @@ export class PhaseBanner extends GameObjects.Container {
           duration: SLIDE_MS,
           delay: HOLD_MS,
           ease: 'Cubic.easeIn',
-          onComplete: () => this.setVisible(false),
+          onComplete: () => {
+            this.setVisible(false);
+            onComplete?.();
+          },
         });
       },
     });
