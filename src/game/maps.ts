@@ -406,16 +406,21 @@ export const CAMPAIGN_CHAPTERS: ChapterDef[] = [CAMPAIGN_CHAPTER_1, CAMPAIGN_CHA
  * TacticalScene renders that same image as the board background for this
  * chapter id instead of flat terrain-color tiles (see
  * `CHAPTERS_WITH_BACKGROUND_ART` there) — the point of this chapter is to
- * prove that pipeline end-to-end, not to be a balanced encounter. 9x12, one
- * column/row wider than any existing chapter, so TacticalScene's tile size
- * is computed per-chapter now rather than a fixed 64px (see its
- * `BOARD_AREA_WIDTH`/`BOARD_AREA_HEIGHT`).
+ * prove that pipeline end-to-end, not to be a balanced encounter.
  *
- * Spawns picked by hand off the classified grid: player squad clustered on
- * the passable bottom two rows, enemies on the top two rows (also required
- * by waves.ts's `ENEMY_ZONE_ROWS`), everyone kept off the water/wall band
- * that splits the map — that band is the natural chokepoint, same role the
- * hand-authored chapters' wall/water bands play.
+ * Sampled at 6x8 cells (90x90px each, matching the source image's 3:4
+ * aspect ratio) rather than the original 9x12 pass — the finer grid put
+ * tiles around 42px on a phone screen, too small to tap reliably. 6x8
+ * lands tile size at a full 64px (same as CHAPTER_1), at the cost of some
+ * terrain detail: a handful of small 1-cell rock outcrops the fine pass
+ * caught get averaged away into their neighboring plain cell at this
+ * coarser sampling, so this version has no wall tiles at all — the
+ * water band + its one bridge crossing is the whole chokepoint. Verified
+ * connected (a single passable region) same as every other chapter.
+ *
+ * Same footprint as CHAPTER_1 (8 rows, one column narrower), so its exact
+ * unit layout drops in unchanged: player squad on the bottom two rows,
+ * bandits on the top two (also required by waves.ts's `ENEMY_ZONE_ROWS`).
  */
 export const TEST_MAP_1: ChapterDef = {
   id: 'test-map1',
@@ -424,30 +429,26 @@ export const TEST_MAP_1: ChapterDef = {
   objective: 'Survive as many waves as you can',
   objectiveType: 'waves',
   rows: [
-    '..#.....f',
-    '.........',
-    '........#',
-    'ww#f.....',
-    'fww......',
-    '.#www.www',
-    '......ff.',
-    '..f....f.',
-    '.ff......',
-    '..#......',
-    '..f......',
-    'f......ff',
+    '.....f',
+    '......',
+    'ww....',
+    '.ww.ww',
+    '......',
+    '.f....',
+    '......',
+    '.....f',
   ],
   units: [
-    { id: 'lyn', name: 'Eirika', team: 'player', className: 'Swordsman', x: 3, y: 10 },
-    { id: 'corrin', name: 'Corrin', team: 'player', className: 'Lancer', x: 5, y: 10 },
-    { id: 'ake', name: 'Ike', team: 'player', className: 'Barbarian', x: 2, y: 11 },
-    { id: 'lissa', name: 'Lissa', team: 'player', className: 'Cleric', x: 3, y: 11 },
-    { id: 'byleth', name: 'Byleth', team: 'player', className: 'Archer', x: 4, y: 11 },
-    { id: 'selva', name: 'Selva', team: 'player', className: 'Mage', x: 5, y: 11 },
-    { id: 'olivia', name: 'Olivia', team: 'player', className: 'Dancer', x: 6, y: 11 },
+    { id: 'lyn', name: 'Eirika', team: 'player', className: 'Swordsman', x: 1, y: 6 },
+    { id: 'byleth', name: 'Byleth', team: 'player', className: 'Archer', x: 1, y: 7 },
+    { id: 'corrin', name: 'Corrin', team: 'player', className: 'Lancer', x: 4, y: 6 },
+    { id: 'selva', name: 'Selva', team: 'player', className: 'Mage', x: 4, y: 7 },
+    { id: 'ake', name: 'Ike', team: 'player', className: 'Barbarian', x: 2, y: 6 },
+    { id: 'lissa', name: 'Lissa', team: 'player', className: 'Cleric', x: 3, y: 6 },
+    { id: 'olivia', name: 'Olivia', team: 'player', className: 'Dancer', x: 5, y: 6 },
     { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 1, y: 0 },
-    { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 7, y: 0 },
+    { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 4, y: 0 },
     { id: 'bandit-3', name: 'Bandit 3', team: 'enemy', randomClass: true, x: 1, y: 1 },
-    { id: 'bandit-4', name: 'Bandit 4', team: 'enemy', randomClass: true, x: 7, y: 1 },
+    { id: 'bandit-4', name: 'Bandit 4', team: 'enemy', randomClass: true, x: 4, y: 1 },
   ],
 };

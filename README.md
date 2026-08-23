@@ -133,6 +133,16 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-23 Claude: Tested on a real phone, the previous entry's map was
+  too small to tap comfortably (~42px tiles, from sampling the source
+  image at 9x12). Re-ran the classification at a coarser 6x8 grid instead
+  (matches the image's aspect ratio, lands tile size at a full 64px —
+  same as CHAPTER_1) rather than adding camera scrolling, trading away a
+  handful of small rock-outcrop details that get averaged into their
+  neighboring plain cell at that coarser sampling. Map now has no wall
+  tiles at all — the water band + its bridge crossing is the whole
+  chokepoint, which reads fine for a "Riverlands" map. Verified on a
+  matching viewport with Playwright.
 - 2026-08-23 Claude: Proved out a "read terrain off a painted map image"
   concept end-to-end. Took a user-generated map image, classified its 9x12
   grid into plain/forest/wall/water tiles via k-means color clustering +
