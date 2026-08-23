@@ -2,6 +2,7 @@ import { GameObjects, Scene } from 'phaser';
 import type { Unit } from '../game/types';
 import { DPR } from '../systems/viewport';
 import { CLASS_LETTER } from '../ui/classIcons';
+import { FONT_FAMILY } from '../ui/kit';
 
 const TEAM_COLOR: Record<string, number> = { player: 0x4a90d9, enemy: 0xd9534f };
 /** Neutral gray a spent unit's color blends toward — classic FE "grayed out, already acted" convention. */
@@ -51,7 +52,7 @@ export class UnitSprite extends GameObjects.Container {
     this.circle = scene.add.circle(0, 0, radius, this.baseColor).setStrokeStyle(2, 0x000000, 0.4);
     const label = scene.add
       .text(0, 0, CLASS_LETTER[unit.className] ?? '?', {
-        fontFamily: 'monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: `${Math.round(tileSize * 0.28)}px`,
         color: '#ffffff',
         resolution: DPR,

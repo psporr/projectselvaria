@@ -2,7 +2,7 @@ import { GameObjects, Scene } from 'phaser';
 
 import type { Blessing, BlessingRarity } from '../game/blessings';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
-import { Card } from './kit';
+import { Card, FONT_FAMILY } from './kit';
 
 const CARD_WIDTH = 132;
 const CARD_HEIGHT = 260;
@@ -38,7 +38,7 @@ export class BlessingPicker extends GameObjects.Container {
     const backdrop = scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7);
     const heading = scene.add
       .text(width / 2, height / 2 - CARD_HEIGHT / 2 - 32, 'Choose a Blessing', {
-        fontFamily: 'monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '18px',
         color: '#e0e0e0',
         resolution: DPR,
@@ -73,7 +73,7 @@ export class BlessingPicker extends GameObjects.Container {
 
       const stars = this.scene.add
         .text(x, centerY - CARD_HEIGHT / 2 + 18, RARITY_STARS[blessing.rarity], {
-          fontFamily: 'monospace',
+          fontFamily: FONT_FAMILY,
           fontSize: '14px',
           color: `#${color.toString(16).padStart(6, '0')}`,
           resolution: DPR,
@@ -82,7 +82,7 @@ export class BlessingPicker extends GameObjects.Container {
 
       const name = this.scene.add
         .text(x, centerY - CARD_HEIGHT / 2 + 44, blessing.name, {
-          fontFamily: 'monospace',
+          fontFamily: FONT_FAMILY,
           fontSize: '12px',
           color: '#e0e0e0',
           align: 'center',
@@ -93,7 +93,7 @@ export class BlessingPicker extends GameObjects.Container {
 
       const description = this.scene.add
         .text(x, centerY - CARD_HEIGHT / 2 + 100, blessing.description, {
-          fontFamily: 'monospace',
+          fontFamily: FONT_FAMILY,
           fontSize: '11px',
           color: '#9099a8',
           align: 'center',

@@ -13,6 +13,7 @@ import { applyDprZoom, DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import type { ActionMenuChoice, ActionMenuOption } from '../ui/ActionMenu';
 import { formatAttackForecast } from '../ui/ForecastPanel';
 import type { SystemMenuChoice, SystemMenuOption } from '../ui/SystemMenu';
+import { FONT_FAMILY } from '../ui/kit';
 import type { UIScene } from './UIScene';
 
 // Sized against main.ts's 480x854 portrait design resolution (HANDOFF.md
@@ -295,7 +296,7 @@ export class TacticalScene extends Scene {
 
   private spawnFloatingText(x: number, y: number, text: string, colorHex: string): void {
     const floating = this.add
-      .text(x, y - this.tileSize * 0.35, text, { fontFamily: 'monospace', fontSize: '15px', color: colorHex, fontStyle: 'bold', resolution: DPR })
+      .text(x, y - this.tileSize * 0.35, text, { fontFamily: FONT_FAMILY, fontSize: '15px', color: colorHex, fontStyle: 'bold', resolution: DPR })
       .setOrigin(0.5)
       .setDepth(3);
     this.tweens.add({

@@ -5,7 +5,7 @@ import { SKILLS } from '../game/skills';
 import type { ItemSlot, Unit } from '../game/types';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from './classIcons';
-import { Button, Card, COLORS } from './kit';
+import { Button, Card, COLORS, FONT_FAMILY } from './kit';
 
 // Sits right below the board, at a fixed position — TacticalScene now
 // computes its tile size per-chapter (see its BOARD_AREA_HEIGHT) precisely
@@ -72,7 +72,7 @@ export class UnitStatusBar extends GameObjects.Container {
 
     this.hint = scene.add
       .text(LOGICAL_WIDTH / 2, BAR_Y, 'Tap a unit to see its status', {
-        fontFamily: 'monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '12px',
         color: COLORS.textDisabled,
         resolution: DPR,
@@ -81,14 +81,14 @@ export class UnitStatusBar extends GameObjects.Container {
 
     this.badge = scene.add.circle(BADGE_X, BAR_Y, 16, TEAM_COLOR.player).setStrokeStyle(2, 0x000000, 0.4);
     this.badgeLabel = scene.add
-      .text(BADGE_X, BAR_Y, '', { fontFamily: 'monospace', fontSize: '15px', color: '#ffffff', resolution: DPR })
+      .text(BADGE_X, BAR_Y, '', { fontFamily: FONT_FAMILY, fontSize: '15px', color: '#ffffff', resolution: DPR })
       .setOrigin(0.5);
 
     this.nameText = scene.add
-      .text(CONTENT_X, BAR_Y - 14, '', { fontFamily: 'monospace', fontSize: '13px', color: COLORS.textPrimary, resolution: DPR })
+      .text(CONTENT_X, BAR_Y - 14, '', { fontFamily: FONT_FAMILY, fontSize: '13px', color: COLORS.textPrimary, resolution: DPR })
       .setOrigin(0, 0.5);
     this.statsText = scene.add
-      .text(CONTENT_X, BAR_Y + 8, '', { fontFamily: 'monospace', fontSize: '11px', color: COLORS.textPrimary, resolution: DPR })
+      .text(CONTENT_X, BAR_Y + 8, '', { fontFamily: FONT_FAMILY, fontSize: '11px', color: COLORS.textPrimary, resolution: DPR })
       .setOrigin(0, 0.5);
 
     this.hpBarWidth = 60;
@@ -109,7 +109,7 @@ export class UnitStatusBar extends GameObjects.Container {
     this.detailCard = new Card(scene, centerX, centerY, DETAIL_WIDTH, 200);
     this.detailText = scene.add
       .text(centerX - DETAIL_WIDTH / 2 + 20, centerY, '', {
-        fontFamily: 'monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '13px',
         color: COLORS.textPrimary,
         lineSpacing: 8,

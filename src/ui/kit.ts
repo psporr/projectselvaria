@@ -16,6 +16,16 @@ import { DPR } from '../systems/viewport';
  * no rounded-corner support, so both widgets below draw with `Graphics`
  * (`fillRoundedRect`/`strokeRoundedRect`) instead.
  */
+/**
+ * Central font stack — change once here to swap fonts everywhere, instead
+ * of the 25-odd scattered `fontFamily: 'monospace'` literals this replaced.
+ * Pixelify Sans is loaded via a Google Fonts `<link>` in index.html;
+ * monospace is the fallback if the web font hasn't finished loading yet (a
+ * real gap — `main.ts` waits on `document.fonts.load()` before booting the
+ * game specifically to close it) or fails to load at all.
+ */
+export const FONT_FAMILY = '"Pixelify Sans", monospace';
+
 export const COLORS = {
   cardBg: 0x1c2030,
   cardStroke: 0x4a90d9,
@@ -76,7 +86,7 @@ export class Button extends GameObjects.Container {
     this.gfx = scene.add.graphics();
     this.labelText = scene.add
       .text(0, 0, text, {
-        fontFamily: 'monospace',
+        fontFamily: FONT_FAMILY,
         fontSize,
         fontStyle: 'bold',
         color: COLORS.textPrimary,

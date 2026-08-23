@@ -13,7 +13,7 @@ import { ForecastPanel } from '../ui/ForecastPanel';
 import { PhaseBanner } from '../ui/PhaseBanner';
 import { SystemMenu, type SystemMenuChoice, type SystemMenuOption } from '../ui/SystemMenu';
 import { UnitStatusBar } from '../ui/UnitStatusBar';
-import { Button, COLORS } from '../ui/kit';
+import { Button, COLORS, FONT_FAMILY } from '../ui/kit';
 import type { TacticalScene } from './TacticalScene';
 
 interface UISceneData {
@@ -76,7 +76,7 @@ export class UIScene extends Scene {
 
     // Top status banner
     this.phaseText = this.add.text(16, 20, '', {
-      fontFamily: 'monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '13px',
       color: '#e0e0e0',
       resolution: DPR,
@@ -90,7 +90,7 @@ export class UIScene extends Scene {
     // (TacticalScene.spawnFloatingText), so the log was always secondary
     // detail, not the primary readout, and the dock needs the room.
     this.logText = this.add.text(16, 644, '', {
-      fontFamily: 'monospace',
+      fontFamily: FONT_FAMILY,
       fontSize: '12px',
       color: '#9099a8',
       wordWrap: { width: LOGICAL_WIDTH - 32 },
@@ -117,7 +117,7 @@ export class UIScene extends Scene {
     // Version label (bottom right)
     this.add
       .text(LOGICAL_WIDTH - 12, LOGICAL_HEIGHT - 12, `v${GAME_VERSION}`, {
-        fontFamily: 'monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '11px',
         color: '#5a6070',
         resolution: DPR,
@@ -140,7 +140,7 @@ export class UIScene extends Scene {
 
     this.gameOverText = this.add
       .text(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2 - 30, '', {
-        fontFamily: 'monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '36px',
         color: '#ffffff',
         fontStyle: 'bold',
@@ -160,7 +160,7 @@ export class UIScene extends Scene {
 
     this.gameOverRestartText = this.add
       .text(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2 + 36, 'Restart Battle', {
-        fontFamily: 'monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '14px',
         color: '#ffffff',
         fontStyle: 'bold',
@@ -288,7 +288,7 @@ export class UIScene extends Scene {
   showLootToast(text: string): void {
     const toast = this.add
       .text(LOGICAL_WIDTH / 2, 120, text, {
-        fontFamily: 'monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '14px',
         color: '#f0ad4e',
         backgroundColor: '#1c2030',

@@ -4,6 +4,7 @@ import { TacticalScene } from './scenes/TacticalScene';
 import { UIScene } from './scenes/UIScene';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from './systems/viewport';
 import { GAME_VERSION } from './version';
+import { FONT_FAMILY } from './ui/kit';
 
 // Phaser config + Vite entry point. Scenes render from boardgame.io's G/ctx and
 // dispatch moves back — they never own authoritative state. See HANDOFF.md §7.
@@ -44,5 +45,19 @@ const config: Types.Core.GameConfig = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    new Game(config);
+    // The Google Fonts <link> in index.html only declares the @font-face —
+    // the browser doesn't actually fetch the file until something asks to
+    // render with it, and Phaser's Text objects (canvas-drawn) render
+    // immediately with whatever's already loaded rather than waiting. Force
+    // the fetch and wait for it here so BootScene's very first frame already
+    // has the real font instead of falling back to monospace until some
+    // later re-render happens to pick it up. .catch() so a blocked/offline
+    // font request still lets the game boot (FONT_FAMILY's monospace
+    // fallback covers that case).
+    document.fonts
+        .load(`16px ${FONT_FAMILY}`)
+        .catch(() => undefined)
+        .finally(() => {
+            new Game(config);
+        });
 });

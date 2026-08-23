@@ -5,7 +5,7 @@ import { unitsOf } from '../game/grid';
 import type { GameState, ItemSlot } from '../game/types';
 import type { GameClient } from '../systems/gameClient';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
-import { Button, Card, COLORS } from './kit';
+import { Button, Card, COLORS, FONT_FAMILY } from './kit';
 
 type EquipView = { kind: 'roster' } | { kind: 'unit'; unitId: string } | { kind: 'slot'; unitId: string; slot: ItemSlot };
 
@@ -50,7 +50,7 @@ export class EquipScreen extends GameObjects.Container {
     const card = new Card(scene, centerX, centerY, cardWidth, cardHeight);
 
     this.headerText = scene.add
-      .text(centerX, centerY - cardHeight / 2 + 14, '', { fontFamily: 'monospace', fontSize: '15px', color: COLORS.textPrimary, resolution: DPR })
+      .text(centerX, centerY - cardHeight / 2 + 14, '', { fontFamily: FONT_FAMILY, fontSize: '15px', color: COLORS.textPrimary, resolution: DPR })
       .setOrigin(0.5, 0);
 
     this.backButton = new Button(scene, centerX - cardWidth / 2 + 46, centerY - cardHeight / 2 + 16, 68, 24, '< Back', () => this.goBack(), '11px');
@@ -186,7 +186,7 @@ export class EquipScreen extends GameObjects.Container {
     const fill = onTap ? 0x2d3348 : 0x22262f;
     const button = this.scene.add.rectangle(centerX, y, cardWidth - 32, ROW_HEIGHT, fill).setStrokeStyle(1, 0x3a4258);
     const text = this.scene.add
-      .text(centerX - cardWidth / 2 + 24, y, label, { fontFamily: 'monospace', fontSize: '12px', color: onTap ? '#e0e0e0' : '#5a6070', resolution: DPR })
+      .text(centerX - cardWidth / 2 + 24, y, label, { fontFamily: FONT_FAMILY, fontSize: '12px', color: onTap ? '#e0e0e0' : '#5a6070', resolution: DPR })
       .setOrigin(0, 0.5);
 
     if (onTap) button.setInteractive({ useHandCursor: true }).on('pointerup', onTap);

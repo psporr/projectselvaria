@@ -2,6 +2,7 @@ import { GameObjects, Scene } from 'phaser';
 
 import type { Team } from '../game/types';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
+import { FONT_FAMILY } from './kit';
 
 const BAR_HEIGHT = 56;
 const BANNER_Y = LOGICAL_HEIGHT * 0.32;
@@ -42,7 +43,7 @@ export class PhaseBanner extends GameObjects.Container {
     this.accentBottom = scene.add.rectangle(centerX, BANNER_Y + BAR_HEIGHT / 2, LOGICAL_WIDTH, 3, 0x4a90d9);
     this.label = scene.add
       .text(centerX, BANNER_Y, '', {
-        fontFamily: 'monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '26px',
         fontStyle: 'bold',
         color: '#ffffff',

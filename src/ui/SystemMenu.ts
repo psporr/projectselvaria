@@ -1,6 +1,6 @@
 import { GameObjects, Scene } from 'phaser';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
-import { Button, Card, COLORS } from './kit';
+import { Button, Card, COLORS, FONT_FAMILY } from './kit';
 
 export type SystemMenuChoice = 'end-turn' | 'restart' | 'cancel';
 
@@ -42,7 +42,7 @@ export class SystemMenu extends GameObjects.Container {
 
     this.title = scene.add
       .text(width / 2, height / 2, 'Menu', {
-        fontFamily: 'monospace',
+        fontFamily: FONT_FAMILY,
         fontSize: '15px',
         color: COLORS.textAccent,
         fontStyle: 'bold',

@@ -133,6 +133,21 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-23 Claude: Swapped the game's font from the browser's plain
+  `monospace` to Pixelify Sans (Google Fonts), loaded via a `<link>` in
+  `index.html`. Centralized the 25 scattered `fontFamily: 'monospace'`
+  literals across every `src/ui/`/`src/scenes/` file into one
+  `FONT_FAMILY` constant in `src/ui/kit.ts` — `'"Pixelify Sans",
+  monospace'`, so monospace is still the fallback if the web font fails
+  to load. `main.ts` explicitly waits on `document.fonts.load()` before
+  booting the Phaser game, since the `<link>` alone only declares the
+  @font-face — the browser doesn't fetch the file until something
+  renders with it, and Phaser's canvas-drawn text doesn't wait around for
+  that on its own. Verified the resource itself (valid @font-face CSS,
+  200) and that the fallback renders cleanly with no breakage if the font
+  never loads; couldn't get a clean *rendered* screenshot of the actual
+  pixel font in this session's sandbox (a Playwright-proxy routing quirk,
+  not a game issue) — worth an eyeball check on a normal connection.
 - 2026-08-23 Claude: Fixed the mountain outcrops on the painted test map —
   after the 6x8 resample they'd been (wrongly) walkable, so units could
   stand right on top of visible rock art. Root cause was the per-cell
