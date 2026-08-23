@@ -95,6 +95,19 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-22 Claude: Fixed two bugs. (1) Restart Battle froze the game —
+  `TacticalScene.create()` never reset its own instance fields
+  (`unitSprites`, `lastUnits`, etc.), so `scene.restart()` (which reuses the
+  same Scene instance, not a fresh one) left `syncUnits()` finding stale
+  sprite references Phaser had already destroyed, throwing inside Phaser's
+  own scene-boot step and hanging the game — reproduced via Playwright with
+  the exact stack trace, now resets all mutable fields at the top of
+  `create()`. (2) The Danger Zone button never visually updated on press —
+  `toggleThreatOverlay()` flips scene-local UI state, not G/ctx, so
+  `UIScene`'s `client.subscribe()`-driven `refreshHud()` never fired from
+  it (the board overlay itself was fine, only the button was stale); it now
+  calls `ui.refreshHud()` directly. Both verified fixed via Playwright
+  before/after screenshots, with sim/map-validate still green.
 - 2026-08-22 Claude: Pushed straight to `main` per the repo owner's new
   workflow instruction (no more feature branches — see Workflow above) and
   noted it in the README.

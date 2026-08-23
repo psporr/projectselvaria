@@ -96,6 +96,27 @@ export class TacticalScene extends Scene {
   }
 
   create() {
+    // scene.restart() (restartBattle()) re-runs create() on this SAME Scene
+    // instance rather than constructing a fresh one — Phaser only resets its
+    // own systems (display list, input, tweens), not this class's own
+    // fields. Every mutable field below must be reset here or it silently
+    // carries over from the previous game. unitSprites/lastUnits are the
+    // dangerous ones: left stale, syncUnits() below finds "existing" sprite
+    // entries that Phaser already destroyed on shutdown, then calls
+    // UnitSprite.flash() on a dead GameObject (this.scene === undefined),
+    // throwing inside Phaser's own scene-boot step and freezing the game —
+    // exactly what restartBattle() used to do.
+    this.unitSprites.clear();
+    this.highlightRects.length = 0;
+    this.threatRects.length = 0;
+    this.threatOverlayVisible = false;
+    this.lastUnits = {};
+    this.mode = 'idle';
+    this.selectedUnitId = null;
+    this.pendingDestination = null;
+    this.blessingPickerOpen = false;
+    this.inputSuspended = false;
+
     this.client = createGameClient();
     this.cameras.main.setBackgroundColor('#111318');
     applyDprZoom(this);
@@ -521,6 +542,7 @@ export class TacticalScene extends Scene {
   toggleThreatOverlay(): boolean {
     this.threatOverlayVisible = !this.threatOverlayVisible;
     this.refreshThreatOverlay();
+    this.ui.refreshHud();
     return this.threatOverlayVisible;
   }
 

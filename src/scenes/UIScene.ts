@@ -190,7 +190,14 @@ export class UIScene extends Scene {
     this.equipScreen.show(() => this.tactical.setInputSuspended(false));
   }
 
-  private refreshHud(): void {
+  /**
+   * Public because TacticalScene calls this directly after toggling the
+   * threat overlay — that flips scene-local UI state, not G/ctx, so the
+   * client.subscribe() callback below (the only other thing that calls this)
+   * never fires from it, and the Danger button would otherwise only catch up
+   * whenever some unrelated G change happened to refresh the HUD next.
+   */
+  refreshHud(): void {
     const state = this.client.getState();
     if (!state) return;
     const { G, ctx } = state;
