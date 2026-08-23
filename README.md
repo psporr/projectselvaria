@@ -133,6 +133,27 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-23 Claude: Proved out a "read terrain off a painted map image"
+  concept end-to-end. Took a user-generated map image, classified its 9x12
+  grid into plain/forest/wall/water tiles via k-means color clustering +
+  an HSV-saturation split (forest vs. mountain), and turned that into a
+  real playable chapter (`TEST_MAP_1` in `src/game/maps.ts`, spawns picked
+  by hand off the classified grid). To render it, `TacticalScene` now
+  draws that image as the board background instead of flat terrain-color
+  tiles (see `CHAPTERS_WITH_BACKGROUND_ART`) and computes tile size
+  per-chapter rather than a fixed 64px, since this map is wider/taller
+  than any existing one (`BOARD_AREA_WIDTH`/`BOARD_AREA_HEIGHT`); existing
+  chapters render identically since the math reduces to the old constant
+  for their dimensions. **`ProjectSelvaria` is temporarily pointed at
+  `TEST_MAP_1` instead of `CHAPTER_1`** so the map is actually reachable
+  in the UI (no chapter-select exists yet) — swap it back once you're done
+  poking at it. Verified with Playwright (tile clicks, unit selection,
+  move + action menu, all render correctly over the background image).
+  If this concept sticks, next steps are: a real chapter-select so test
+  maps don't have to steal the roguelike slot, and deciding whether
+  painted-background maps or a tileset (`ART_BRIEF.md` §2) is the actual
+  art direction going forward — probably worth a discussion before
+  investing in more maps either way.
 - 2026-08-22 Claude: Discussed moving from text/shape-only UI to real
   graphical art. Decided: unit sprites and portraits will be custom-
   commissioned (not generic asset packs — the game is a distinct enough

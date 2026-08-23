@@ -4,7 +4,7 @@ import { INVALID_MOVE } from 'boardgame.io/core';
 import type { CampaignCarryOver, ChapterDef } from './maps';
 import type { GameMode, GameState, ItemSlot, Team, Unit } from './types';
 import { PLAYER_ID, teamOf } from './types';
-import { buildGameState, CAMPAIGN_CHAPTER_1, CHAPTER_1, type ShuffleAPI } from './maps';
+import { buildGameState, CAMPAIGN_CHAPTER_1, CHAPTER_1, TEST_MAP_1, type ShuffleAPI } from './maps';
 import { computeReachable, manhattan, tileKey, unitsOf } from './grid';
 import {
   canCounter,
@@ -558,8 +558,16 @@ const SelvariaGameBase: Game<GameState> = {
   },
 };
 
-/** The endless wave-survival run. */
-export const ProjectSelvaria = createSelvariaGame('roguelike', CHAPTER_1);
+/**
+ * The endless wave-survival run.
+ *
+ * Temporarily pointed at TEST_MAP_1 instead of CHAPTER_1 to playtest the
+ * painted-map-background concept in-game — there's no chapter-select UI, so
+ * swapping the one active roguelike chapter is the only way to make a new
+ * map reachable. Swap back to CHAPTER_1 once the test is done; CHAPTER_1
+ * itself is untouched.
+ */
+export const ProjectSelvaria = createSelvariaGame('roguelike', TEST_MAP_1);
 
 /** Campaign chapter 1, a fixed-composition rout on its own map. */
 export const ProjectSelvariaCampaign = createSelvariaGame('campaign', CAMPAIGN_CHAPTER_1);

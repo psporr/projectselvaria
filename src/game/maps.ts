@@ -398,3 +398,56 @@ export const CAMPAIGN_CHAPTER_2: ChapterDef = {
 
 /** Every chapter the campaign can load, in play order. */
 export const CAMPAIGN_CHAPTERS: ChapterDef[] = [CAMPAIGN_CHAPTER_1, CAMPAIGN_CHAPTER_2];
+
+/**
+ * Concept-test map: terrain read off a user-generated painted map image
+ * (`public/maps/test-map1.png`) via a color-clustering + saturation
+ * classification pass, not hand-authored ASCII like the other chapters.
+ * TacticalScene renders that same image as the board background for this
+ * chapter id instead of flat terrain-color tiles (see
+ * `CHAPTERS_WITH_BACKGROUND_ART` there) — the point of this chapter is to
+ * prove that pipeline end-to-end, not to be a balanced encounter. 9x12, one
+ * column/row wider than any existing chapter, so TacticalScene's tile size
+ * is computed per-chapter now rather than a fixed 64px (see its
+ * `BOARD_AREA_WIDTH`/`BOARD_AREA_HEIGHT`).
+ *
+ * Spawns picked by hand off the classified grid: player squad clustered on
+ * the passable bottom two rows, enemies on the top two rows (also required
+ * by waves.ts's `ENEMY_ZONE_ROWS`), everyone kept off the water/wall band
+ * that splits the map — that band is the natural chokepoint, same role the
+ * hand-authored chapters' wall/water bands play.
+ */
+export const TEST_MAP_1: ChapterDef = {
+  id: 'test-map1',
+  name: 'Concept Test: Riverlands',
+  shortName: 'Riverlands (Test)',
+  objective: 'Survive as many waves as you can',
+  objectiveType: 'waves',
+  rows: [
+    '..#.....f',
+    '.........',
+    '........#',
+    'ww#f.....',
+    'fww......',
+    '.#www.www',
+    '......ff.',
+    '..f....f.',
+    '.ff......',
+    '..#......',
+    '..f......',
+    'f......ff',
+  ],
+  units: [
+    { id: 'lyn', name: 'Eirika', team: 'player', className: 'Swordsman', x: 3, y: 10 },
+    { id: 'corrin', name: 'Corrin', team: 'player', className: 'Lancer', x: 5, y: 10 },
+    { id: 'ake', name: 'Ike', team: 'player', className: 'Barbarian', x: 2, y: 11 },
+    { id: 'lissa', name: 'Lissa', team: 'player', className: 'Cleric', x: 3, y: 11 },
+    { id: 'byleth', name: 'Byleth', team: 'player', className: 'Archer', x: 4, y: 11 },
+    { id: 'selva', name: 'Selva', team: 'player', className: 'Mage', x: 5, y: 11 },
+    { id: 'olivia', name: 'Olivia', team: 'player', className: 'Dancer', x: 6, y: 11 },
+    { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 1, y: 0 },
+    { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 7, y: 0 },
+    { id: 'bandit-3', name: 'Bandit 3', team: 'enemy', randomClass: true, x: 1, y: 1 },
+    { id: 'bandit-4', name: 'Bandit 4', team: 'enemy', randomClass: true, x: 7, y: 1 },
+  ],
+};

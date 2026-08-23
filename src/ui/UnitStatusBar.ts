@@ -7,14 +7,13 @@ import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from './classIcons';
 import { Button, Card, COLORS } from './kit';
 
-// Sits right below the board. TacticalScene's board is BOARD_ORIGIN_Y (56)
-// + G.height * TILE_SIZE (64) tall; only the roguelike map (the only mode
-// actually reachable in the UI today — campaign chapters aren't wired up
-// yet, see README) is playable, and it's 8 rows, not 7 — board bottom is
-// 56 + 8*64 = 568, not 504. Getting this wrong once already cost a
-// dead-tap bug (the bar's hit zone silently ate clicks meant for the
-// board's last row) — if a taller map ever becomes playable, this whole
-// region needs to read G.height dynamically instead of a fixed constant.
+// Sits right below the board, at a fixed position — TacticalScene now
+// computes its tile size per-chapter (see its BOARD_AREA_HEIGHT) precisely
+// so any chapter's board bottom stays at or above 568, clearing this bar's
+// top edge (600 - 28) regardless of how many rows the chapter has. Getting
+// this wrong once already cost a dead-tap bug (the bar's hit zone silently
+// ate clicks meant for the board's last row); if BAR_Y ever needs to move,
+// TacticalScene's BOARD_AREA_HEIGHT must move with it.
 const BAR_Y = 600;
 const BAR_HEIGHT = 56;
 const BAR_WIDTH = LOGICAL_WIDTH - 32;

@@ -9,7 +9,7 @@ import { canUseSkill, describeSkillEffect, novaBlastCoords, skillTargets, SKILLS
 import { TERRAIN, teamOf, type GameState, type Unit } from '../game/types';
 import { UnitSprite } from '../entities/UnitSprite';
 import { createGameClient, type GameClient } from '../systems/gameClient';
-import { applyDprZoom, DPR } from '../systems/viewport';
+import { applyDprZoom, DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import type { ActionMenuChoice, ActionMenuOption } from '../ui/ActionMenu';
 import { formatAttackForecast } from '../ui/ForecastPanel';
 import type { SystemMenuChoice, SystemMenuOption } from '../ui/SystemMenu';
@@ -17,13 +17,21 @@ import type { UIScene } from './UIScene';
 
 // Sized against main.ts's 480x854 portrait design resolution (HANDOFF.md
 // §10) — the ScaleManager (Scale.FIT) handles fitting that to the real
-// viewport, this only has to lay out inside the fixed base canvas. The board
-// is 7 tiles wide, so 64px tiles with 16px side margins fill it exactly
-// (7*64 + 2*16 = 480); the log panel stacks below the board rather than
-// beside it, since portrait width has no room for a side panel.
-const TILE_SIZE = 64;
-const BOARD_ORIGIN_X = 16;
+// viewport, this only has to lay out inside the fixed base canvas. Tile size
+// isn't a fixed constant: it's computed per-chapter in create() so any
+// chapter's board fits the same reserved area, rather than assuming every
+// map is CHAPTER_1's 7x8 (previously a hardcoded 64px tile broke down the
+// moment a wider/taller chapter — see TEST_MAP_1 — was loaded). The board
+// area is BOARD_AREA_WIDTH x BOARD_AREA_HEIGHT starting at (BOARD_ORIGIN_X
+// computed to center it, BOARD_ORIGIN_Y). BOARD_AREA_HEIGHT's lower bound
+// must stay <= UnitStatusBar's fixed BAR_Y (600) minus half its BAR_HEIGHT
+// (56) minus a small gap — that bar sits at a constant position regardless
+// of board height (src/ui/UnitStatusBar.ts's own note on this), so a board
+// taller than CHAPTER_1's 8 rows must shrink its tiles to still clear it
+// rather than running underneath it.
 const BOARD_ORIGIN_Y = 56;
+const BOARD_AREA_WIDTH = LOGICAL_WIDTH - 2 * 16;
+const BOARD_AREA_HEIGHT = 568 - BOARD_ORIGIN_Y;
 
 const TERRAIN_COLOR: Record<string, number> = {
   plain: 0x3a3f4b,
@@ -31,6 +39,14 @@ const TERRAIN_COLOR: Record<string, number> = {
   wall: 0x4a4a4a,
   water: 0x2a5d8a,
 };
+
+/**
+ * Chapters with a painted background image (proving out the "read terrain
+ * off a generated map image" concept — see TEST_MAP_1 in maps.ts) instead of
+ * flat terrain-color tiles. The image lives at `public/maps/<id>.png` and is
+ * loaded under the `<id>-bg` texture key.
+ */
+const CHAPTERS_WITH_BACKGROUND_ART = ['test-map1'];
 
 const MOVE_HIGHLIGHT = 0x4a90d9;
 const TARGET_HIGHLIGHT = 0xd9534f;
@@ -67,6 +83,9 @@ type UiMode = 'idle' | 'unit-selected' | 'action-menu' | 'awaiting-target' | 'sk
 export class TacticalScene extends Scene {
   private client!: GameClient;
   private ui!: UIScene;
+  /** Computed per-chapter in create() — see BOARD_AREA_WIDTH/HEIGHT's doc comment. */
+  private tileSize = 64;
+  private boardOriginX = 16;
   private readonly unitSprites = new Map<string, UnitSprite>();
   private readonly highlightRects: GameObjects.Rectangle[] = [];
   private readonly threatRects: GameObjects.Rectangle[] = [];
@@ -97,6 +116,13 @@ export class TacticalScene extends Scene {
     super('Tactical');
   }
 
+  preload(): void {
+    for (const id of CHAPTERS_WITH_BACKGROUND_ART) {
+      const key = `${id}-bg`;
+      if (!this.textures.exists(key)) this.load.image(key, `/maps/${id}.png`);
+    }
+  }
+
   create() {
     // scene.restart() (restartBattle()) re-runs create() on this SAME Scene
     // instance rather than constructing a fresh one — Phaser only resets its
@@ -124,6 +150,10 @@ export class TacticalScene extends Scene {
     this.cameras.main.setBackgroundColor('#111318');
     applyDprZoom(this);
 
+    const { G } = this.client.getState()!;
+    this.tileSize = Math.floor(Math.min(BOARD_AREA_WIDTH / G.width, BOARD_AREA_HEIGHT / G.height));
+    this.boardOriginX = Math.round((LOGICAL_WIDTH - G.width * this.tileSize) / 2);
+
     this.scene.launch('UI', { client: this.client, tactical: this });
     this.ui = this.scene.get('UI') as UIScene;
 
@@ -138,16 +168,37 @@ export class TacticalScene extends Scene {
   }
 
   private tileCenter(x: number, y: number): { px: number; py: number } {
-    return { px: BOARD_ORIGIN_X + x * TILE_SIZE + TILE_SIZE / 2, py: BOARD_ORIGIN_Y + y * TILE_SIZE + TILE_SIZE / 2 };
+    return {
+      px: this.boardOriginX + x * this.tileSize + this.tileSize / 2,
+      py: BOARD_ORIGIN_Y + y * this.tileSize + this.tileSize / 2,
+    };
   }
 
   private drawBoard(): void {
     const { G } = this.client.getState()!;
+    const hasBackgroundArt = CHAPTERS_WITH_BACKGROUND_ART.includes(G.chapterId);
+    const bgKey = `${G.chapterId}-bg`;
+
+    if (hasBackgroundArt && this.textures.exists(bgKey)) {
+      const boardWidth = G.width * this.tileSize;
+      const boardHeight = G.height * this.tileSize;
+      this.add
+        .image(this.boardOriginX + boardWidth / 2, BOARD_ORIGIN_Y + boardHeight / 2, bgKey)
+        .setDisplaySize(boardWidth, boardHeight)
+        .setDepth(-1);
+    }
+
     for (let y = 0; y < G.height; y++) {
       for (let x = 0; x < G.width; x++) {
         const terrain = TERRAIN[G.tiles[y][x]];
         const { px, py } = this.tileCenter(x, y);
-        const rect = this.add.rectangle(px, py, TILE_SIZE - 2, TILE_SIZE - 2, TERRAIN_COLOR[terrain.type]).setDepth(0);
+        // With background art, tiles turn invisible (the painted image is
+        // the visual) but keep a faint grid stroke and stay interactive —
+        // clicking still needs one hit-testable shape per tile.
+        const rect = this.add
+          .rectangle(px, py, this.tileSize - 2, this.tileSize - 2, TERRAIN_COLOR[terrain.type], hasBackgroundArt ? 0 : 1)
+          .setDepth(0);
+        if (hasBackgroundArt) rect.setStrokeStyle(1, 0xffffff, 0.12);
         rect.setInteractive({ useHandCursor: true });
         rect.on('pointerdown', () => this.onTileClicked(x, y));
       }
@@ -196,7 +247,7 @@ export class TacticalScene extends Scene {
 
       let sprite = this.unitSprites.get(unit.id);
       if (!sprite) {
-        sprite = new UnitSprite(this, px, py, TILE_SIZE, unit, isDimmed(unit));
+        sprite = new UnitSprite(this, px, py, this.tileSize, unit, isDimmed(unit));
         sprite.setDepth(2);
         this.unitSprites.set(unit.id, sprite);
       } else {
@@ -233,7 +284,7 @@ export class TacticalScene extends Scene {
 
   private spawnFloatingText(x: number, y: number, text: string, colorHex: string): void {
     const floating = this.add
-      .text(x, y - TILE_SIZE * 0.35, text, { fontFamily: 'monospace', fontSize: '15px', color: colorHex, fontStyle: 'bold', resolution: DPR })
+      .text(x, y - this.tileSize * 0.35, text, { fontFamily: 'monospace', fontSize: '15px', color: colorHex, fontStyle: 'bold', resolution: DPR })
       .setOrigin(0.5)
       .setDepth(3);
     this.tweens.add({
@@ -271,7 +322,7 @@ export class TacticalScene extends Scene {
   private highlightTiles(coords: Iterable<{ x: number; y: number }>, color: number): void {
     for (const { x, y } of coords) {
       const { px, py } = this.tileCenter(x, y);
-      const rect = this.add.rectangle(px, py, TILE_SIZE - 6, TILE_SIZE - 6, color, 0.38).setDepth(1);
+      const rect = this.add.rectangle(px, py, this.tileSize - 6, this.tileSize - 6, color, 0.38).setDepth(1);
       this.highlightRects.push(rect);
     }
   }
@@ -588,7 +639,7 @@ export class TacticalScene extends Scene {
     for (const key of threatened) {
       const [x, y] = key.split(',').map(Number);
       const { px, py } = this.tileCenter(x, y);
-      const rect = this.add.rectangle(px, py, TILE_SIZE - 4, TILE_SIZE - 4, 0xd9534f, 0.28).setDepth(1);
+      const rect = this.add.rectangle(px, py, this.tileSize - 4, this.tileSize - 4, 0xd9534f, 0.28).setDepth(1);
       this.threatRects.push(rect);
     }
   }
