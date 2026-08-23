@@ -56,6 +56,9 @@ export class Button extends GameObjects.Container {
   private readonly btnH: number;
   private enabled = true;
   private onTap: (() => void) | null;
+  private accentFill: number | null = null;
+  private accentStroke: number | null = null;
+  private accentTextColor: string | null = null;
 
   constructor(scene: Scene, x: number, y: number, width: number, height: number, text: string, onTap: (() => void) | null, fontSize = '14px') {
     super(scene, x, y);
@@ -103,6 +106,14 @@ export class Button extends GameObjects.Container {
     this.onTap = onTap;
   }
 
+  /** Overrides fill/stroke/text color for an "active" state (e.g. Danger Zone toggled on) — pass nulls to clear back to the default enabled look. Has no effect while disabled, which always wins. */
+  setAccent(fill: number | null, stroke: number | null, textColor: string | null = null): void {
+    this.accentFill = fill;
+    this.accentStroke = stroke;
+    this.accentTextColor = textColor;
+    this.redraw();
+  }
+
   private setHitArea(): void {
     this.setInteractive({
       hitArea: new Geom.Rectangle(-this.btnW / 2, -this.btnH / 2, this.btnW, this.btnH),
@@ -125,11 +136,13 @@ export class Button extends GameObjects.Container {
   private redraw(): void {
     const g = this.gfx;
     g.clear();
-    g.fillStyle(this.enabled ? COLORS.buttonFill : COLORS.buttonFillDisabled, 1);
+    const fill = this.enabled ? (this.accentFill ?? COLORS.buttonFill) : COLORS.buttonFillDisabled;
+    const stroke = this.enabled ? (this.accentStroke ?? COLORS.buttonStroke) : COLORS.buttonStroke;
+    g.fillStyle(fill, 1);
     g.fillRoundedRect(-this.btnW / 2, -this.btnH / 2, this.btnW, this.btnH, RADIUS);
-    g.lineStyle(1, COLORS.buttonStroke, 1);
+    g.lineStyle(1, stroke, 1);
     g.strokeRoundedRect(-this.btnW / 2, -this.btnH / 2, this.btnW, this.btnH, RADIUS);
-    this.labelText.setColor(this.enabled ? COLORS.textPrimary : COLORS.textDisabled);
+    this.labelText.setColor(this.enabled ? (this.accentTextColor ?? COLORS.textPrimary) : COLORS.textDisabled);
   }
 }
 

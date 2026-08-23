@@ -387,7 +387,8 @@ export class TacticalScene extends Scene {
     ];
 
     this.mode = 'action-menu';
-    this.ui.showActionMenu(options, (choice) => this.onActionChosen(unit, choice));
+    const { px, py } = this.tileCenter(dest.x, dest.y);
+    this.ui.showActionMenu(options, (choice) => this.onActionChosen(unit, choice), px, py);
   }
 
   private onActionChosen(unit: Unit, choice: ActionMenuChoice): void {
@@ -494,18 +495,19 @@ export class TacticalScene extends Scene {
   }
 
   /** Opens the field/system menu (End Turn / Squad / Danger Zone / Restart / Cancel). */
+  /**
+   * End Turn/Squad/Danger Zone live on UIScene's bottom dock now — this is
+   * just the overflow menu for the one rare, destructive action (Restart)
+   * that doesn't belong as a one-tap dock button. Reachable via the dock's
+   * own Menu button or by tapping an empty board tile.
+   */
   openSystemMenu(): void {
     if (this.inputSuspended) return;
     const state = this.client.getState();
     if (!state) return;
     if (this.mode !== 'idle') this.finishSelection();
 
-    const { G, ctx } = state;
-    const isPlayerTurn = teamOf(ctx.currentPlayer) === 'player' && !ctx.gameover && !G.awaitingBlessing;
     const options: SystemMenuOption[] = [
-      { id: 'end-turn', label: 'End Turn', enabled: isPlayerTurn },
-      { id: 'squad', label: 'Squad / Equip', enabled: true },
-      { id: 'threat', label: this.threatOverlayVisible ? 'Danger Zone: ON' : 'Danger Zone: OFF', enabled: true },
       { id: 'restart', label: 'Restart Battle', enabled: true },
       { id: 'cancel', label: 'Cancel', enabled: true },
     ];
@@ -513,13 +515,7 @@ export class TacticalScene extends Scene {
   }
 
   private onSystemMenuChosen(choice: SystemMenuChoice): void {
-    if (choice === 'end-turn') {
-      this.endTurn();
-    } else if (choice === 'squad') {
-      this.ui.openEquipScreen();
-    } else if (choice === 'threat') {
-      this.toggleThreatOverlay();
-    } else if (choice === 'restart') {
+    if (choice === 'restart') {
       this.restartBattle();
     }
   }

@@ -13,6 +13,7 @@ import { ForecastPanel } from '../ui/ForecastPanel';
 import { PhaseBanner } from '../ui/PhaseBanner';
 import { SystemMenu, type SystemMenuChoice, type SystemMenuOption } from '../ui/SystemMenu';
 import { UnitStatusBar } from '../ui/UnitStatusBar';
+import { Button, COLORS } from '../ui/kit';
 import type { TacticalScene } from './TacticalScene';
 
 interface UISceneData {
@@ -35,10 +36,8 @@ export class UIScene extends Scene {
   private phaseText!: GameObjects.Text;
   private logText!: GameObjects.Text;
 
-  private endTurnButton!: GameObjects.Rectangle;
-  private endTurnText!: GameObjects.Text;
-  private dangerButton!: GameObjects.Rectangle;
-  private dangerText!: GameObjects.Text;
+  private dangerButton!: Button;
+  private endTurnButton!: Button;
 
   private gameOverBackdrop!: GameObjects.Rectangle;
   private gameOverCard!: GameObjects.Rectangle;
@@ -83,56 +82,37 @@ export class UIScene extends Scene {
       resolution: DPR,
     }).setOrigin(0, 0.5);
 
-    // Top bar: Menu button
-    this.add
-      .rectangle(LOGICAL_WIDTH - 110, 20, 56, 26, 0x2d3348)
-      .setStrokeStyle(1, 0x4a90d9)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.tactical.openSystemMenu());
-    this.add
-      .text(LOGICAL_WIDTH - 110, 20, 'Menu', { fontFamily: 'monospace', fontSize: '12px', color: '#e0e0e0', resolution: DPR })
-      .setOrigin(0.5);
-
-    // Top bar: Squad button
-    this.add
-      .rectangle(LOGICAL_WIDTH - 44, 20, 64, 26, 0x2d3348)
-      .setStrokeStyle(1, 0x4a90d9)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.openEquipScreen());
-    this.add
-      .text(LOGICAL_WIDTH - 44, 20, 'Squad', { fontFamily: 'monospace', fontSize: '12px', color: '#e0e0e0', resolution: DPR })
-      .setOrigin(0.5);
-
-    // Sub-board HUD Action Bar. y=660 — below UnitStatusBar (~572-628,
-    // src/ui/UnitStatusBar.ts), which itself sits right below the actual
-    // board bottom (56 + 8 rows * 64 = 568, not the 504 a 7-row assumption
-    // would give — see that file's own note on this).
-    this.endTurnButton = this.add
-      .rectangle(120, 660, 192, 30, 0x2d3348)
-      .setStrokeStyle(1, 0x4a90d9)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.tactical.endTurn());
-    this.endTurnText = this.add
-      .text(120, 660, 'End Turn', { fontFamily: 'monospace', fontSize: '13px', color: '#e0e0e0', resolution: DPR })
-      .setOrigin(0.5);
-
-    this.dangerButton = this.add
-      .rectangle(352, 660, 208, 30, 0x2d3348)
-      .setStrokeStyle(1, 0x4a90d9)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.tactical.toggleThreatOverlay());
-    this.dangerText = this.add
-      .text(352, 660, 'Danger: OFF', { fontFamily: 'monospace', fontSize: '13px', color: '#e0e0e0', resolution: DPR })
-      .setOrigin(0.5);
-
-    // Battle log text
-    this.logText = this.add.text(16, 690, '', {
+    // Battle log text — between UnitStatusBar (~572-628,
+    // src/ui/UnitStatusBar.ts, itself right below the actual board bottom:
+    // 56 + 8 rows * 64 = 568, not the 504 a 7-row assumption would give,
+    // see that file's own note) and the bottom dock below. Shrunk from 10
+    // lines to 4 — HP/damage already show as floating text over units
+    // (TacticalScene.spawnFloatingText), so the log was always secondary
+    // detail, not the primary readout, and the dock needs the room.
+    this.logText = this.add.text(16, 644, '', {
       fontFamily: 'monospace',
       fontSize: '12px',
       color: '#9099a8',
       wordWrap: { width: LOGICAL_WIDTH - 32 },
       resolution: DPR,
     });
+
+    // Bottom dock — thumb-reachable, mobile-app convention. Replaces the
+    // old top-right Menu/Squad buttons and the old End-Turn/Danger-Zone
+    // pair below the board with one persistent row. "Menu" now only holds
+    // Restart (the one rare, destructive action) since everything else
+    // moved here — see TacticalScene.openSystemMenu()'s trimmed options.
+    const dockY = LOGICAL_HEIGHT - 62; // clears the bottom-right version watermark below it
+    const dockButtonWidth = 104;
+    const dockButtonHeight = 52;
+    const dockGap = 8;
+    const dockStartX = LOGICAL_WIDTH / 2 - (dockButtonWidth * 1.5 + dockGap * 1.5);
+    const dockX = (index: number) => dockStartX + index * (dockButtonWidth + dockGap);
+
+    new Button(this, dockX(0), dockY, dockButtonWidth, dockButtonHeight, 'Squad', () => this.openEquipScreen());
+    this.dangerButton = new Button(this, dockX(1), dockY, dockButtonWidth, dockButtonHeight, 'Danger: OFF', () => this.tactical.toggleThreatOverlay());
+    this.endTurnButton = new Button(this, dockX(2), dockY, dockButtonWidth, dockButtonHeight, 'End Turn', () => this.tactical.endTurn());
+    new Button(this, dockX(3), dockY, dockButtonWidth, dockButtonHeight, 'Menu', () => this.tactical.openSystemMenu());
 
     // Version label (bottom right)
     this.add
@@ -276,25 +256,20 @@ export class UIScene extends Scene {
     if (this.phaseText.text !== nextPhaseText) {
       this.phaseText.setText(nextPhaseText);
     }
-    const nextLogText = G.log.slice(0, 10).join('\n');
+    const nextLogText = G.log.slice(0, 4).join('\n');
     if (this.logText.text !== nextLogText) {
       this.logText.setText(nextLogText);
     }
 
-    // Update End Turn button state
-    this.endTurnButton.setFillStyle(isPlayerTurn ? 0x2d3348 : 0x1f232b);
-    this.endTurnText.setColor(isPlayerTurn ? '#e0e0e0' : '#5a6070');
+    this.endTurnButton.setEnabled(isPlayerTurn);
 
-    // Update Danger Zone button state
     const threatOn = this.tactical?.isThreatOverlayVisible?.() ?? false;
-    this.dangerButton.setFillStyle(threatOn ? 0x5a2d33 : 0x2d3348);
-    this.dangerButton.setStrokeStyle(1, threatOn ? 0xd9534f : 0x4a90d9);
-    this.dangerText.setText(threatOn ? 'Danger: ON' : 'Danger: OFF');
-    this.dangerText.setColor(threatOn ? '#ff9999' : '#e0e0e0');
+    this.dangerButton.setLabel(threatOn ? 'Danger: ON' : 'Danger: OFF');
+    this.dangerButton.setAccent(threatOn ? COLORS.dangerOnFill : null, threatOn ? COLORS.enemyAccent : null, threatOn ? COLORS.dangerOnText : null);
   }
 
-  showActionMenu(options: ActionMenuOption[], onChoose: (id: ActionMenuChoice) => void): void {
-    this.actionMenu.show(options, onChoose);
+  showActionMenu(options: ActionMenuOption[], onChoose: (id: ActionMenuChoice) => void, anchorX: number, anchorY: number): void {
+    this.actionMenu.show(options, onChoose, anchorX, anchorY);
   }
 
   showSystemMenu(options: SystemMenuOption[], onChoose: (id: SystemMenuChoice) => void): void {

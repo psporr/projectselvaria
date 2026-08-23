@@ -1,7 +1,7 @@
 import { GameObjects, Scene } from 'phaser';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 
-export type SystemMenuChoice = 'end-turn' | 'squad' | 'threat' | 'restart' | 'cancel';
+export type SystemMenuChoice = 'restart' | 'cancel';
 
 export interface SystemMenuOption {
   id: SystemMenuChoice;

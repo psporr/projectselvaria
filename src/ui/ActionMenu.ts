@@ -1,5 +1,6 @@
 import { GameObjects, Scene } from 'phaser';
-import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
+import { LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
+import { Button } from './kit';
 
 export type ActionMenuChoice = 'attack' | 'skill' | 'wait' | 'cancel';
 
@@ -9,22 +10,27 @@ export interface ActionMenuOption {
   enabled: boolean;
 }
 
-const CARD_WIDTH = 260;
-const ROW_HEIGHT = 44;
-const ROW_GAP = 8;
-const TOP_PADDING = 20;
-const BOTTOM_PADDING = 16;
+const BUTTON_WIDTH = 150;
+const BUTTON_HEIGHT = 40;
+const GAP = 8;
+const ANCHOR_MARGIN = 18;
+const SCREEN_MARGIN = 10;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
 
 /**
- * The post-move action list (Attack / Skill / Wait / Cancel). Rebuilds its
- * button rows on every show() rather than pooling them — the menu opens at
- * most once per unit action, so the churn is cheap and it keeps enabled/
+ * The post-move action list (Attack / Skill / Wait / Cancel) — a small pill
+ * cluster anchored next to the acting unit (mobile-SRPG convention) instead
+ * of a centered modal, so the board stays visible while choosing. Rebuilds
+ * its button rows on every show() rather than pooling them — the menu opens
+ * at most once per unit action, so the churn is cheap and it keeps enabled/
  * disabled state and per-class skill labels trivial to get right.
  */
 export class ActionMenu extends GameObjects.Container {
   private readonly backdrop: GameObjects.Rectangle;
-  private readonly card: GameObjects.Rectangle;
-  private readonly rows: GameObjects.GameObject[] = [];
+  private readonly rows: Button[] = [];
   private onChoose: ((id: ActionMenuChoice) => void) | null = null;
 
   constructor(scene: Scene) {
@@ -32,46 +38,33 @@ export class ActionMenu extends GameObjects.Container {
     const width = LOGICAL_WIDTH;
     const height = LOGICAL_HEIGHT;
 
-    this.backdrop = scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.4).setInteractive();
+    this.backdrop = scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.35).setInteractive();
     this.backdrop.on('pointerdown', () => this.choose('cancel'));
 
-    this.card = scene.add.rectangle(width / 2, height / 2, CARD_WIDTH, TOP_PADDING + BOTTOM_PADDING, 0x1c2030, 0.97).setStrokeStyle(2, 0x4a90d9);
-
-    this.add([this.backdrop, this.card]);
+    this.add([this.backdrop]);
     this.setDepth(20);
     scene.add.existing(this);
     this.setVisible(false);
   }
 
-  show(options: ActionMenuOption[], onChoose: (id: ActionMenuChoice) => void): void {
+  /** `anchorX`/`anchorY` — the acting unit's tile center; the button stack appears beside it, clamped to stay on-screen. */
+  show(options: ActionMenuOption[], onChoose: (id: ActionMenuChoice) => void, anchorX: number, anchorY: number): void {
     this.onChoose = onChoose;
     for (const row of this.rows.splice(0)) row.destroy();
 
-    const width = LOGICAL_WIDTH;
-    const height = LOGICAL_HEIGHT;
-    const cardHeight = TOP_PADDING + BOTTOM_PADDING + options.length * ROW_HEIGHT + (options.length - 1) * ROW_GAP;
-    this.card.setSize(CARD_WIDTH, cardHeight);
+    const stackHeight = options.length * BUTTON_HEIGHT + (options.length - 1) * GAP;
+    const onRightHalf = anchorX > LOGICAL_WIDTH / 2;
+    const rawX = onRightHalf ? anchorX - ANCHOR_MARGIN - BUTTON_WIDTH / 2 : anchorX + ANCHOR_MARGIN + BUTTON_WIDTH / 2;
+    const stackX = clamp(rawX, BUTTON_WIDTH / 2 + SCREEN_MARGIN, LOGICAL_WIDTH - BUTTON_WIDTH / 2 - SCREEN_MARGIN);
+    const stackCenterY = clamp(anchorY, stackHeight / 2 + SCREEN_MARGIN, LOGICAL_HEIGHT - stackHeight / 2 - SCREEN_MARGIN);
+    const startY = stackCenterY - stackHeight / 2 + BUTTON_HEIGHT / 2;
 
-    const startY = height / 2 - cardHeight / 2 + TOP_PADDING + ROW_HEIGHT / 2;
     options.forEach((option, index) => {
-      const y = startY + index * (ROW_HEIGHT + ROW_GAP);
-      const fill = option.enabled ? 0x2d3348 : 0x22262f;
-      const button = this.scene.add.rectangle(width / 2, y, CARD_WIDTH - 32, ROW_HEIGHT, fill).setStrokeStyle(1, 0x3a4258);
-      const label = this.scene.add
-        .text(width / 2, y, option.label, {
-          fontFamily: 'monospace',
-          fontSize: '15px',
-          color: option.enabled ? '#e0e0e0' : '#5a6070',
-          resolution: DPR,
-        })
-        .setOrigin(0.5);
-
-      if (option.enabled) {
-        button.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.choose(option.id));
-      }
-
-      this.add([button, label]);
-      this.rows.push(button, label);
+      const y = startY + index * (BUTTON_HEIGHT + GAP);
+      const button = new Button(this.scene, stackX, y, BUTTON_WIDTH, BUTTON_HEIGHT, option.label, () => this.choose(option.id), '15px');
+      button.setEnabled(option.enabled);
+      this.add(button);
+      this.rows.push(button);
     });
 
     this.setVisible(true);
