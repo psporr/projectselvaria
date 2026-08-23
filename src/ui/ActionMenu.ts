@@ -13,10 +13,18 @@ export interface ActionMenuOption {
 const BUTTON_WIDTH = 150;
 const BUTTON_HEIGHT = 40;
 const GAP = 8;
-const ANCHOR_MARGIN = 18;
 const SCREEN_MARGIN = 10;
 const CARD_PADDING_X = 16;
 const CARD_PADDING_Y = 14;
+// anchorX/Y is the acting unit's TILE CENTER (TacticalScene's tileCenter()),
+// not its edge — TILE_HALF is half of TacticalScene's TILE_SIZE (64). The
+// card's near edge needs to clear the tile itself (and the unit sprite on
+// it), not just sit some fixed offset from the center — a fixed margin here
+// previously didn't account for the card's own padding around the buttons,
+// so the card's near edge ended up ~2px from the tile center, well inside
+// the unit's own tile.
+const TILE_HALF = 32;
+const EDGE_GAP = 10;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -62,7 +70,12 @@ export class ActionMenu extends GameObjects.Container {
 
     const stackHeight = options.length * BUTTON_HEIGHT + (options.length - 1) * GAP;
     const onRightHalf = anchorX > LOGICAL_WIDTH / 2;
-    const rawX = onRightHalf ? anchorX - ANCHOR_MARGIN - BUTTON_WIDTH / 2 : anchorX + ANCHOR_MARGIN + BUTTON_WIDTH / 2;
+    // Card center placed so its near edge sits TILE_HALF + EDGE_GAP from
+    // the anchor — i.e. just clear of the unit's own tile — regardless of
+    // the card's padding around the buttons.
+    const cardHalfWidth = BUTTON_WIDTH / 2 + CARD_PADDING_X;
+    const nearEdgeOffset = TILE_HALF + EDGE_GAP;
+    const rawX = onRightHalf ? anchorX - nearEdgeOffset - cardHalfWidth : anchorX + nearEdgeOffset + cardHalfWidth;
     const stackX = clamp(rawX, BUTTON_WIDTH / 2 + SCREEN_MARGIN, LOGICAL_WIDTH - BUTTON_WIDTH / 2 - SCREEN_MARGIN);
     const stackCenterY = clamp(anchorY, stackHeight / 2 + SCREEN_MARGIN, LOGICAL_HEIGHT - stackHeight / 2 - SCREEN_MARGIN);
     const startY = stackCenterY - stackHeight / 2 + BUTTON_HEIGHT / 2;

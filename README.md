@@ -29,6 +29,16 @@ fix. Update both `package.json`'s `"version"` and `src/version.ts`'s
 sync manually since Vite can't read `package.json` into a static string at
 runtime without extra build config).
 
+**Verification cadence** (per the repo owner, 2026-08-22): Playwright
+screenshot verification costs real tokens (mostly the images themselves) —
+worth it for changes touching the input state machine, timing, or
+cross-component wiring, where a subtle bug is expensive to discover later
+(it's caught real ones: a board-row-count assumption that broke tap
+targets, a phase-banner/AI timing race). For small, contained visual
+tweaks, skip it: edit → `typecheck` → `build` → push, and say so explicitly
+("small fix, please verify yourself") rather than defaulting to a full
+Playwright pass.
+
 ## Skills
 
 `.claude/skills/phaser/` contains Phaser Studio's own 28 official Agent
@@ -113,6 +123,13 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-22 Claude: Fixed `ActionMenu`'s card covering half the acting
+  unit's tile — the margin math predated the card's own padding around the
+  buttons, so the card's near edge landed ~2px from the tile center instead
+  of clearing it. Now computed from the card's actual half-width so its
+  near edge always sits a fixed gap outside the unit's tile. Small fix, not
+  independently re-verified with Playwright this time (see Workflow) —
+  please check it looks right.
 - 2026-08-22 Claude: `ActionMenu` (the unit-anchored Attack/Skill/Wait/
   Cancel popup) now has its own `Card` background behind the button stack
   for legibility, and its full-screen backdrop is fully transparent instead
