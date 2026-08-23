@@ -45,7 +45,7 @@ export class EquipScreen extends GameObjects.Container {
     const cardHeight = Math.min(CARD_HEIGHT, height - 32);
 
     const backdrop = scene.add.rectangle(centerX, centerY, width, height, 0x000000, 0.6).setInteractive();
-    backdrop.on('pointerdown', () => this.hide());
+    backdrop.on('pointerup', () => this.hide());
 
     const card = new Card(scene, centerX, centerY, cardWidth, cardHeight);
 
@@ -189,7 +189,7 @@ export class EquipScreen extends GameObjects.Container {
       .text(centerX - cardWidth / 2 + 24, y, label, { fontFamily: 'monospace', fontSize: '12px', color: onTap ? '#e0e0e0' : '#5a6070', resolution: DPR })
       .setOrigin(0, 0.5);
 
-    if (onTap) button.setInteractive({ useHandCursor: true }).on('pointerdown', onTap);
+    if (onTap) button.setInteractive({ useHandCursor: true }).on('pointerup', onTap);
 
     this.add([button, text]);
     this.rows.push(button, text);

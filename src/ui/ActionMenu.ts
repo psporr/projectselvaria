@@ -53,7 +53,7 @@ export class ActionMenu extends GameObjects.Container {
 
     // Invisible — tap-away-to-cancel without dimming the board underneath.
     this.backdrop = scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0).setInteractive();
-    this.backdrop.on('pointerdown', () => this.choose('cancel'));
+    this.backdrop.on('pointerup', () => this.choose('cancel'));
 
     this.card = new Card(scene, width / 2, height / 2, BUTTON_WIDTH, BUTTON_HEIGHT);
 

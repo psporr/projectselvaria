@@ -99,13 +99,13 @@ export class UnitStatusBar extends GameObjects.Container {
     this.hitZone = scene.add
       .rectangle(LOGICAL_WIDTH / 2, BAR_Y, BAR_WIDTH, BAR_HEIGHT, 0x000000, 0)
       .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.current && this.showDetail());
+      .on('pointerup', () => this.current && this.showDetail());
 
     // --- detail overlay ---
     const centerX = LOGICAL_WIDTH / 2;
     const centerY = LOGICAL_HEIGHT / 2;
     this.detailBackdrop = scene.add.rectangle(centerX, centerY, LOGICAL_WIDTH, LOGICAL_HEIGHT, 0x000000, 0.6).setInteractive();
-    this.detailBackdrop.on('pointerdown', () => this.hideDetail());
+    this.detailBackdrop.on('pointerup', () => this.hideDetail());
     this.detailCard = new Card(scene, centerX, centerY, DETAIL_WIDTH, 200);
     this.detailText = scene.add
       .text(centerX - DETAIL_WIDTH / 2 + 20, centerY, '', {

@@ -54,7 +54,7 @@ export class ForecastPanel extends GameObjects.Container {
     const centerY = height / 2;
 
     const backdrop = scene.add.rectangle(centerX, centerY, width, height, 0x000000, 0.55).setInteractive();
-    backdrop.on('pointerdown', () => this.cancel());
+    backdrop.on('pointerup', () => this.cancel());
 
     const cardWidth = Math.min(CARD_WIDTH, width - 32);
     const card = new Card(scene, centerX, centerY, cardWidth, CARD_HEIGHT);

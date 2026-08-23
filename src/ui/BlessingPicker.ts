@@ -69,7 +69,7 @@ export class BlessingPicker extends GameObjects.Container {
       const hitZone = this.scene.add
         .rectangle(x, centerY, CARD_WIDTH, CARD_HEIGHT, 0x000000, 0)
         .setInteractive({ useHandCursor: true })
-        .on('pointerdown', () => this.pick(blessing.id));
+        .on('pointerup', () => this.pick(blessing.id));
 
       const stars = this.scene.add
         .text(x, centerY - CARD_HEIGHT / 2 + 18, RARITY_STARS[blessing.rarity], {

@@ -45,6 +45,13 @@ const RADIUS = 12;
  * scale-down/up press tween, the one genuinely new "mobile feel" touch
  * this kit adds beyond restyled shapes.
  *
+ * Establishes the project-wide default for any tappable thing: `onTap`
+ * fires on release (`pointerup`), not press (`pointerdown`) — `pointerdown`
+ * below drives only the press-feedback tween. Every other interactive
+ * element in `src/ui/`/`src/scenes/` (board tiles, backdrops, cards) follows
+ * this same release-fires convention; a future one should too unless there's
+ * a specific, stated reason not to.
+ *
  * Field names avoid `w`/`h`/`width`/`height` — `GameObjects.Container`
  * already declares those, and TypeScript rejects a subclass re-declaring
  * them with a different visibility.

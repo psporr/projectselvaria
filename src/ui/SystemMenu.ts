@@ -36,7 +36,7 @@ export class SystemMenu extends GameObjects.Container {
     const height = LOGICAL_HEIGHT;
 
     this.backdrop = scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45).setInteractive();
-    this.backdrop.on('pointerdown', () => this.choose('cancel'));
+    this.backdrop.on('pointerup', () => this.choose('cancel'));
 
     this.card = new Card(scene, width / 2, height / 2, CARD_WIDTH, TOP_PADDING + BOTTOM_PADDING);
 

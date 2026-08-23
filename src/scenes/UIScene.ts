@@ -156,7 +156,7 @@ export class UIScene extends Scene {
       .setInteractive({ useHandCursor: true })
       .setDepth(32)
       .setVisible(false)
-      .on('pointerdown', () => this.tactical.restartBattle());
+      .on('pointerup', () => this.tactical.restartBattle());
 
     this.gameOverRestartText = this.add
       .text(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2 + 36, 'Restart Battle', {
