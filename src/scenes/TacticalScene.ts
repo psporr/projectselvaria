@@ -207,7 +207,11 @@ export class TacticalScene extends Scene {
           .setDepth(0);
         if (hasBackgroundArt) rect.setStrokeStyle(1, 0xffffff, 0.12);
         rect.setInteractive({ useHandCursor: true });
-        rect.on('pointerdown', () => this.onTileClicked(x, y));
+        // Fires on release, not press — matches kit.Button's own convention
+        // (pointerdown there is press-feedback only, the actual tap fires on
+        // pointerup) so a tile tap and a dock/menu button tap behave the
+        // same way instead of one firing early.
+        rect.on('pointerup', () => this.onTileClicked(x, y));
       }
     }
   }
