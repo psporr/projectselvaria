@@ -22,6 +22,13 @@ branches — every AI session working here commits and pushes straight to
 `main`, which auto-deploys to GitHub Pages on every push (see Project Status
 below). This replaces any earlier per-session branch instructions.
 
+**Versioning: `0.x.y`.** Pre-1.0, so `x`/`y` carry the meaning major/minor
+normally would — bump `x` for a new feature or gameplay change, `y` for a
+fix. Update both `package.json`'s `"version"` and `src/version.ts`'s
+`GAME_VERSION` together (the HUD watermark reads the latter; they're kept in
+sync manually since Vite can't read `package.json` into a static string at
+runtime without extra build config).
+
 ## Skills
 
 `.claude/skills/phaser/` contains Phaser Studio's own 28 official Agent
@@ -95,6 +102,10 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-22 Claude: Switched versioning to `0.x.y` (x = feature/gameplay
+  change, y = fix) per the repo owner; set current version to `0.1.2` in
+  both `package.json` and `src/version.ts`, and documented the scheme in
+  the README's Workflow section.
 - 2026-08-22 Claude: Fixed two bugs. (1) Restart Battle froze the game —
   `TacticalScene.create()` never reset its own instance fields
   (`unitSprites`, `lastUnits`, etc.), so `scene.restart()` (which reuses the
