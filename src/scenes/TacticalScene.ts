@@ -119,7 +119,7 @@ export class TacticalScene extends Scene {
   preload(): void {
     for (const id of CHAPTERS_WITH_BACKGROUND_ART) {
       const key = `${id}-bg`;
-      if (!this.textures.exists(key)) this.load.image(key, `/maps/${id}.png`);
+      if (!this.textures.exists(key)) this.load.image(key, `maps/${id}.png`);
     }
   }
 
