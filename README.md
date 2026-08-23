@@ -72,22 +72,33 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
   → **action menu** (Attack / class skill / Wait / Cancel, each gated on
   real legality) → target → **forecast panel** (hit%/crit%/damage preview)
   → confirm. Wave clears open a real **blessing picker** (3 cards, rarity-
-  colored). A **Squad** button opens an **equip screen** per unit. **End Turn**
-  button instantly advances the phase; **Danger Zone** toggle paints enemy
-  threat ranges across the map; tapping an empty tile opens the tactical **System Menu**
-  (End Turn, Squad, Danger Zone, Restart, Cancel). Victory/Defeat dialog includes
-  interactive battle restart. Enemy turns still auto-play.
+  colored). A "Player Phase"/"Enemy Phase" **banner** (`src/ui/PhaseBanner.ts`)
+  plays on every real turn transition; the CPU's opening move waits for it
+  to finish rather than guessing a matching delay. A spent unit's sprite
+  visibly dims/desaturates.
+- **Mobile-style UI pass** (`src/ui/kit.ts` — shared rounded `Button`/`Card`
+  widgets, since Phaser's plain `Rectangle` has no rounded-corner support):
+  a persistent **bottom dock** (Squad / Danger Zone / End Turn / Menu,
+  thumb-reachable) replaced the old top-right buttons and separate End-Turn/
+  Danger-Zone pair; the action menu is now a small pill cluster **anchored
+  next to the acting unit** (edge-clamped) instead of a centered modal; a
+  **compact unit status bar** below the board shows whichever unit (either
+  team) was last tapped, with a tap-to-expand full detail card (stats, hit/
+  crit, skill+cooldown, equipment). The **System Menu** is now just Restart
+  + Cancel (everything else moved to the dock). Every other panel
+  (ForecastPanel/BlessingPicker/EquipScreen) reskinned onto the same kit.
 - Portrait/mobile scaling fixed: `Scale.FIT` + `CENTER_BOTH` on a 480x854
   base, verified at real phone/tablet/desktop viewports.
 - Rendering is DPR-aware (`src/systems/viewport.ts`) — the canvas backing
-  store scales with device pixel ratio (capped at 2x) instead of a fixed
-  size the browser stretches, fixing blur on real phones while preventing
-  GPU fill-rate bottlenecks. 60 FPS cap and high-performance WebGL settings
-  prevent mobile thermal throttling. Every scene's own layout math is untouched
-  (still authored against the 480x854 logical space); `applyDprZoom()` handles
-  the compensating camera zoom + centering.
-  If you add a new `Scene`, call `applyDprZoom(this)` in `create()`; if you
-  add a new `Text` object anywhere, give it `resolution: DPR`.
+  store is sized off the *actual measured display box* × device pixel ratio
+  (capped at 3x combined), not device pixel ratio alone, so there's no
+  residual browser stretch left to blur in either direction (a fixed-size
+  buffer on a big desktop window, or an under-sized one on a real phone).
+  Every scene's own layout math is untouched (still authored against the
+  480x854 logical space); `applyDprZoom()` handles the compensating camera
+  zoom + centering. If you add a new `Scene`, call `applyDprZoom(this)` in
+  `create()`; if you add a new `Text` object anywhere, give it
+  `resolution: DPR`.
 
 ### Not built yet
 
@@ -102,6 +113,29 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-22 Claude: UI improvement pass — unit status UI + mobile-style
+  controls, discussed and planned with the user before building (locked
+  decisions: compact status bar + tap-for-detail; bottom dock + contextual
+  action popup; acted-unit dimming; one combined pass). Shipped in four
+  verified steps: (1) shared `src/ui/kit.ts` (`Button`/`Card`, rounded via
+  `Graphics.fillRoundedRect` since `GameObjects.Rectangle` can't) + acted-
+  unit color desaturation; (2) `src/ui/UnitStatusBar.ts` — compact strip
+  (either team, read-only for enemies) + tap-to-expand detail overlay; (3)
+  `UIScene`'s bottom dock + `ActionMenu` rewritten as a unit-anchored,
+  edge-clamped popup, `SystemMenu` trimmed to Restart+Cancel; (4) the
+  remaining panels (ForecastPanel/BlessingPicker/EquipScreen) reskinned
+  onto the same kit. Caught and fixed two real bugs along the way: a wrong
+  board-height assumption (7 rows, not the actual 8) put the status bar's
+  hit zone over the board's real last row, silently eating taps; the
+  detail overlay's fixed card height overflowed its own content and now
+  resizes to the real rendered text height. Verified via Playwright at
+  every step (dock buttons, anchored menu on both screen edges, live status
+  updates, restart resetting all the new component state correctly, zero
+  console errors); ForecastPanel's live combat rendering specifically
+  wasn't screenshotted (the browser client isn't seeded like the CLI sim,
+  making a specific attack scenario non-reproducible across runs) but
+  shares the identical, already-verified kit widgets. Typecheck, build,
+  sim, and map validation green throughout. Bumped to `0.3.0` (feature).
 - 2026-08-22 Claude: Held enemy AI actions off until the "Enemy Phase"
   banner is fully gone, per request. First attempt used a second
   `delayedCall` in `TacticalScene` guessing the banner's total animation
