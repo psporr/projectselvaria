@@ -12,6 +12,7 @@ import { EquipScreen } from '../ui/EquipScreen';
 import { ForecastPanel } from '../ui/ForecastPanel';
 import { PhaseBanner } from '../ui/PhaseBanner';
 import { SystemMenu, type SystemMenuChoice, type SystemMenuOption } from '../ui/SystemMenu';
+import { UnitStatusBar } from '../ui/UnitStatusBar';
 import type { TacticalScene } from './TacticalScene';
 
 interface UISceneData {
@@ -51,6 +52,7 @@ export class UIScene extends Scene {
   equipScreen!: EquipScreen;
   systemMenu!: SystemMenu;
   phaseBanner!: PhaseBanner;
+  unitStatusBar!: UnitStatusBar;
 
   /**
    * Last ctx.turn seen, used to fire the phase banner exactly once per real
@@ -101,27 +103,30 @@ export class UIScene extends Scene {
       .text(LOGICAL_WIDTH - 44, 20, 'Squad', { fontFamily: 'monospace', fontSize: '12px', color: '#e0e0e0', resolution: DPR })
       .setOrigin(0.5);
 
-    // Sub-board HUD Action Bar (y = 588)
+    // Sub-board HUD Action Bar. y=660 — below UnitStatusBar (~572-628,
+    // src/ui/UnitStatusBar.ts), which itself sits right below the actual
+    // board bottom (56 + 8 rows * 64 = 568, not the 504 a 7-row assumption
+    // would give — see that file's own note on this).
     this.endTurnButton = this.add
-      .rectangle(120, 588, 192, 30, 0x2d3348)
+      .rectangle(120, 660, 192, 30, 0x2d3348)
       .setStrokeStyle(1, 0x4a90d9)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.tactical.endTurn());
     this.endTurnText = this.add
-      .text(120, 588, 'End Turn', { fontFamily: 'monospace', fontSize: '13px', color: '#e0e0e0', resolution: DPR })
+      .text(120, 660, 'End Turn', { fontFamily: 'monospace', fontSize: '13px', color: '#e0e0e0', resolution: DPR })
       .setOrigin(0.5);
 
     this.dangerButton = this.add
-      .rectangle(352, 588, 208, 30, 0x2d3348)
+      .rectangle(352, 660, 208, 30, 0x2d3348)
       .setStrokeStyle(1, 0x4a90d9)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.tactical.toggleThreatOverlay());
     this.dangerText = this.add
-      .text(352, 588, 'Danger: OFF', { fontFamily: 'monospace', fontSize: '13px', color: '#e0e0e0', resolution: DPR })
+      .text(352, 660, 'Danger: OFF', { fontFamily: 'monospace', fontSize: '13px', color: '#e0e0e0', resolution: DPR })
       .setOrigin(0.5);
 
     // Battle log text
-    this.logText = this.add.text(16, 616, '', {
+    this.logText = this.add.text(16, 690, '', {
       fontFamily: 'monospace',
       fontSize: '12px',
       color: '#9099a8',
@@ -191,13 +196,24 @@ export class UIScene extends Scene {
     this.equipScreen = new EquipScreen(this, this.client);
     this.systemMenu = new SystemMenu(this);
     this.phaseBanner = new PhaseBanner(this);
+    this.unitStatusBar = new UnitStatusBar(this);
 
     this.refreshHud();
     const unsubscribe = this.client.subscribe(() => {
       this.refreshHud();
       this.equipScreen.refresh();
+      this.refreshUnitStatusBar();
     });
     this.events.once('shutdown', unsubscribe);
+  }
+
+  /** Re-fetches and re-shows whatever unit UnitStatusBar is currently displaying, off the latest G — it never reads G itself (HANDOFF.md §5/§7). No-op if nothing's shown; hides it if the shown unit died. */
+  private refreshUnitStatusBar(): void {
+    const id = this.unitStatusBar.getCurrentUnitId();
+    if (!id) return;
+    const unit = this.client.getState()?.G.units[id];
+    if (unit) this.unitStatusBar.show(unit);
+    else this.unitStatusBar.hide();
   }
 
   openEquipScreen(): void {

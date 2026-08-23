@@ -283,9 +283,15 @@ export class TacticalScene extends Scene {
     const unitAtTile = Object.values(G.units).find((u) => u.x === x && u.y === y);
 
     if (this.mode === 'idle') {
-      if (unitAtTile && unitAtTile.team === 'player' && !unitAtTile.hasActed) {
-        this.selectUnit(unitAtTile.id);
-      } else if (!unitAtTile) {
+      if (unitAtTile) {
+        // Any tapped unit (either team, acted or not) populates the status
+        // bar as a side effect — read-only for enemies/already-acted units,
+        // which fall through without also entering the move-selection flow.
+        this.ui.unitStatusBar.show(unitAtTile);
+        if (unitAtTile.team === 'player' && !unitAtTile.hasActed) {
+          this.selectUnit(unitAtTile.id);
+        }
+      } else {
         this.openSystemMenu();
       }
       return;
