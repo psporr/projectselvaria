@@ -102,6 +102,17 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-22 Claude: Added the classic Fire Emblem "Player Phase"/"Enemy
+  Phase" banner (`src/ui/PhaseBanner.ts`) — slides across the board on
+  every real turn transition, colored per team. `UIScene` triggers it off a
+  `ctx.turn` diff in `refreshHud()` (the same signal `simulate.ts` already
+  used for its own turn-change logging), so it fires once per actual phase
+  change and never re-fires on unrelated state updates within a turn (unit
+  moves, attacks). Verified via Playwright: fires on battle start, on each
+  End Turn, and correctly resets across `restartBattle()` (which reuses the
+  same `UIScene` instance — `lastTurnSeen` is reset in `create()`, the same
+  discipline the restart-freeze fix established for `TacticalScene`). Bumped
+  to `0.2.0` (feature bump) per the versioning convention below.
 - 2026-08-22 Claude: Switched versioning to `0.x.y` (x = feature/gameplay
   change, y = fix) per the repo owner; set current version to `0.1.2` in
   both `package.json` and `src/version.ts`, and documented the scheme in

@@ -10,6 +10,7 @@ import { ActionMenu, type ActionMenuChoice, type ActionMenuOption } from '../ui/
 import { BlessingPicker } from '../ui/BlessingPicker';
 import { EquipScreen } from '../ui/EquipScreen';
 import { ForecastPanel } from '../ui/ForecastPanel';
+import { PhaseBanner } from '../ui/PhaseBanner';
 import { SystemMenu, type SystemMenuChoice, type SystemMenuOption } from '../ui/SystemMenu';
 import type { TacticalScene } from './TacticalScene';
 
@@ -49,6 +50,18 @@ export class UIScene extends Scene {
   blessingPicker!: BlessingPicker;
   equipScreen!: EquipScreen;
   systemMenu!: SystemMenu;
+  phaseBanner!: PhaseBanner;
+
+  /**
+   * Last ctx.turn seen, used to fire the phase banner exactly once per real
+   * turn transition (diffed the same way TacticalScene diffs unit HP/
+   * G.nextItemInstance). Reset in create(), not just at class-field-init
+   * time — scene.restart() (restartBattle()) reuses this same UIScene
+   * instance, and a stale value here would silently skip the banner on the
+   * next game's first turn (see the restartBattle() fix's lesson in
+   * TacticalScene.create()).
+   */
+  private lastTurnSeen: number | null = null;
 
   constructor() {
     super('UI');
@@ -57,6 +70,7 @@ export class UIScene extends Scene {
   create(data: UISceneData) {
     this.client = data.client;
     this.tactical = data.tactical;
+    this.lastTurnSeen = null;
     applyDprZoom(this);
 
     // Top status banner
@@ -176,6 +190,7 @@ export class UIScene extends Scene {
     this.blessingPicker = new BlessingPicker(this);
     this.equipScreen = new EquipScreen(this, this.client);
     this.systemMenu = new SystemMenu(this);
+    this.phaseBanner = new PhaseBanner(this);
 
     this.refreshHud();
     const unsubscribe = this.client.subscribe(() => {
@@ -218,6 +233,15 @@ export class UIScene extends Scene {
       this.gameOverText.setVisible(false);
       this.gameOverRestartButton.setVisible(false);
       this.gameOverRestartText.setVisible(false);
+    }
+
+    // ctx.turn increments exactly once per real turn.onBegin (game.ts) —
+    // the same signal simulate.ts's own turn-change logging diffs against —
+    // so this fires the banner once per actual phase change, not on every
+    // G/ctx update within a turn (unit moves, attacks, etc. don't touch it).
+    if (!ctx.gameover && ctx.turn !== this.lastTurnSeen) {
+      this.lastTurnSeen = ctx.turn;
+      this.phaseBanner.show(teamOf(ctx.currentPlayer));
     }
 
     const isPlayerTurn = !ctx.gameover && !G.awaitingBlessing && teamOf(ctx.currentPlayer) === 'player';
