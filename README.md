@@ -113,6 +113,17 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-22 Claude: Fixed enemy units showing dimmed throughout the
+  player's entire turn. `hasActed` only resets at the start of *that unit's
+  own* team's turn (game.ts's `turn.onBegin`) — an enemy keeps
+  `hasActed: true` from the end of its last turn all the way through the
+  player's whole next phase, so dimming off that flag alone made every
+  enemy look "already acted" the entire time it was actually the player's
+  turn. `UnitSprite.sync()` now takes an explicit `dimmed` boolean instead
+  of reading `unit.hasActed` itself; `TacticalScene.syncUnits()` computes
+  it as `unit.hasActed && unit.team === activeTeam`. Verified via
+  Playwright: enemies that acted last turn show full color once it's the
+  player's turn again. Bumped to `0.3.1` (fix).
 - 2026-08-22 Claude: UI improvement pass — unit status UI + mobile-style
   controls, discussed and planned with the user before building (locked
   decisions: compact status bar + tap-for-detail; bottom dock + contextual

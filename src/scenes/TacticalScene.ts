@@ -179,7 +179,14 @@ export class TacticalScene extends Scene {
 
   /** Reconciles every unit sprite to G.units, diffing against the last known snapshot for hit feedback. */
   private syncUnits(): void {
-    const { G } = this.client.getState()!;
+    const { G, ctx } = this.client.getState()!;
+    const activeTeam = teamOf(ctx.currentPlayer);
+    // hasActed only resets at the start of that unit's own team's turn
+    // (game.ts's turn.onBegin) — the other team's units still carry
+    // whatever hasActed they ended their own last turn with, so dimming
+    // must also check it's currently that unit's team's turn (see
+    // UnitSprite.sync's doc comment).
+    const isDimmed = (unit: Unit) => unit.hasActed && unit.team === activeTeam;
     const seen = new Set<string>();
 
     for (const unit of Object.values(G.units)) {
@@ -189,7 +196,7 @@ export class TacticalScene extends Scene {
 
       let sprite = this.unitSprites.get(unit.id);
       if (!sprite) {
-        sprite = new UnitSprite(this, px, py, TILE_SIZE, unit);
+        sprite = new UnitSprite(this, px, py, TILE_SIZE, unit, isDimmed(unit));
         sprite.setDepth(2);
         this.unitSprites.set(unit.id, sprite);
       } else {
@@ -198,7 +205,7 @@ export class TacticalScene extends Scene {
         } else {
           sprite.setPosition(px, py);
         }
-        sprite.sync(unit);
+        sprite.sync(unit, isDimmed(unit));
 
         if (previous && unit.hp < previous.hp) {
           this.spawnFloatingText(px, py, `-${previous.hp - unit.hp}`, '#ff6b6b');

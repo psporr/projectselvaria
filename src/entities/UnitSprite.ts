@@ -40,7 +40,7 @@ export class UnitSprite extends GameObjects.Container {
   /** Whatever sync() last set the circle's fill to — flash() reverts here instead of always baseColor, so a hit on an already-acted (dimmed) unit doesn't briefly un-dim it. */
   private currentFill: number;
 
-  constructor(scene: Scene, x: number, y: number, tileSize: number, unit: Unit) {
+  constructor(scene: Scene, x: number, y: number, tileSize: number, unit: Unit, dimmed: boolean) {
     super(scene, x, y);
     this.hpBarWidth = tileSize * 0.7;
     this.baseColor = TEAM_COLOR[unit.team];
@@ -64,20 +64,29 @@ export class UnitSprite extends GameObjects.Container {
     this.add([this.circle, label, hpBarBg, this.hpBar]);
     scene.add.existing(this);
 
-    this.sync(unit);
+    this.sync(unit, dimmed);
   }
 
-  /** Reconciles this sprite's look to the given unit's current state. Never mutates it. */
-  sync(unit: Unit): void {
+  /**
+   * Reconciles this sprite's look to the given unit's current state. Never
+   * mutates it. `dimmed` is the caller's call, not derived from
+   * `unit.hasActed` alone — that flag only resets at the start of *that
+   * unit's own* team's turn (game.ts's turn.onBegin), so an enemy unit
+   * stays `hasActed: true` for the player's *entire* turn (it doesn't reset
+   * until the enemy's own next turn begins). Dimming off the raw flag made
+   * every enemy look "already acted" throughout the player's whole phase.
+   * TacticalScene decides `dimmed` by also checking whose turn it is.
+   */
+  sync(unit: Unit, dimmed: boolean): void {
     const ratio = clamp01(unit.hp / unit.maxHp);
     this.hpBar.width = this.hpBarWidth * ratio;
     this.hpBar.fillColor = ratio > 0.5 ? 0x5cb85c : ratio > 0.25 ? 0xf0ad4e : 0xd9534f;
     // A spent unit dims and desaturates toward gray — alpha alone read as
     // "translucent"; the color blend makes "already acted" unambiguous at a
     // glance, the standard Fire Emblem convention.
-    this.currentFill = unit.hasActed ? this.actedColor : this.baseColor;
+    this.currentFill = dimmed ? this.actedColor : this.baseColor;
     this.circle.setFillStyle(this.currentFill);
-    this.circle.setAlpha(unit.hasActed ? 0.6 : 1);
+    this.circle.setAlpha(dimmed ? 0.6 : 1);
   }
 
   /** Brief color flash to draw the eye to a unit that was just hit. */
