@@ -2,6 +2,7 @@ import { GameObjects, Scene } from 'phaser';
 
 import type { Blessing, BlessingRarity } from '../game/blessings';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
+import { Card } from './kit';
 
 const CARD_WIDTH = 132;
 const CARD_HEIGHT = 260;
@@ -64,9 +65,9 @@ export class BlessingPicker extends GameObjects.Container {
       const x = startX + index * (CARD_WIDTH + CARD_GAP);
       const color = RARITY_COLOR[blessing.rarity];
 
-      const card = this.scene.add
-        .rectangle(x, centerY, CARD_WIDTH, CARD_HEIGHT, 0x1c2030, 0.97)
-        .setStrokeStyle(2, color)
+      const card = new Card(this.scene, x, centerY, CARD_WIDTH, CARD_HEIGHT, color);
+      const hitZone = this.scene.add
+        .rectangle(x, centerY, CARD_WIDTH, CARD_HEIGHT, 0x000000, 0)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => this.pick(blessing.id));
 
@@ -102,8 +103,8 @@ export class BlessingPicker extends GameObjects.Container {
         })
         .setOrigin(0.5, 0);
 
-      this.add([card, stars, name, description]);
-      this.cardNodes.push(card, stars, name, description);
+      this.add([card, hitZone, stars, name, description]);
+      this.cardNodes.push(card, hitZone, stars, name, description);
     });
 
     this.setVisible(true);

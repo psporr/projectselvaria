@@ -4,6 +4,7 @@ import type { CombatForecast } from '../game/combat';
 import { terrainAt } from '../game/grid';
 import type { GameState, Unit } from '../game/types';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
+import { Button, Card, COLORS } from './kit';
 
 const CARD_WIDTH = 420;
 const CARD_HEIGHT = 220;
@@ -56,13 +57,13 @@ export class ForecastPanel extends GameObjects.Container {
     backdrop.on('pointerdown', () => this.cancel());
 
     const cardWidth = Math.min(CARD_WIDTH, width - 32);
-    const card = scene.add.rectangle(centerX, centerY, cardWidth, CARD_HEIGHT, 0x1c2030, 0.97).setStrokeStyle(2, 0x4a90d9);
+    const card = new Card(scene, centerX, centerY, cardWidth, CARD_HEIGHT);
 
     this.bodyText = scene.add
       .text(centerX, centerY - CARD_HEIGHT / 2 + 18, '', {
         fontFamily: 'monospace',
         fontSize: '13px',
-        color: '#e0e0e0',
+        color: COLORS.textPrimary,
         align: 'left',
         wordWrap: { width: cardWidth - 32 },
         lineSpacing: 8,
@@ -71,23 +72,12 @@ export class ForecastPanel extends GameObjects.Container {
       .setOrigin(0.5, 0);
 
     const buttonY = centerY + CARD_HEIGHT / 2 - 26;
-    const confirmButton = scene.add
-      .rectangle(centerX + 80, buttonY, BUTTON_WIDTH, BUTTON_HEIGHT, 0x3a8f4a)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.confirm());
-    const confirmLabel = scene.add
-      .text(centerX + 80, buttonY, 'Confirm', { fontFamily: 'monospace', fontSize: '14px', color: '#ffffff', resolution: DPR })
-      .setOrigin(0.5);
+    const confirmButton = new Button(scene, centerX + 80, buttonY, BUTTON_WIDTH, BUTTON_HEIGHT, 'Confirm', () => this.confirm());
+    confirmButton.setAccent(COLORS.successFill, COLORS.successStroke);
+    const cancelButton = new Button(scene, centerX - 80, buttonY, BUTTON_WIDTH, BUTTON_HEIGHT, 'Cancel', () => this.cancel());
+    cancelButton.setAccent(COLORS.cancelFill, COLORS.buttonStroke);
 
-    const cancelButton = scene.add
-      .rectangle(centerX - 80, buttonY, BUTTON_WIDTH, BUTTON_HEIGHT, 0x8a3a3a)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.cancel());
-    const cancelLabel = scene.add
-      .text(centerX - 80, buttonY, 'Cancel', { fontFamily: 'monospace', fontSize: '14px', color: '#ffffff', resolution: DPR })
-      .setOrigin(0.5);
-
-    this.add([backdrop, card, this.bodyText, confirmButton, confirmLabel, cancelButton, cancelLabel]);
+    this.add([backdrop, card, this.bodyText, confirmButton, cancelButton]);
     this.setDepth(20);
     scene.add.existing(this);
     this.setVisible(false);
