@@ -2,7 +2,7 @@ import { GameObjects, Scene } from 'phaser';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { Button, Card, COLORS } from './kit';
 
-export type SystemMenuChoice = 'restart' | 'cancel';
+export type SystemMenuChoice = 'end-turn' | 'restart' | 'cancel';
 
 export interface SystemMenuOption {
   id: SystemMenuChoice;
@@ -17,10 +17,11 @@ const TOP_PADDING = 20;
 const BOTTOM_PADDING = 16;
 
 /**
- * Overflow menu for the one rare, destructive action (Restart) that doesn't
- * belong as a one-tap dock button — everything else (End Turn/Squad/Danger
- * Zone) lives on UIScene's bottom dock now. Opens when tapping an empty map
- * tile during player idle mode or the dock's Menu button.
+ * Overflow menu, reachable by tapping an empty map tile during player idle
+ * mode or the dock's Menu button. Squad/Danger Zone stay dock-only (no
+ * reason to duplicate them here); End Turn is duplicated here too since
+ * tapping an empty tile to end the turn is a natural gesture on its own,
+ * without needing the dock.
  */
 export class SystemMenu extends GameObjects.Container {
   private readonly backdrop: GameObjects.Rectangle;

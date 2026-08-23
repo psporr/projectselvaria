@@ -573,9 +573,10 @@ export class TacticalScene extends Scene {
 
   /** Opens the field/system menu (End Turn / Squad / Danger Zone / Restart / Cancel). */
   /**
-   * End Turn/Squad/Danger Zone live on UIScene's bottom dock now — this is
-   * just the overflow menu for the one rare, destructive action (Restart)
-   * that doesn't belong as a one-tap dock button. Reachable via the dock's
+   * Squad/Danger Zone live on UIScene's bottom dock only — this is the
+   * overflow menu for everything else reachable from an empty-tile tap:
+   * End Turn (a natural gesture on its own, without needing the dock) and
+   * Restart (the one rare, destructive action). Reachable via the dock's
    * own Menu button or by tapping an empty board tile.
    */
   openSystemMenu(): void {
@@ -584,7 +585,11 @@ export class TacticalScene extends Scene {
     if (!state) return;
     if (this.mode !== 'idle') this.finishSelection();
 
+    const { G, ctx } = state;
+    const isPlayerTurn = !ctx.gameover && !G.awaitingBlessing && teamOf(ctx.currentPlayer) === 'player';
+
     const options: SystemMenuOption[] = [
+      { id: 'end-turn', label: 'End Turn', enabled: isPlayerTurn },
       { id: 'restart', label: 'Restart Battle', enabled: true },
       { id: 'cancel', label: 'Cancel', enabled: true },
     ];
@@ -592,7 +597,9 @@ export class TacticalScene extends Scene {
   }
 
   private onSystemMenuChosen(choice: SystemMenuChoice): void {
-    if (choice === 'restart') {
+    if (choice === 'end-turn') {
+      this.endTurn();
+    } else if (choice === 'restart') {
       this.restartBattle();
     }
   }

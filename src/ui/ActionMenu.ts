@@ -72,13 +72,10 @@ export class ActionMenu extends GameObjects.Container {
     const onRightHalf = anchorX > LOGICAL_WIDTH / 2;
     // Card center placed so its near edge sits TILE_HALF + EDGE_GAP from
     // the anchor — i.e. just clear of the unit's own tile — regardless of
-    // the card's padding around the buttons. Anchors outward (toward
-    // whichever screen edge the unit is nearer to), not inward toward
-    // center — clamp() below still keeps it fully on-screen for a unit
-    // right at the edge.
+    // the card's padding around the buttons.
     const cardHalfWidth = BUTTON_WIDTH / 2 + CARD_PADDING_X;
     const nearEdgeOffset = TILE_HALF + EDGE_GAP;
-    const rawX = onRightHalf ? anchorX + nearEdgeOffset + cardHalfWidth : anchorX - nearEdgeOffset - cardHalfWidth;
+    const rawX = onRightHalf ? anchorX - nearEdgeOffset - cardHalfWidth : anchorX + nearEdgeOffset + cardHalfWidth;
     const stackX = clamp(rawX, BUTTON_WIDTH / 2 + SCREEN_MARGIN, LOGICAL_WIDTH - BUTTON_WIDTH / 2 - SCREEN_MARGIN);
     const stackCenterY = clamp(anchorY, stackHeight / 2 + SCREEN_MARGIN, LOGICAL_HEIGHT - stackHeight / 2 - SCREEN_MARGIN);
     const startY = stackCenterY - stackHeight / 2 + BUTTON_HEIGHT / 2;
