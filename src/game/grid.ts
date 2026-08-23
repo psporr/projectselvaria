@@ -99,6 +99,36 @@ export function computeReachable(G: GameState, unit: Unit): Map<string, Reachabl
   return reachable;
 }
 
+/**
+ * BFS step-distance from `origin` to every tile reachable over passable
+ * terrain, ignoring move cost and unit occupancy — unlike computeReachable,
+ * this isn't "can I get there this turn," it's "how many tiles away is this,
+ * going around walls/water rather than through them." Used by the AI's
+ * approach heuristic (ai.ts's bestApproach) so a unit finds its way around a
+ * chokepoint instead of refusing to step sideways away from an obstacle that
+ * only *looks* farther in straight-line (Manhattan) terms.
+ */
+export function pathDistances(G: GameState, origin: Coord): Map<string, number> {
+  const dist = new Map<string, number>([[tileKey(origin.x, origin.y), 0]]);
+  const queue: Coord[] = [origin];
+
+  for (let i = 0; i < queue.length; i++) {
+    const current = queue[i];
+    const d = dist.get(tileKey(current.x, current.y))!;
+    for (const step of NEIGHBOURS) {
+      const x = current.x + step.x;
+      const y = current.y + step.y;
+      if (!inBounds(G, x, y) || !terrainAt(G, x, y).passable) continue;
+      const key = tileKey(x, y);
+      if (dist.has(key)) continue;
+      dist.set(key, d + 1);
+      queue.push({ x, y });
+    }
+  }
+
+  return dist;
+}
+
 /** Enemies of `unit` that could be struck if it attacked from (x, y). */
 export function targetsFrom(G: GameState, unit: Unit, x: number, y: number): Unit[] {
   const range = effectiveStats(unit).range;

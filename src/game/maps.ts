@@ -400,27 +400,40 @@ export const CAMPAIGN_CHAPTER_2: ChapterDef = {
 export const CAMPAIGN_CHAPTERS: ChapterDef[] = [CAMPAIGN_CHAPTER_1, CAMPAIGN_CHAPTER_2];
 
 /**
- * Concept-test map: terrain read off a user-generated painted map image
- * (`public/maps/test-map1.png`) via a color-clustering + saturation
- * classification pass, not hand-authored ASCII like the other chapters.
- * TacticalScene renders that same image as the board background for this
- * chapter id instead of flat terrain-color tiles (see
- * `CHAPTERS_WITH_BACKGROUND_ART` there) — the point of this chapter is to
- * prove that pipeline end-to-end, not to be a balanced encounter.
+ * Concept-test maps: terrain read off a user-generated painted map image
+ * (`public/maps/test-map1.png`) via a per-pixel color-clustering pass, not
+ * hand-authored ASCII like the other chapters. TacticalScene renders that
+ * same image as the board background for both chapter ids below instead of
+ * flat terrain-color tiles (see `CHAPTERS_WITH_BACKGROUND_ART` there) — the
+ * point is to prove that pipeline end-to-end, not to be a balanced
+ * encounter.
  *
- * Sampled at 6x8 cells (90x90px each, matching the source image's 3:4
- * aspect ratio) rather than the original 9x12 pass — the finer grid put
- * tiles around 42px on a phone screen, too small to tap reliably. 6x8
- * lands tile size at a full 64px (same as CHAPTER_1), at the cost of some
- * terrain detail: a handful of small 1-cell rock outcrops the fine pass
- * caught get averaged away into their neighboring plain cell at this
- * coarser sampling, so this version has no wall tiles at all — the
- * water band + its one bridge crossing is the whole chokepoint. Verified
- * connected (a single passable region) same as every other chapter.
+ * Two resolutions, kept side by side on purpose (not one replacing the
+ * other): `TEST_MAP_1` at 6x8 is the one actually wired into
+ * `ProjectSelvaria` below — its tiles land at a full 64px (same as
+ * CHAPTER_1), which the 9x12 version's ~42px tiles turned out too small to
+ * tap reliably on a phone. `TEST_MAP_1_DETAILED` keeps the original finer
+ * read of the image, unwired for now (no chapter-select exists yet to
+ * reach a second roguelike chapter) but around for whenever that changes,
+ * or for a non-mobile-constrained context.
  *
- * Same footprint as CHAPTER_1 (8 rows, one column narrower), so its exact
- * unit layout drops in unchanged: player squad on the bottom two rows,
- * bandits on the top two (also required by waves.ts's `ENEMY_ZONE_ROWS`).
+ * Terrain classification: per-pixel k-means over the whole image (not a
+ * per-cell color average, which washed out small rock outcrops into their
+ * surrounding grass when tried at 90px cells) produces `TEST_MAP_1_DETAILED`'s
+ * 9x12 grid directly; `TEST_MAP_1`'s 6x8 grid is that same classification
+ * downsampled, with any wall-cell vote given priority over its neighbors so
+ * a mountain still blocks its whole coarse tile even as a minority of that
+ * tile's area — matching FE's convention that an obstacle's tile is fully
+ * impassable, not partially. Both are confirmed fully connected (BFS over
+ * passable tiles).
+ *
+ * Mountain tiles are `wall` (impassable to everyone) rather than a new
+ * flying-only terrain type — there's no flying unit class yet, so that's
+ * currently equivalent, and simpler than modeling terrain-by-unit-type
+ * before there's a unit type that needs it. Revisit as `wall`
+ * (categorically impassable) vs. a `mountain` type flying units can cross
+ * when a flying class actually gets built (HANDOFF.md's class roster has
+ * none yet).
  */
 export const TEST_MAP_1: ChapterDef = {
   id: 'test-map1',
@@ -429,26 +442,62 @@ export const TEST_MAP_1: ChapterDef = {
   objective: 'Survive as many waves as you can',
   objectiveType: 'waves',
   rows: [
-    '.....f',
-    '......',
-    'ww....',
-    '.ww.ww',
-    '......',
+    '.#...f',
+    '.....#',
+    'w#f...',
+    'f#w.ww',
+    '....ff',
     '.f....',
-    '......',
-    '.....f',
+    '.#....',
+    'f....f',
   ],
   units: [
-    { id: 'lyn', name: 'Eirika', team: 'player', className: 'Swordsman', x: 1, y: 6 },
+    { id: 'lyn', name: 'Eirika', team: 'player', className: 'Swordsman', x: 0, y: 6 },
     { id: 'byleth', name: 'Byleth', team: 'player', className: 'Archer', x: 1, y: 7 },
     { id: 'corrin', name: 'Corrin', team: 'player', className: 'Lancer', x: 4, y: 6 },
     { id: 'selva', name: 'Selva', team: 'player', className: 'Mage', x: 4, y: 7 },
     { id: 'ake', name: 'Ike', team: 'player', className: 'Barbarian', x: 2, y: 6 },
     { id: 'lissa', name: 'Lissa', team: 'player', className: 'Cleric', x: 3, y: 6 },
     { id: 'olivia', name: 'Olivia', team: 'player', className: 'Dancer', x: 5, y: 6 },
-    { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 1, y: 0 },
+    { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 0, y: 0 },
     { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 4, y: 0 },
     { id: 'bandit-3', name: 'Bandit 3', team: 'enemy', randomClass: true, x: 1, y: 1 },
     { id: 'bandit-4', name: 'Bandit 4', team: 'enemy', randomClass: true, x: 4, y: 1 },
+  ],
+};
+
+/** See `TEST_MAP_1`'s doc comment — the finer, unwired sibling of that chapter. */
+export const TEST_MAP_1_DETAILED: ChapterDef = {
+  id: 'test-map1-detailed',
+  name: 'Concept Test: Riverlands (Detailed)',
+  shortName: 'Riverlands (Detailed)',
+  objective: 'Survive as many waves as you can',
+  objectiveType: 'waves',
+  rows: [
+    '..#.....f',
+    '.........',
+    '........#',
+    'ww#f.....',
+    'fww......',
+    '.#www.www',
+    '......ff.',
+    '..f....f.',
+    '.ff......',
+    '..#......',
+    '..f......',
+    'f......ff',
+  ],
+  units: [
+    { id: 'lyn', name: 'Eirika', team: 'player', className: 'Swordsman', x: 3, y: 10 },
+    { id: 'corrin', name: 'Corrin', team: 'player', className: 'Lancer', x: 5, y: 10 },
+    { id: 'ake', name: 'Ike', team: 'player', className: 'Barbarian', x: 2, y: 11 },
+    { id: 'lissa', name: 'Lissa', team: 'player', className: 'Cleric', x: 3, y: 11 },
+    { id: 'byleth', name: 'Byleth', team: 'player', className: 'Archer', x: 4, y: 11 },
+    { id: 'selva', name: 'Selva', team: 'player', className: 'Mage', x: 5, y: 11 },
+    { id: 'olivia', name: 'Olivia', team: 'player', className: 'Dancer', x: 6, y: 11 },
+    { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 1, y: 0 },
+    { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 7, y: 0 },
+    { id: 'bandit-3', name: 'Bandit 3', team: 'enemy', randomClass: true, x: 1, y: 1 },
+    { id: 'bandit-4', name: 'Bandit 4', team: 'enemy', randomClass: true, x: 7, y: 1 },
   ],
 };

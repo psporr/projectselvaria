@@ -1,5 +1,5 @@
 import type { GameState, Team, Unit } from './types';
-import { computeReachable, manhattan, unitsOf, type ReachableTile } from './grid';
+import { computeReachable, manhattan, pathDistances, tileKey, unitsOf, type ReachableTile } from './grid';
 import { forecastCombat } from './combat';
 import { effectiveStats } from './equipment';
 
@@ -66,7 +66,16 @@ function bestAttack(G: GameState, unit: Unit, reachable: Map<string, ReachableTi
   return best;
 }
 
-/** Tile within reach that gets closest to the nearest player unit. */
+/**
+ * Tile within reach that gets closest to the nearest player unit — by real
+ * path distance around obstacles (pathDistances), not straight-line
+ * Manhattan distance. A raw Manhattan heuristic looks appealing but traps
+ * the AI behind any obstacle wide enough that every tile it can actually
+ * reach this turn is Manhattan-farther from the foe than standing still,
+ * even when stepping sideways is the only way to eventually get around it —
+ * it would just wait forever. Path distance strictly decreases along the
+ * real route, so this always makes progress when progress is possible.
+ */
 function bestApproach(
   G: GameState,
   team: Team,
@@ -75,11 +84,15 @@ function bestApproach(
   const foes = unitsOf(G, opposing(team));
   if (foes.length === 0) return null;
 
+  const distanceFields = foes.map((foe) => pathDistances(G, foe));
+  const distanceTo = (tile: ReachableTile): number =>
+    Math.min(...distanceFields.map((field) => field.get(tileKey(tile.x, tile.y)) ?? Infinity));
+
   let best: ReachableTile | null = null;
   let bestDistance = Infinity;
 
   for (const tile of reachable.values()) {
-    const distance = Math.min(...foes.map((foe) => manhattan(tile, foe)));
+    const distance = distanceTo(tile);
     // Ties go to the cheaper tile so units don't wander needlessly.
     if (distance < bestDistance || (distance === bestDistance && best && tile.cost < best.cost)) {
       best = tile;

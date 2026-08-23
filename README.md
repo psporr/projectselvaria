@@ -133,6 +133,31 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-23 Claude: Fixed the mountain outcrops on the painted test map —
+  after the 6x8 resample they'd been (wrongly) walkable, so units could
+  stand right on top of visible rock art. Root cause was the per-cell
+  color-averaging approach: a small rock patch that's a minority of a
+  90x90px cell got averaged into "plain." Switched to per-pixel k-means
+  classification (no averaging to dilute small features) at the original
+  9x12 resolution, then downsampled that to the playable 6x8 grid with
+  wall votes given priority so a mountain still blocks its whole coarse
+  tile. Also kept the 9x12 reading around as a second, unwired chapter
+  (`TEST_MAP_1_DETAILED`) per request, rather than discarding it —
+  TacticalScene's background-art lookup is now id → image-basename so two
+  chapters can share one source image. Mountains are plain `wall`
+  (blocks everyone) rather than a new flying-only terrain type — no
+  flying unit class exists yet, so that's equivalent for now; revisit
+  when one does.
+  Along the way, batch-simulating the new terrain surfaced a real AI bug
+  unrelated to the map art: `ai.ts`'s "move toward the enemy" heuristic
+  ranked candidate tiles by straight-line Manhattan distance, which gets
+  a unit stuck forever refusing to step sideways around a wide obstacle
+  (every tile it can actually reach looks farther away in a straight
+  line, even though going around is the only way to close the gap).
+  Replaced it with real BFS path-distance (`grid.ts`'s new
+  `pathDistances`). Verified with 100 seeded batch runs (previously 1 in
+  20 stalled indefinitely on this map, now zero in 100) and a Playwright
+  pass confirming mountains actually block the move-highlight.
 - 2026-08-23 Claude: Tested on a real phone, the previous entry's map was
   too small to tap comfortably (~42px tiles, from sampling the source
   image at 9x12). Re-ran the classification at a coarser 6x8 grid instead

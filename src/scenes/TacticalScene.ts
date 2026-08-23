@@ -42,11 +42,17 @@ const TERRAIN_COLOR: Record<string, number> = {
 
 /**
  * Chapters with a painted background image (proving out the "read terrain
- * off a generated map image" concept — see TEST_MAP_1 in maps.ts) instead of
- * flat terrain-color tiles. The image lives at `public/maps/<id>.png` and is
- * loaded under the `<id>-bg` texture key.
+ * off a generated map image" concept — see TEST_MAP_1/TEST_MAP_1_DETAILED
+ * in maps.ts) instead of flat terrain-color tiles. Maps chapter id to the
+ * image's basename under `public/maps/<basename>.png` — not always the same
+ * as the chapter id, since TEST_MAP_1 and TEST_MAP_1_DETAILED are two
+ * different terrain readings of the same source image and share one file.
+ * Loaded under the `<basename>-bg` texture key.
  */
-const CHAPTERS_WITH_BACKGROUND_ART = ['test-map1'];
+const CHAPTERS_WITH_BACKGROUND_ART: Record<string, string> = {
+  'test-map1': 'test-map1',
+  'test-map1-detailed': 'test-map1',
+};
 
 const MOVE_HIGHLIGHT = 0x4a90d9;
 const TARGET_HIGHLIGHT = 0xd9534f;
@@ -117,9 +123,9 @@ export class TacticalScene extends Scene {
   }
 
   preload(): void {
-    for (const id of CHAPTERS_WITH_BACKGROUND_ART) {
-      const key = `${id}-bg`;
-      if (!this.textures.exists(key)) this.load.image(key, `maps/${id}.png`);
+    for (const basename of new Set(Object.values(CHAPTERS_WITH_BACKGROUND_ART))) {
+      const key = `${basename}-bg`;
+      if (!this.textures.exists(key)) this.load.image(key, `maps/${basename}.png`);
     }
   }
 
@@ -176,8 +182,9 @@ export class TacticalScene extends Scene {
 
   private drawBoard(): void {
     const { G } = this.client.getState()!;
-    const hasBackgroundArt = CHAPTERS_WITH_BACKGROUND_ART.includes(G.chapterId);
-    const bgKey = `${G.chapterId}-bg`;
+    const bgBasename = CHAPTERS_WITH_BACKGROUND_ART[G.chapterId];
+    const hasBackgroundArt = bgBasename !== undefined;
+    const bgKey = `${bgBasename}-bg`;
 
     if (hasBackgroundArt && this.textures.exists(bgKey)) {
       const boardWidth = G.width * this.tileSize;
