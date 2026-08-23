@@ -15,6 +15,10 @@ classes, combat, campaign content), the architecture decisions already made,
 and the lessons learned building the prototype — including what to deliberately
 *not* port. It's the source of truth for what this project is building.
 
+If you're sourcing or drawing art, see [`ART_BRIEF.md`](./ART_BRIEF.md) —
+the spec for the unit sprites/tileset/portraits the game still needs (it's
+currently 100% placeholder shapes, zero art assets).
+
 ## Workflow
 
 **Push directly to `main`.** Per the repo owner (2026-08-22): no feature
@@ -121,8 +125,25 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 *(Add a line here when you start something. Format: `- [Name] what, since when`.)*
 
+- [Claude] Graphical art pass — blocked on custom art being commissioned
+  (unit sprites first, terrain tileset held to ship together with them,
+  portraits after that). See `ART_BRIEF.md` for the spec handed to the
+  artist. Nothing to build code-side until art lands; the loading/
+  rendering integration is a contained follow-up once files exist.
+
 ### Recent changes
 
+- 2026-08-22 Claude: Discussed moving from text/shape-only UI to real
+  graphical art. Decided: unit sprites and portraits will be custom-
+  commissioned (not generic asset packs — the game is a distinct enough
+  cast, e.g. Eirika/Byleth/Corrin/etc, to be worth it, and the old
+  `winteremblem` prototype already had a precedent for original art
+  "drawn by a friend"), sequenced unit sprites → terrain tileset (held
+  back to ship together with sprites, not separately) → portraits. Wrote
+  `ART_BRIEF.md` as a concrete, scoped spec (7 class map sprites, 48×48px,
+  neutral palette for runtime team-tinting, v1 explicitly excludes
+  animation) so an artist can start without back-and-forth. No code
+  changes — this is blocked on external art; see "In progress" above.
 - 2026-08-22 Claude: Attack/Skill no longer appear in the action menu at
   all when there's no target in range from the picked destination —
   previously they showed grayed-out. A skill with a target still on
