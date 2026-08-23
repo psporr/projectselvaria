@@ -1,6 +1,6 @@
 import { GameObjects, Scene } from 'phaser';
 import { LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
-import { Button } from './kit';
+import { Button, Card } from './kit';
 
 export type ActionMenuChoice = 'attack' | 'skill' | 'wait' | 'cancel';
 
@@ -15,6 +15,8 @@ const BUTTON_HEIGHT = 40;
 const GAP = 8;
 const ANCHOR_MARGIN = 18;
 const SCREEN_MARGIN = 10;
+const CARD_PADDING_X = 16;
+const CARD_PADDING_Y = 14;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -23,13 +25,16 @@ function clamp(value: number, min: number, max: number): number {
 /**
  * The post-move action list (Attack / Skill / Wait / Cancel) — a small pill
  * cluster anchored next to the acting unit (mobile-SRPG convention) instead
- * of a centered modal, so the board stays visible while choosing. Rebuilds
- * its button rows on every show() rather than pooling them — the menu opens
- * at most once per unit action, so the churn is cheap and it keeps enabled/
+ * of a centered modal, so the board stays visible while choosing (no
+ * screen-dimming backdrop — only an invisible tap-away-to-cancel zone) with
+ * a Card behind the buttons for legibility against the board. Rebuilds its
+ * button rows on every show() rather than pooling them — the menu opens at
+ * most once per unit action, so the churn is cheap and it keeps enabled/
  * disabled state and per-class skill labels trivial to get right.
  */
 export class ActionMenu extends GameObjects.Container {
   private readonly backdrop: GameObjects.Rectangle;
+  private readonly card: Card;
   private readonly rows: Button[] = [];
   private onChoose: ((id: ActionMenuChoice) => void) | null = null;
 
@@ -38,10 +43,13 @@ export class ActionMenu extends GameObjects.Container {
     const width = LOGICAL_WIDTH;
     const height = LOGICAL_HEIGHT;
 
-    this.backdrop = scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.35).setInteractive();
+    // Invisible — tap-away-to-cancel without dimming the board underneath.
+    this.backdrop = scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0).setInteractive();
     this.backdrop.on('pointerdown', () => this.choose('cancel'));
 
-    this.add([this.backdrop]);
+    this.card = new Card(scene, width / 2, height / 2, BUTTON_WIDTH, BUTTON_HEIGHT);
+
+    this.add([this.backdrop, this.card]);
     this.setDepth(20);
     scene.add.existing(this);
     this.setVisible(false);
@@ -58,6 +66,9 @@ export class ActionMenu extends GameObjects.Container {
     const stackX = clamp(rawX, BUTTON_WIDTH / 2 + SCREEN_MARGIN, LOGICAL_WIDTH - BUTTON_WIDTH / 2 - SCREEN_MARGIN);
     const stackCenterY = clamp(anchorY, stackHeight / 2 + SCREEN_MARGIN, LOGICAL_HEIGHT - stackHeight / 2 - SCREEN_MARGIN);
     const startY = stackCenterY - stackHeight / 2 + BUTTON_HEIGHT / 2;
+
+    this.card.setPosition(stackX, stackCenterY);
+    this.card.resize(BUTTON_WIDTH + CARD_PADDING_X * 2, stackHeight + CARD_PADDING_Y * 2);
 
     options.forEach((option, index) => {
       const y = startY + index * (BUTTON_HEIGHT + GAP);

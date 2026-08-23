@@ -113,6 +113,14 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-22 Claude: `ActionMenu` (the unit-anchored Attack/Skill/Wait/
+  Cancel popup) now has its own `Card` background behind the button stack
+  for legibility, and its full-screen backdrop is fully transparent instead
+  of dimming the board — an invisible tap-away-to-cancel zone only, since
+  the whole point of anchoring it beside the unit was to keep the board
+  visible while choosing. Verified via Playwright: card renders correctly
+  behind the buttons, board stays undimmed, tap-away-to-cancel still works.
+  Bumped to `0.3.2` (fix).
 - 2026-08-22 Claude: Fixed enemy units showing dimmed throughout the
   player's entire turn. `hasActed` only resets at the start of *that unit's
   own* team's turn (game.ts's `turn.onBegin`) — an enemy keeps
