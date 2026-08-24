@@ -139,6 +139,21 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-23 Claude: Moved the battle log off the always-visible board
+  screen into an on-demand panel (`LogPanel`, new — Menu → Battle Log),
+  freeing the space it used to occupy for a bigger `UnitStatusBar`.
+  `UnitStatusBar` dropped its old compact-strip-plus-tap-to-expand-overlay
+  split (there wasn't room to show everything at once before; there is
+  now) — it's one always-visible panel showing name/class/level, HP,
+  full stats (Atk/Def/Mov/Rng, Hit/Crit), skill status, and equipment
+  (player units) with no tap needed. Hit one real bug building this: the
+  first content pass overflowed the card and ran text under the dock
+  buttons — fixed by dropping a blank spacer line and the "Equipment:"
+  header and tightening line spacing, caught by Playwright before
+  shipping. `SystemMenu` gained a "Battle Log" option alongside End
+  Turn/Restart/Cancel. Verified with `validate-maps`, a 50-run batch
+  sim, and a Playwright pass (both player and enemy status content fit
+  cleanly, log panel opens/shows real entries/closes correctly).
 - 2026-08-23 Claude: First map generated straight from `MAP_BRIEF.md`'s
   prompt (Gemini, 7x8, `public/maps/test-map2.png`) — a clean result, every
   wall/forest cell lined up with visible rock/tree art on the first

@@ -10,6 +10,7 @@ import { ActionMenu, type ActionMenuChoice, type ActionMenuOption } from '../ui/
 import { BlessingPicker } from '../ui/BlessingPicker';
 import { EquipScreen } from '../ui/EquipScreen';
 import { ForecastPanel } from '../ui/ForecastPanel';
+import { LogPanel } from '../ui/LogPanel';
 import { PhaseBanner } from '../ui/PhaseBanner';
 import { SystemMenu, type SystemMenuChoice, type SystemMenuOption } from '../ui/SystemMenu';
 import { UnitStatusBar } from '../ui/UnitStatusBar';
@@ -34,7 +35,6 @@ export class UIScene extends Scene {
   private tactical!: TacticalScene;
 
   private phaseText!: GameObjects.Text;
-  private logText!: GameObjects.Text;
 
   private dangerButton!: Button;
   private endTurnButton!: Button;
@@ -52,6 +52,7 @@ export class UIScene extends Scene {
   systemMenu!: SystemMenu;
   phaseBanner!: PhaseBanner;
   unitStatusBar!: UnitStatusBar;
+  logPanel!: LogPanel;
 
   /**
    * Last ctx.turn seen, used to fire the phase banner exactly once per real
@@ -81,21 +82,6 @@ export class UIScene extends Scene {
       color: '#e0e0e0',
       resolution: DPR,
     }).setOrigin(0, 0.5);
-
-    // Battle log text — between UnitStatusBar (~572-628,
-    // src/ui/UnitStatusBar.ts, itself right below the actual board bottom:
-    // 56 + 8 rows * 64 = 568, not the 504 a 7-row assumption would give,
-    // see that file's own note) and the bottom dock below. Shrunk from 10
-    // lines to 4 — HP/damage already show as floating text over units
-    // (TacticalScene.spawnFloatingText), so the log was always secondary
-    // detail, not the primary readout, and the dock needs the room.
-    this.logText = this.add.text(16, 644, '', {
-      fontFamily: FONT_FAMILY,
-      fontSize: '12px',
-      color: '#9099a8',
-      wordWrap: { width: LOGICAL_WIDTH - 32 },
-      resolution: DPR,
-    });
 
     // Bottom dock — thumb-reachable, mobile-app convention. Replaces the
     // old top-right Menu/Squad buttons and the old End-Turn/Danger-Zone
@@ -177,6 +163,7 @@ export class UIScene extends Scene {
     this.systemMenu = new SystemMenu(this);
     this.phaseBanner = new PhaseBanner(this);
     this.unitStatusBar = new UnitStatusBar(this);
+    this.logPanel = new LogPanel(this);
 
     this.refreshHud();
     const unsubscribe = this.client.subscribe(() => {
@@ -256,11 +243,6 @@ export class UIScene extends Scene {
     if (this.phaseText.text !== nextPhaseText) {
       this.phaseText.setText(nextPhaseText);
     }
-    const nextLogText = G.log.slice(0, 4).join('\n');
-    if (this.logText.text !== nextLogText) {
-      this.logText.setText(nextLogText);
-    }
-
     this.endTurnButton.setEnabled(isPlayerTurn);
 
     const threatOn = this.tactical?.isThreatOverlayVisible?.() ?? false;
@@ -282,6 +264,10 @@ export class UIScene extends Scene {
 
   showBlessingPicker(blessings: Blessing[], onPick: (id: string) => void): void {
     this.blessingPicker.show(blessings, onPick);
+  }
+
+  showLogPanel(log: string[]): void {
+    this.logPanel.show(log);
   }
 
   /** A brief toast for a fresh drop — TacticalScene diffs G.nextItemInstance client-side to call this, rather than a synced "pending drop" G field (HANDOFF.md §9). */

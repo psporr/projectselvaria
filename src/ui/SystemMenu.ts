@@ -2,7 +2,7 @@ import { GameObjects, Scene } from 'phaser';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { Button, Card, COLORS, FONT_FAMILY } from './kit';
 
-export type SystemMenuChoice = 'end-turn' | 'restart' | 'cancel';
+export type SystemMenuChoice = 'end-turn' | 'log' | 'restart' | 'cancel';
 
 export interface SystemMenuOption {
   id: SystemMenuChoice;
@@ -21,7 +21,10 @@ const BOTTOM_PADDING = 16;
  * mode or the dock's Menu button. Squad/Danger Zone stay dock-only (no
  * reason to duplicate them here); End Turn is duplicated here too since
  * tapping an empty tile to end the turn is a natural gesture on its own,
- * without needing the dock.
+ * without needing the dock. Battle Log lives here only (not the dock) —
+ * it moved off the always-visible board screen to make room for a bigger
+ * UnitStatusBar (see that file's doc comment), so it's an on-demand look
+ * now rather than a persistent readout.
  */
 export class SystemMenu extends GameObjects.Container {
   private readonly backdrop: GameObjects.Rectangle;

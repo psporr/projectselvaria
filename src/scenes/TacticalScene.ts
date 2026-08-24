@@ -25,8 +25,8 @@ import type { UIScene } from './UIScene';
 // moment a wider/taller chapter — see TEST_MAP_1 — was loaded). The board
 // area is BOARD_AREA_WIDTH x BOARD_AREA_HEIGHT starting at (BOARD_ORIGIN_X
 // computed to center it, BOARD_ORIGIN_Y). BOARD_AREA_HEIGHT's lower bound
-// must stay <= UnitStatusBar's fixed BAR_Y (600) minus half its BAR_HEIGHT
-// (56) minus a small gap — that bar sits at a constant position regardless
+// must stay <= UnitStatusBar's fixed BAR_Y (664) minus half its BAR_HEIGHT
+// (180) minus a small gap — that bar sits at a constant position regardless
 // of board height (src/ui/UnitStatusBar.ts's own note on this), so a board
 // taller than CHAPTER_1's 8 rows must shrink its tiles to still clear it
 // rather than running underneath it.
@@ -577,9 +577,11 @@ export class TacticalScene extends Scene {
   /**
    * Squad/Danger Zone live on UIScene's bottom dock only — this is the
    * overflow menu for everything else reachable from an empty-tile tap:
-   * End Turn (a natural gesture on its own, without needing the dock) and
-   * Restart (the one rare, destructive action). Reachable via the dock's
-   * own Menu button or by tapping an empty board tile.
+   * End Turn (a natural gesture on its own, without needing the dock),
+   * Battle Log (moved off the always-visible board screen, see
+   * UnitStatusBar's doc comment), and Restart (the one rare, destructive
+   * action). Reachable via the dock's own Menu button or by tapping an
+   * empty board tile.
    */
   openSystemMenu(): void {
     if (this.inputSuspended) return;
@@ -592,15 +594,18 @@ export class TacticalScene extends Scene {
 
     const options: SystemMenuOption[] = [
       { id: 'end-turn', label: 'End Turn', enabled: isPlayerTurn },
+      { id: 'log', label: 'Battle Log', enabled: true },
       { id: 'restart', label: 'Restart Battle', enabled: true },
       { id: 'cancel', label: 'Cancel', enabled: true },
     ];
-    this.ui.showSystemMenu(options, (choice) => this.onSystemMenuChosen(choice));
+    this.ui.showSystemMenu(options, (choice) => this.onSystemMenuChosen(choice, G.log));
   }
 
-  private onSystemMenuChosen(choice: SystemMenuChoice): void {
+  private onSystemMenuChosen(choice: SystemMenuChoice, log: string[]): void {
     if (choice === 'end-turn') {
       this.endTurn();
+    } else if (choice === 'log') {
+      this.ui.showLogPanel(log);
     } else if (choice === 'restart') {
       this.restartBattle();
     }
