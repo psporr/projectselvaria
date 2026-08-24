@@ -17,7 +17,9 @@ and the lessons learned building the prototype — including what to deliberatel
 
 If you're sourcing or drawing art, see [`ART_BRIEF.md`](./ART_BRIEF.md) —
 the spec for the unit sprites/tileset/portraits the game still needs (it's
-currently 100% placeholder shapes, zero art assets).
+currently 100% placeholder shapes, zero art assets). If you're generating
+a new chapter's map image, see [`MAP_BRIEF.md`](./MAP_BRIEF.md) for the
+prompt and technical spec to hand an image generator.
 
 ## Workflow
 
