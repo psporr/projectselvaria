@@ -139,6 +139,17 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-24 Claude: Rebuilt `UnitStatusBar` as a graphical panel — a
+  portrait-slot box + big class letter (stand-in until real portrait art
+  exists, see `ART_BRIEF.md` §3), a colored name banner, a big HP bar with
+  the number overlaid, and a boxed Atk/Def/Hit/Crit/Mov/Rng stat grid,
+  loosely modeled on Fire Emblem Heroes' unit-detail screen but condensed
+  to fit this panel's fixed HUD footprint. Shapes/color only, no new art —
+  the portrait box and skill-icon slot are sized so real art drops in
+  later as a texture swap, not a layout change. Equipment dropped from
+  this always-visible view (Squad still has the full gear list) to make
+  room. Acted-unit dimming now applies to the portrait/banner too,
+  matching the on-board sprite convention. Verified with Playwright.
 - 2026-08-23 Claude: Moved the battle log off the always-visible board
   screen into an on-demand panel (`LogPanel`, new — Menu → Battle Log),
   freeing the space it used to occupy for a bigger `UnitStatusBar`.

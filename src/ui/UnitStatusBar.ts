@@ -1,8 +1,8 @@
 import { GameObjects, Scene } from 'phaser';
 
-import { effectiveStats, ITEMS } from '../game/equipment';
+import { effectiveStats } from '../game/equipment';
 import { SKILLS } from '../game/skills';
-import type { ItemSlot, Unit } from '../game/types';
+import type { Unit } from '../game/types';
 import { DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from './classIcons';
 import { Card, COLORS, FONT_FAMILY } from './kit';
@@ -14,24 +14,45 @@ import { Card, COLORS, FONT_FAMILY } from './kit';
 // this wrong once already cost a dead-tap bug (the bar's hit zone silently
 // ate clicks meant for the board's last row); if BAR_Y/BAR_HEIGHT ever
 // change, TacticalScene's BOARD_AREA_HEIGHT must move with them.
-//
-// Sized to fill the space between the board and the dock now that the
-// battle log moved into its own on-demand panel (UIScene's Menu → Battle
-// Log) — this used to be a compact strip with a tap-to-expand detail
-// overlay; that two-tier split existed only because there wasn't room to
-// show everything at once. There is now, so it doesn't.
 const BAR_Y = 664;
 const BAR_HEIGHT = 180;
 const BAR_WIDTH = LOGICAL_WIDTH - 32;
 const BAR_TOP = BAR_Y - BAR_HEIGHT / 2;
-const LEFT_MARGIN = 16 + 16;
-const BADGE_X = 16 + 24;
-const HEADER_Y = BAR_TOP + 22;
-const BODY_TOP = BAR_TOP + 42;
+const CARD_LEFT = LOGICAL_WIDTH / 2 - BAR_WIDTH / 2;
+const CARD_RIGHT = LOGICAL_WIDTH / 2 + BAR_WIDTH / 2;
+
+// Portrait-slot box on the left — a graphical stand-in (team-colored panel
+// + big class letter) for where a real character portrait drops in once
+// one's commissioned (see ART_BRIEF.md §3). Sized so that swap is a texture
+// change, not a layout change: an art asset lands here at PORTRAIT_W x
+// PORTRAIT_H and nothing else on the panel has to move.
+const PORTRAIT_X = CARD_LEFT + 8;
+const PORTRAIT_Y = BAR_TOP + 8;
+const PORTRAIT_W = 96;
+const PORTRAIT_H = BAR_HEIGHT - 16;
+
+const INFO_X = PORTRAIT_X + PORTRAIT_W + 12;
+const INFO_RIGHT = CARD_RIGHT - 8;
+const INFO_WIDTH = INFO_RIGHT - INFO_X;
+const INFO_CENTER_X = INFO_X + INFO_WIDTH / 2;
+
+const BANNER_Y = PORTRAIT_Y + 14;
+const BANNER_HEIGHT = 26;
+const HP_Y = BANNER_Y + 28;
+const HP_BAR_HEIGHT = 18;
+const STAT_ROW_1_Y = HP_Y + 30;
+const STAT_ROW_2_Y = STAT_ROW_1_Y + 22;
+const STAT_ROW_3_Y = STAT_ROW_2_Y + 22;
+const STAT_PANEL_TOP = STAT_ROW_1_Y - 14;
+const STAT_PANEL_BOTTOM = STAT_ROW_3_Y + 14;
+const STAT_COL_1_X = INFO_X + 10;
+const STAT_COL_2_X = INFO_CENTER_X + 6;
+const SKILL_Y = STAT_PANEL_BOTTOM + 12;
+const SKILL_ICON_X = INFO_X + 10;
 
 const TEAM_COLOR: Record<string, number> = { player: 0x4a90d9, enemy: 0xd9534f };
-const SLOT_LABEL: Record<ItemSlot, string> = { weapon: 'Weapon', armor: 'Armor', accessory: 'Accessory' };
-const SLOTS: ItemSlot[] = ['weapon', 'armor', 'accessory'];
+/** Neutral gray the portrait/banner blend toward once a unit's acted — mirrors UnitSprite's on-board dimming so the two read as the same convention. */
+const ACTED_GRAY = 0x6b7280;
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -41,11 +62,32 @@ function hpColor(ratio: number): number {
   return ratio > 0.5 ? 0x5cb85c : ratio > 0.25 ? 0xf0ad4e : 0xd9534f;
 }
 
+function blendToward(color: number, target: number, amount: number): number {
+  const r1 = (color >> 16) & 0xff;
+  const g1 = (color >> 8) & 0xff;
+  const b1 = color & 0xff;
+  const r2 = (target >> 16) & 0xff;
+  const g2 = (target >> 8) & 0xff;
+  const b2 = target & 0xff;
+  return (Math.round(r1 + (r2 - r1) * amount) << 16) | (Math.round(g1 + (g2 - g1) * amount) << 8) | Math.round(b1 + (b2 - b1) * amount);
+}
+
 /**
  * Always-on status panel for whichever unit was last tapped (either team —
  * read-only for enemies). Purely a view: TacticalScene hands it a `Unit`
  * snapshot on tap; it never reads G/ctx itself (HANDOFF.md §5/§7 — same
  * rule `UnitSprite` follows).
+ *
+ * Graphical layout (2026-08-24) — a portrait-slot + banner + big HP bar +
+ * boxed stat grid, adapted from Fire Emblem Heroes' unit-detail screen but
+ * condensed to fit this panel's fixed persistent-HUD footprint rather than
+ * a dedicated full-screen view, and built from shapes/color only (no
+ * portrait, weapon, or skill icon art exists yet — see ART_BRIEF.md). The
+ * portrait box and skill-icon slot are sized so real art can drop in later
+ * as a texture swap without a layout change. Equipment isn't shown here
+ * (it was in the previous plain-text version) — this panel's job is
+ * "what do I need to know before I act" (stats/skill/HP), which equipment
+ * names aren't; Squad still has the full gear list.
  *
  * Depth 15 — below the other modals (ActionMenu/SystemMenu/etc, depth 20),
  * so an opened modal's own full-screen backdrop naturally covers the panel
@@ -53,14 +95,24 @@ function hpColor(ratio: number): number {
  */
 export class UnitStatusBar extends GameObjects.Container {
   private readonly hint: GameObjects.Text;
-  private readonly badge: GameObjects.Arc;
-  private readonly badgeLabel: GameObjects.Text;
+
+  private readonly portraitGfx: GameObjects.Graphics;
+  private readonly portraitLetter: GameObjects.Text;
+  private readonly levelBadge: GameObjects.Text;
+
+  private readonly bannerGfx: GameObjects.Graphics;
   private readonly nameText: GameObjects.Text;
-  private readonly bodyText: GameObjects.Text;
-  private readonly hpText: GameObjects.Text;
+
   private readonly hpBarBg: GameObjects.Rectangle;
   private readonly hpBarFill: GameObjects.Rectangle;
+  private readonly hpText: GameObjects.Text;
   private readonly hpBarWidth: number;
+
+  private readonly statPanelGfx: GameObjects.Graphics;
+  private readonly statTexts: [GameObjects.Text, GameObjects.Text][];
+
+  private readonly skillIcon: GameObjects.Arc;
+  private readonly skillText: GameObjects.Text;
 
   private current: Unit | null = null;
 
@@ -78,35 +130,88 @@ export class UnitStatusBar extends GameObjects.Container {
       })
       .setOrigin(0.5);
 
-    this.badge = scene.add.circle(BADGE_X, HEADER_Y, 16, TEAM_COLOR.player).setStrokeStyle(2, 0x000000, 0.4);
-    this.badgeLabel = scene.add
-      .text(BADGE_X, HEADER_Y, '', { fontFamily: FONT_FAMILY, fontSize: '15px', color: '#ffffff', resolution: DPR })
-      .setOrigin(0.5);
-
-    this.nameText = scene.add
-      .text(LEFT_MARGIN + 36, HEADER_Y, '', { fontFamily: FONT_FAMILY, fontSize: '13px', color: COLORS.textPrimary, resolution: DPR })
-      .setOrigin(0, 0.5);
-
-    this.hpBarWidth = 70;
-    const hpBarX = LOGICAL_WIDTH - 16 - 16 - this.hpBarWidth / 2;
-    this.hpText = scene.add
-      .text(hpBarX, HEADER_Y - 12, '', { fontFamily: FONT_FAMILY, fontSize: '11px', color: COLORS.textPrimary, resolution: DPR })
-      .setOrigin(0.5);
-    this.hpBarBg = scene.add.rectangle(hpBarX, HEADER_Y + 6, this.hpBarWidth, 7, 0x000000, 0.6);
-    this.hpBarFill = scene.add.rectangle(hpBarX - this.hpBarWidth / 2, HEADER_Y + 6, this.hpBarWidth, 7, 0x5cb85c).setOrigin(0, 0.5);
-
-    this.bodyText = scene.add
-      .text(LEFT_MARGIN, BODY_TOP, '', {
+    // --- portrait slot ---
+    this.portraitGfx = scene.add.graphics();
+    this.portraitLetter = scene.add
+      .text(PORTRAIT_X + PORTRAIT_W / 2, PORTRAIT_Y + PORTRAIT_H / 2, '', {
         fontFamily: FONT_FAMILY,
-        fontSize: '12px',
-        color: COLORS.textPrimary,
-        lineSpacing: 5,
-        wordWrap: { width: BAR_WIDTH - LEFT_MARGIN * 2 + 16 },
+        fontSize: '40px',
+        fontStyle: 'bold',
+        color: '#ffffff',
         resolution: DPR,
       })
-      .setOrigin(0, 0);
+      .setOrigin(0.5);
+    this.levelBadge = scene.add
+      .text(PORTRAIT_X + PORTRAIT_W - 8, PORTRAIT_Y + PORTRAIT_H - 8, '', {
+        fontFamily: FONT_FAMILY,
+        fontSize: '11px',
+        fontStyle: 'bold',
+        color: '#ffffff',
+        backgroundColor: '#00000099',
+        padding: { x: 5, y: 2 },
+        resolution: DPR,
+      })
+      .setOrigin(1, 1);
 
-    this.add([this.hint, this.badge, this.badgeLabel, this.nameText, this.hpText, this.hpBarBg, this.hpBarFill, this.bodyText]);
+    // --- name banner ---
+    this.bannerGfx = scene.add.graphics();
+    this.nameText = scene.add
+      .text(INFO_CENTER_X, BANNER_Y, '', {
+        fontFamily: FONT_FAMILY,
+        fontSize: '13px',
+        fontStyle: 'bold',
+        color: '#ffffff',
+        resolution: DPR,
+      })
+      .setOrigin(0.5);
+
+    // --- HP bar ---
+    this.hpBarWidth = INFO_WIDTH;
+    this.hpBarBg = scene.add.rectangle(INFO_CENTER_X, HP_Y, this.hpBarWidth, HP_BAR_HEIGHT, 0x000000, 0.55);
+    this.hpBarFill = scene.add.rectangle(INFO_X, HP_Y, this.hpBarWidth, HP_BAR_HEIGHT, 0x5cb85c).setOrigin(0, 0.5);
+    this.hpText = scene.add
+      .text(INFO_CENTER_X, HP_Y, '', {
+        fontFamily: FONT_FAMILY,
+        fontSize: '12px',
+        fontStyle: 'bold',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3,
+        resolution: DPR,
+      })
+      .setOrigin(0.5);
+
+    // --- boxed stat grid (Atk/Def, Hit/Crit, Mov/Rng) ---
+    this.statPanelGfx = scene.add.graphics();
+    this.statPanelGfx.fillStyle(0x000000, 0.25);
+    this.statPanelGfx.fillRoundedRect(INFO_X, STAT_PANEL_TOP, INFO_WIDTH, STAT_PANEL_BOTTOM - STAT_PANEL_TOP, 8);
+    const statRowY = [STAT_ROW_1_Y, STAT_ROW_2_Y, STAT_ROW_3_Y];
+    this.statTexts = statRowY.map((y) => [
+      scene.add.text(STAT_COL_1_X, y, '', { fontFamily: FONT_FAMILY, fontSize: '12px', color: COLORS.textPrimary, resolution: DPR }).setOrigin(0, 0.5),
+      scene.add.text(STAT_COL_2_X, y, '', { fontFamily: FONT_FAMILY, fontSize: '12px', color: COLORS.textPrimary, resolution: DPR }).setOrigin(0, 0.5),
+    ]);
+
+    // --- skill row ---
+    this.skillIcon = scene.add.circle(SKILL_ICON_X, SKILL_Y, 8, COLORS.playerAccent).setStrokeStyle(1, 0x000000, 0.4);
+    this.skillText = scene.add
+      .text(SKILL_ICON_X + 16, SKILL_Y, '', { fontFamily: FONT_FAMILY, fontSize: '12px', color: COLORS.textPrimary, resolution: DPR })
+      .setOrigin(0, 0.5);
+
+    this.add([
+      this.hint,
+      this.portraitGfx,
+      this.portraitLetter,
+      this.levelBadge,
+      this.bannerGfx,
+      this.nameText,
+      this.hpBarBg,
+      this.hpBarFill,
+      this.hpText,
+      this.statPanelGfx,
+      ...this.statTexts.flat(),
+      this.skillIcon,
+      this.skillText,
+    ]);
     this.setDepth(15);
     scene.add.existing(this);
     this.setContentVisible(false);
@@ -118,34 +223,43 @@ export class UnitStatusBar extends GameObjects.Container {
     this.hint.setVisible(false);
     this.setContentVisible(true);
 
-    const letter = CLASS_LETTER[unit.className] ?? '?';
-    this.badge.setFillStyle(TEAM_COLOR[unit.team] ?? TEAM_COLOR.player);
-    this.badgeLabel.setText(letter);
-    this.nameText.setText(`${unit.name}  (${unit.className} Lv.${unit.level})${unit.hasActed ? '  — acted' : ''}`);
+    const teamColor = TEAM_COLOR[unit.team] ?? TEAM_COLOR.player;
+    const panelColor = unit.hasActed ? blendToward(teamColor, ACTED_GRAY, 0.55) : teamColor;
+
+    this.portraitGfx.clear();
+    this.portraitGfx.fillStyle(panelColor, unit.hasActed ? 0.35 : 0.5);
+    this.portraitGfx.fillRoundedRect(PORTRAIT_X, PORTRAIT_Y, PORTRAIT_W, PORTRAIT_H, 10);
+    this.portraitGfx.lineStyle(2, panelColor, 1);
+    this.portraitGfx.strokeRoundedRect(PORTRAIT_X, PORTRAIT_Y, PORTRAIT_W, PORTRAIT_H, 10);
+    this.portraitLetter.setText(CLASS_LETTER[unit.className] ?? '?').setAlpha(unit.hasActed ? 0.6 : 1);
+    this.levelBadge.setText(`Lv.${unit.level}`);
+
+    this.bannerGfx.clear();
+    this.bannerGfx.fillStyle(panelColor, 1);
+    this.bannerGfx.fillRoundedRect(INFO_X, BANNER_Y - BANNER_HEIGHT / 2, INFO_WIDTH, BANNER_HEIGHT, 8);
+    this.nameText.setText(`${unit.name}  •  ${unit.className}${unit.hasActed ? '  (acted)' : ''}`);
 
     const ratio = clamp01(unit.hp / unit.maxHp);
-    this.hpText.setText(`HP ${unit.hp}/${unit.maxHp}`);
+    this.hpText.setText(`${unit.hp} / ${unit.maxHp}`);
     this.hpBarFill.width = this.hpBarWidth * ratio;
     this.hpBarFill.setFillStyle(hpColor(ratio));
 
     const stats = effectiveStats(unit);
     const skill = SKILLS[unit.className];
-    const cooldownLine = unit.skillCooldown > 0 ? `on cooldown — ${unit.skillCooldown} turn${unit.skillCooldown === 1 ? '' : 's'} left` : 'ready';
+    const cooldownLine = unit.skillCooldown > 0 ? `CD ${unit.skillCooldown}` : 'Ready';
 
-    const lines = [
-      `Atk ${stats.atk}   Def ${stats.def}   Mov ${stats.move}   Rng ${stats.range}`,
-      `Hit ${stats.hit}%   Crit ${stats.crit}%`,
-      `Skill: ${skill.name} (${cooldownLine})`,
+    const pairs: [string, string][] = [
+      [`Atk ${stats.atk}`, `Def ${stats.def}`],
+      [`Hit ${stats.hit}%`, `Crit ${stats.crit}%`],
+      [`Mov ${stats.move}`, `Rng ${stats.range}`],
     ];
+    pairs.forEach(([left, right], i) => {
+      this.statTexts[i][0].setText(left);
+      this.statTexts[i][1].setText(right);
+    });
 
-    if (unit.team === 'player') {
-      for (const slot of SLOTS) {
-        const item = unit.equipment[slot];
-        lines.push(`${SLOT_LABEL[slot]}: ${item ? ITEMS[item.defId].name : 'Empty'}`);
-      }
-    }
-
-    this.bodyText.setText(lines.join('\n'));
+    this.skillIcon.setFillStyle(unit.skillCooldown > 0 ? 0x5a6070 : teamColor);
+    this.skillText.setText(`${skill.name} — ${cooldownLine}`);
   }
 
   hide(): void {
@@ -160,12 +274,20 @@ export class UnitStatusBar extends GameObjects.Container {
   }
 
   private setContentVisible(visible: boolean): void {
-    this.badge.setVisible(visible);
-    this.badgeLabel.setVisible(visible);
+    this.portraitGfx.setVisible(visible);
+    this.portraitLetter.setVisible(visible);
+    this.levelBadge.setVisible(visible);
+    this.bannerGfx.setVisible(visible);
     this.nameText.setVisible(visible);
-    this.hpText.setVisible(visible);
     this.hpBarBg.setVisible(visible);
     this.hpBarFill.setVisible(visible);
-    this.bodyText.setVisible(visible);
+    this.hpText.setVisible(visible);
+    this.statPanelGfx.setVisible(visible);
+    for (const [left, right] of this.statTexts) {
+      left.setVisible(visible);
+      right.setVisible(visible);
+    }
+    this.skillIcon.setVisible(visible);
+    this.skillText.setVisible(visible);
   }
 }
