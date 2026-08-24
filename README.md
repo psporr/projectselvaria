@@ -133,6 +133,13 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-23 Claude: Pixelify Sans (previous entry) didn't read well in
+  play — swapped to Geist Pixel instead, same mechanism (one `FONT_FAMILY`
+  constant in `kit.ts`, Google Fonts `<link>` in `index.html`). Note for
+  next time: Geist Pixel has no variable weight axis (single static 400
+  weight), unlike most Google Fonts — the `<link>` requests it plain, no
+  `:wght@...` range, since that 400-only request against a range returns a
+  400 "Missing font family" error instead of silently ignoring the range.
 - 2026-08-23 Claude: Swapped the game's font from the browser's plain
   `monospace` to Pixelify Sans (Google Fonts), loaded via a `<link>` in
   `index.html`. Centralized the 25 scattered `fontFamily: 'monospace'`

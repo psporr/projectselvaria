@@ -19,12 +19,14 @@ import { DPR } from '../systems/viewport';
 /**
  * Central font stack — change once here to swap fonts everywhere, instead
  * of the 25-odd scattered `fontFamily: 'monospace'` literals this replaced.
- * Pixelify Sans is loaded via a Google Fonts `<link>` in index.html;
- * monospace is the fallback if the web font hasn't finished loading yet (a
- * real gap — `main.ts` waits on `document.fonts.load()` before booting the
- * game specifically to close it) or fails to load at all.
+ * Geist Pixel is loaded via a Google Fonts `<link>` in index.html (single
+ * static weight — it has no variable weight axis, unlike most Google Fonts,
+ * so index.html's `<link>` requests it plain, no `:wght@...` range); monospace
+ * is the fallback if the web font hasn't finished loading yet (a real gap —
+ * `main.ts` waits on `document.fonts.load()` before booting the game
+ * specifically to close it) or fails to load at all.
  */
-export const FONT_FAMILY = '"Pixelify Sans", monospace';
+export const FONT_FAMILY = '"Geist Pixel", monospace';
 
 export const COLORS = {
   cardBg: 0x1c2030,
