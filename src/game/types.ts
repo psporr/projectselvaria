@@ -40,7 +40,7 @@ export interface Terrain {
 
 export const TERRAIN: Record<TerrainType, Terrain> = {
   plain: { type: 'plain', name: 'Plain', moveCost: 1, passable: true, defBonus: 0, avoid: 0 },
-  forest: { type: 'forest', name: 'Forest', moveCost: 2, passable: true, defBonus: 2, avoid: 15 },
+  forest: { type: 'forest', name: 'Forest', moveCost: 2, passable: true, defBonus: 2, avoid: 30 },
   wall: { type: 'wall', name: 'Wall', moveCost: 0, passable: false, defBonus: 0, avoid: 0 },
   // No unit in the roster can swim or fly, so water blocks movement outright
   // the same way a wall does — it reads as a river/lake obstacle rather than
