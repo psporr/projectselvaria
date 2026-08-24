@@ -1,0 +1,31 @@
+# Classes, Jobs & Progression
+
+## The class-bound vs. class-fluid axis
+
+This is the biggest fork in the genre and it's worth deciding deliberately (see SKILL.md's axis summary) rather than defaulting to whichever's more familiar.
+
+**Class-bound (Fire Emblem)**: each character has one class at a time, usually tied closely to their narrative identity (this *is* the Pegasus Knight character), with a single discrete **promotion** moment (usually level 10 or 20, or an item-gated event) upgrading them to an advanced class with a stat jump and new skills/weapon access. Advantages: every unit reads as a distinct, memorable character (class *is* characterization, not just a build slot); balancing is more tractable since you're not accounting for arbitrary class combinations; new-player-friendly (no build-planning paralysis). Cost: less replayability/optimization depth, and a unit whose class you don't like is stuck that way (mitigated in some entries by reclass items, which is really a controlled step toward the fluid end of the axis).
+
+**Class-fluid (Final Fantasy Tactics)**: any qualifying unit can learn and switch jobs freely, with two independent layers — the **job** (defines base stats, available actions, and which abilities can be *learned* from it, usually gated by Job Points earned while in that job) and the **loadout** (a primary action set from the current job, plus secondary/reaction/support/movement ability slots that can be filled with abilities *learned* from other jobs entirely). This decoupling is the mechanical core of FFT-style systems: a unit can be "class: Ninja" for its stats/sprite but have a White Mage's Cure as its secondary ability and a Monk's counter-reaction — the build space is the combination, not the class alone. Advantages: enormous replayability and player-driven optimization; a bad early game class choice is never permanent. Cost: much bigger balance surface (some ability combinations will be strictly dominant unless carefully tuned), heavier UI (a full job-tree/ability-loadout screen most players need explained), and characters read less as fixed identities.
+
+**In between (Tactics Ogre, Triangle Strategy)**: a roster of named characters with mostly-fixed roles, but enough of a sub-system layered on top that builds still vary meaningfully — TO's Union/formation and equipment-driven turn-speed layer, TS's per-character unique skills alongside a smaller shared class kit. This is usually the right target if you want *some* build expression without taking on FFT's full balancing surface — pick one axis (equipment, a skill tree, a small number of alternate loadouts per character) to make flexible, and keep everything else fixed.
+
+## Stat growth
+
+Two standard models:
+- **Growth rates** (FE): each class has a per-stat percentage chance to gain +1 on level-up (e.g. 45% Str growth means roughly 45% of level-ups grant +1 Str). Produces meaningful variance between two units of the same class/level — a unit that "blessed" on Speed growth plays differently than one that didn't, which is a source of attachment (this specific unit's RNG history matters) but also a source of frustration if a unit "screws" badly on stats relative to the game's difficulty curve. If you use this model, keep growth rates public/inspectable somewhere (a stats screen) — hidden growth math reads as arbitrary to players trying to understand why two units of the same class feel different.
+- **Fixed/near-fixed curves with job multipliers** (FFT-style): stats scale by a formula off character level and job-specific multipliers, with little to no per-level randomness — two units in the same job at the same level are close to identical, and the differentiation comes from build (job/ability choice) rather than RNG history. Lower variance, easier to balance, but less of the "this specific unit is special because of its roll history" attachment.
+
+Neither is more correct; growth-rate variance is a *feature* if your game wants attachment-through-randomness (classic FE's whole emotional model leans on this), and a *bug* if your game wants builds to be the differentiator and RNG stats to just be noise getting in the way of comparing builds.
+
+## Promotion / advancement gates
+
+Whatever the model, gate advancement behind something the player *does*, not just accumulated time — a level threshold is the simplest (works fine), but "reach level 10 AND use this specific item" (FE's master seals) or "earn N job points in this job" (FFT) both create a moment of *decision* (which class to promote into, when to spend the gate) rather than pure inevitability. A promotion that happens automatically the instant it's available removes a decision point for free; requiring even a trivial deliberate action (use the item, confirm the choice) turns it back into one.
+
+## Designing a class roster
+
+A few practical points that hold across all four games:
+- **Every class needs a one-sentence tactical identity**, not just a stat spread — "high move, low durability, punishes overextension" (cavalry/Knight archetypes) reads clearly at a glance; "slightly better at everything" classes are the ones players find boring regardless of their numbers.
+- **Overlap is fine, redundancy isn't.** Two melee-heavy classes can both exist if one trades HP for extra Move (cavalry) and the other trades Move for a counter-heavy kit (guardian archetype) — they're both "frontline," but a player choosing between them is choosing a playstyle, not picking the strictly-better one.
+- **Ranged/support classes need actual survivability accounting**, or they become unplayable on any map with aggressive enemy AI — either low enough profile (positioned safely behind the front line) is achievable given typical enemy Move stats, or they need enough HP/Def to eat one hit and live, or the game needs to reliably telegraph threat range clearly enough that "keep the mage out of range" is actually achievable by a careful player (see `ui-ux-conventions.md`'s threat-range section — this is as much a UI problem as a stats problem).
+- **A weapon/type triangle or terrain-cost-by-class system** (see the other reference files) is what makes class choice matter *per map*, not just in the abstract — a roster with no such interaction just becomes "always bring the objectively best 8 units."
