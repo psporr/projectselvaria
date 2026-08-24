@@ -88,6 +88,27 @@ either), covering: Plain, Forest, Wall, Water (`src/game/types.ts`'s
 Revisit sizing once map sprites are in hand and the overall visual scale
 is locked.
 
+**Decided 2026-08-23: this stays a permanent second way to author a map,
+not a stopgap the painted-image pipeline replaces.** Two proven paths now
+exist for a chapter's board, and a chapter picks whichever fits it:
+
+- **Hand-authored tileset** (this section) — an ASCII `rows` grid
+  (`src/game/maps.ts`'s `LEGEND`) rendered as a tile sprite per cell from a
+  terrain tileset. This is every existing hand-built chapter's approach
+  (`CHAPTER_1`, `CAMPAIGN_CHAPTER_1/2`), currently placeholder flat colors
+  pending this tileset's art.
+- **Painted map image** — a full painted map image classified into the
+  same `rows` grid via per-pixel color clustering (documented inline in
+  `src/game/maps.ts` above `TEST_MAP_1`), rendered as a single background
+  image instead of per-tile sprites (`TacticalScene.ts`'s
+  `CHAPTERS_WITH_BACKGROUND_ART`). Proven end-to-end this session
+  (`TEST_MAP_1`/`TEST_MAP_1_DETAILED`) — real terrain data, real gameplay,
+  a real chokepoint, off of a single user-generated image.
+
+Same `ChapterDef`/`rows` grid either way — the only difference is what
+`TacticalScene` draws underneath it (tile sprites vs. one image), so
+picking one doesn't foreclose the other for a later chapter.
+
 ## 3. Portraits (later)
 
 Close-up bust portraits for dialogue/combat-forecast panels, one per

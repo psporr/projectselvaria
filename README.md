@@ -130,9 +130,21 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
   portraits after that). See `ART_BRIEF.md` for the spec handed to the
   artist. Nothing to build code-side until art lands; the loading/
   rendering integration is a contained follow-up once files exist.
+  Terrain art now has two supported paths going forward, not one
+  replacing the other — a hand-authored tileset (`ART_BRIEF.md` §2) or a
+  painted map image classified into terrain data (proven this session,
+  `TEST_MAP_1` in `src/game/maps.ts`) — a chapter picks whichever fits it.
 
 ### Recent changes
 
+- 2026-08-23 Claude: Decided both map-authoring paths stay — a
+  hand-authored tileset (`ART_BRIEF.md` §2, art not commissioned yet) and
+  a painted map image classified into terrain data (this session's
+  `TEST_MAP_1` pipeline). Neither replaces the other; a chapter picks
+  whichever fits it. No code change — `TacticalScene` already renders
+  either off the same `ChapterDef`/`rows` grid (`CHAPTERS_WITH_BACKGROUND_ART`
+  picks tile sprites vs. one background image per chapter). Updated
+  `ART_BRIEF.md` §2 and this file's "In progress" entry to record it.
 - 2026-08-23 Claude: Pixelify Sans (previous entry) didn't read well in
   play — swapped to Geist Pixel instead, same mechanism (one `FONT_FAMILY`
   constant in `kit.ts`, Google Fonts `<link>` in `index.html`). Note for
