@@ -53,6 +53,7 @@ const TERRAIN_COLOR: Record<string, number> = {
 const CHAPTERS_WITH_BACKGROUND_ART: Record<string, string> = {
   'test-map1': 'test-map1',
   'test-map1-detailed': 'test-map1',
+  'test-map2': 'test-map2',
 };
 
 const MOVE_HIGHLIGHT = 0x4a90d9;

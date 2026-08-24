@@ -501,3 +501,43 @@ export const TEST_MAP_1_DETAILED: ChapterDef = {
     { id: 'bandit-4', name: 'Bandit 4', team: 'enemy', randomClass: true, x: 7, y: 1 },
   ],
 };
+
+/**
+ * First map generated directly from `MAP_BRIEF.md`'s prompt (Gemini, 7x8,
+ * `public/maps/test-map2.png`) rather than sourced from the user and
+ * classified after the fact like `TEST_MAP_1`. Terrain read off the image
+ * via per-cell color clustering (`src/game/maps.ts`'s classification notes
+ * above `TEST_MAP_1` apply the same way here) — clean result, every
+ * wall/forest cell lines up with visible rock/tree art, no ambiguous
+ * cells needed a second pass this time. Confirmed connected.
+ */
+export const TEST_MAP_2: ChapterDef = {
+  id: 'test-map2',
+  name: 'Concept Test: River Crossing',
+  shortName: 'River Crossing (Test)',
+  objective: 'Survive as many waves as you can',
+  objectiveType: 'waves',
+  rows: [
+    '.#...ff',
+    '.....##',
+    'ww.....',
+    '.ww.www',
+    '.......',
+    '.ff....',
+    '.#....f',
+    '.....f.',
+  ],
+  units: [
+    { id: 'lyn', name: 'Eirika', team: 'player', className: 'Swordsman', x: 0, y: 6 },
+    { id: 'byleth', name: 'Byleth', team: 'player', className: 'Archer', x: 1, y: 7 },
+    { id: 'ake', name: 'Ike', team: 'player', className: 'Barbarian', x: 2, y: 6 },
+    { id: 'lissa', name: 'Lissa', team: 'player', className: 'Cleric', x: 3, y: 6 },
+    { id: 'corrin', name: 'Corrin', team: 'player', className: 'Lancer', x: 4, y: 6 },
+    { id: 'selva', name: 'Selva', team: 'player', className: 'Mage', x: 4, y: 7 },
+    { id: 'olivia', name: 'Olivia', team: 'player', className: 'Dancer', x: 5, y: 6 },
+    { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 0, y: 0 },
+    { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 4, y: 0 },
+    { id: 'bandit-3', name: 'Bandit 3', team: 'enemy', randomClass: true, x: 0, y: 1 },
+    { id: 'bandit-4', name: 'Bandit 4', team: 'enemy', randomClass: true, x: 4, y: 1 },
+  ],
+};

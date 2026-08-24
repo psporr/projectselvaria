@@ -139,6 +139,16 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-23 Claude: First map generated straight from `MAP_BRIEF.md`'s
+  prompt (Gemini, 7x8, `public/maps/test-map2.png`) — a clean result, every
+  wall/forest cell lined up with visible rock/tree art on the first
+  classification pass, no ambiguous cells needed manual resolution this
+  time (unlike `TEST_MAP_1`'s two passes). Added as `TEST_MAP_2` in
+  `src/game/maps.ts`, `ProjectSelvaria` temporarily pointed at it (was
+  `TEST_MAP_1`) to playtest — swap back to `CHAPTER_1` once done.
+  Verified with 100 seeded batch runs and a Playwright pass (mountains
+  correctly block movement, action menu, full board renders at 64px
+  tiles).
 - 2026-08-23 Claude: Decided both map-authoring paths stay — a
   hand-authored tileset (`ART_BRIEF.md` §2, art not commissioned yet) and
   a painted map image classified into terrain data (this session's
