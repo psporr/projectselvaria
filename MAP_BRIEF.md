@@ -36,19 +36,29 @@ Decide **columns × rows** before prompting — it's baked into the prompt
 `TacticalScene` fits the board into a fixed on-screen budget and picks
 the largest tile size that fits both dimensions, so size is a real
 gameplay concern, not just aesthetics — too many columns/rows shrinks
-every tile and makes them harder to tap on a phone. Good presets (all
-land at a comfortable ~56–64px tile, matching the existing chapters):
+every tile and makes them harder to tap on a phone. Good presets, exact
+tile size on the left, the aspect ratio to actually request on the right
+(image generators only offer a handful of preset ratios, not arbitrary
+ones — pick whichever's closest; `TacticalScene` force-fits the image to
+the board regardless, so a slightly-off ratio just stretches a little,
+it won't break):
 
-| Columns × Rows | Aspect ratio | Tile size |
+| Columns × Rows | Tile size | Request this aspect ratio |
 | --- | --- | --- |
-| 6 × 8 | 3:4 (portrait) | 64px — what `TEST_MAP_1` uses |
-| 7 × 8 | ~7:8 (near-square) | 64px — what `CHAPTER_1` uses |
-| 5 × 8 | 5:8 (tall portrait) | 64px |
-| 6 × 9 | 2:3 (portrait) | 56px |
+| **7 × 8 (recommended default)** | 64px — matches `CHAPTER_1` exactly | 4:5 |
+| 6 × 8 | 64px — what `TEST_MAP_1` uses | 3:4 |
+| 5 × 8 | 64px | 5:8 → closest preset is 9:16 |
+| 7 × 9 | 56px — one row taller, noticeably smaller tiles | 3:4 |
+| 6 × 9 | 56px | 2:3 |
 
-Stick to 6–7 columns and 8–9 rows unless there's a specific reason to go
-bigger — this game is portrait/phone-first, and a wider or taller map
-than these presets makes every tile noticeably smaller.
+7×8 is the sweet spot: full 64px tiles (same scale as every existing
+chapter, so a new map doesn't look visually inconsistent next to them)
+in the most phone-friendly footprint. 7×9 trades that consistency for
+one extra row at 56px — still comfortable to tap, just visibly smaller
+than the rest of the game, so only reach for it if the extra vertical
+space is worth that tradeoff. Stick to 6–7 columns and 8–9 rows in
+general — this game is portrait/phone-first, and going wider or taller
+than these presets shrinks every tile further.
 
 ## The prompt
 
@@ -56,11 +66,11 @@ Copy this into Gemini, filling in the two bracketed spots:
 
 > Generate a top-down (bird's-eye, directly overhead, no perspective tilt
 > or isometric angle) painted battle map for a Fire Emblem–style tactical
-> RPG, in a **[6 columns × 8 rows]** grid, portrait aspect ratio **[3:4]**.
+> RPG, in a **[7 columns × 8 rows]** grid, portrait aspect ratio **[4:5]**.
 > Theme: **[e.g. "a river valley with a stone bridge crossing, forested
 > banks, and a rocky outcrop"]**.
 >
-> The map must be readable as exactly a **6×8 grid of tiles**, each tile
+> The map must be readable as exactly a **7×8 grid of tiles**, each tile
 > one of 4 terrain types, and every terrain feature must be roughly one
 > full grid-tile in size or larger — no detail smaller than a tile, since
 > smaller features won't read correctly when the map is used as game data.
