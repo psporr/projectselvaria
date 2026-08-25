@@ -139,6 +139,21 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-25 Claude: Quick attack — while choosing a destination
+  (`unit-selected` mode), any enemy strikeable from some reachable tile now
+  lights up on its own tile (red, same color the manual awaiting-target
+  highlight already uses) and can be tapped directly: `quickAttackPositions`
+  (`grid.ts`) picks the cheapest-to-reach in-range tile per enemy, and
+  `TacticalScene.onTileClicked` jumps straight from that tap to the attack
+  forecast/confirm panel, skipping the destination-then-menu-then-target
+  sequence the manual flow still uses (Cancel from the forecast still falls
+  back to manual target-picking from the chosen tile, via the existing
+  `resumeTargeting`). Matches the direct-tap-to-attack flow recent Fire
+  Emblem games use. Manual move-then-Attack-from-menu is unchanged — this
+  is an added shortcut, not a replacement. Verified with Playwright: the
+  quick-attack highlight appears once an enemy is in range, tapping it
+  opens the correct forecast, and Confirm moves + attacks + applies the
+  counter in one step.
 - 2026-08-25 Claude: Two `UnitStatusBar`/`UnitSprite` legibility fixes —
   the Def stat now shows the current terrain's bonus inline as green
   `+2`-style text (measured off the Def text's own rendered width, so it

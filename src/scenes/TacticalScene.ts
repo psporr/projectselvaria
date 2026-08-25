@@ -3,7 +3,7 @@ import { GameObjects, Scene } from 'phaser';
 import { BLESSINGS, type Blessing } from '../game/blessings';
 import { decideAction } from '../game/ai';
 import { forecastCombat } from '../game/combat';
-import { computeReachable, computeThreatTiles, targetsFrom, terrainAt, tileKey, unitsOf } from '../game/grid';
+import { computeReachable, computeThreatTiles, quickAttackPositions, targetsFrom, terrainAt, tileKey, unitsOf } from '../game/grid';
 import { ITEMS } from '../game/equipment';
 import { canUseSkill, describeSkillEffect, novaBlastCoords, skillTargets, SKILLS } from '../game/skills';
 import { TERRAIN, teamOf, type GameState, type Unit } from '../game/types';
@@ -74,6 +74,12 @@ const BLESSING_DELAY_MS = 700;
  * primitive in game.ts). 'action-menu' and 'confirming' are driven by
  * UIScene's own panel buttons/backdrop, so onTileClicked doesn't branch on
  * them — a board tap underneath just does nothing while they're open.
+ *
+ * 'unit-selected' → 'confirming' is the other route in, skipping
+ * 'action-menu'/'awaiting-target' entirely: tapping an enemy directly (the
+ * quick-attack cue highlighted in selectUnit()) auto-picks the cheapest
+ * reachable tile to strike it from and jumps straight to the attack
+ * forecast, same destination-holding rule as above.
  */
 type UiMode = 'idle' | 'unit-selected' | 'action-menu' | 'awaiting-target' | 'skill-targeting' | 'confirming';
 
@@ -375,11 +381,23 @@ export class TacticalScene extends Scene {
         return;
       }
 
-      if (computeReachable(G, unit).has(tileKey(x, y))) {
+      const reachable = computeReachable(G, unit);
+      if (reachable.has(tileKey(x, y))) {
         this.pendingDestination = { x, y };
         this.previewMoveTo(unit.id, x, y);
         this.openActionMenu(G, unit);
         return;
+      }
+
+      if (unitAtTile && unitAtTile.team === 'enemy') {
+        const attackFrom = quickAttackPositions(G, unit, reachable).get(unitAtTile.id);
+        if (attackFrom) {
+          this.pendingDestination = { x: attackFrom.x, y: attackFrom.y };
+          this.previewMoveTo(unit.id, attackFrom.x, attackFrom.y);
+          const synthetic: Unit = { ...unit, x: attackFrom.x, y: attackFrom.y };
+          this.enterAttackConfirm(G, synthetic, unitAtTile);
+          return;
+        }
       }
 
       if (unitAtTile && unitAtTile.team === 'player' && !unitAtTile.hasActed) {
@@ -441,7 +459,21 @@ export class TacticalScene extends Scene {
     this.pendingDestination = null;
     this.clearHighlights();
     const { G } = this.client.getState()!;
-    this.highlightTiles(computeReachable(G, G.units[unitId]).values(), MOVE_HIGHLIGHT);
+    const unit = G.units[unitId];
+    const reachable = computeReachable(G, unit);
+    this.highlightTiles(reachable.values(), MOVE_HIGHLIGHT);
+
+    // Quick-attack cue: any enemy strikeable from some reachable tile lights
+    // up on its own tile (not just the move-highlighted tiles it never
+    // occupies), same red as the manual awaiting-target highlight — tapping
+    // it directly skips straight to the attack confirm (see onTileClicked's
+    // 'unit-selected' branch) instead of requiring destination-then-menu-
+    // then-target, the "quick attack" flow recent Fire Emblem games use.
+    const quickTargets = quickAttackPositions(G, unit, reachable);
+    const attackableEnemies = Array.from(quickTargets.keys())
+      .map((id) => G.units[id])
+      .filter((u): u is Unit => u !== undefined);
+    this.highlightTiles(attackableEnemies, TARGET_HIGHLIGHT);
   }
 
   private openActionMenu(G: GameState, unit: Unit): void {

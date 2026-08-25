@@ -138,6 +138,28 @@ export function targetsFrom(G: GameState, unit: Unit, x: number, y: number): Uni
 }
 
 /**
+ * For each enemy the unit could normal-attack this turn, the cheapest
+ * reachable tile (by move cost) to attack it from — one best position per
+ * enemy rather than the full list `targetsFrom` gives for a single fixed
+ * destination. Backs the "quick attack" flow (TacticalScene's
+ * `unit-selected` mode): tapping an enemy directly, instead of a
+ * destination tile first, picks whichever in-range tile costs the least
+ * movement (ties keep whichever `reachable` produced first) and attacks
+ * from there in one step.
+ */
+export function quickAttackPositions(G: GameState, unit: Unit, reachable: Map<string, ReachableTile>): Map<string, ReachableTile> {
+  const positions = new Map<string, ReachableTile>();
+  for (const tile of reachable.values()) {
+    const synthetic: Unit = { ...unit, x: tile.x, y: tile.y };
+    for (const target of targetsFrom(G, synthetic, tile.x, tile.y)) {
+      const existing = positions.get(target.id);
+      if (!existing || tile.cost < existing.cost) positions.set(target.id, tile);
+    }
+  }
+  return positions;
+}
+
+/**
  * Every tile the unit could strike this turn — its movement range expanded by
  * its attack reach. Used to paint threat ranges in the UI.
  */
