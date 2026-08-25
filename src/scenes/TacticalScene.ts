@@ -389,6 +389,14 @@ export class TacticalScene extends Scene {
         return;
       }
 
+      // Any other tapped unit (ally or enemy) refreshes the status bar too —
+      // the same "any tap updates it" rule the idle branch above follows.
+      // Without this, re-selecting a different ally left the panel showing
+      // whichever unit was tapped last instead of the new selection.
+      if (unitAtTile) {
+        this.ui.unitStatusBar.show(unitAtTile, terrainAt(G, unitAtTile.x, unitAtTile.y));
+      }
+
       if (unitAtTile && unitAtTile.team === 'enemy') {
         const attackFrom = quickAttackPositions(G, unit, reachable).get(unitAtTile.id);
         if (attackFrom) {

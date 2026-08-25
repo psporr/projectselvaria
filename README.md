@@ -139,6 +139,13 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-25 Claude: Fixed `UnitStatusBar` not refreshing when re-selecting
+  a different ally (or tapping an enemy) while already in `unit-selected`
+  mode — `onTileClicked`'s `'idle'` branch already called
+  `unitStatusBar.show()` on every unit tap, but the `'unit-selected'`
+  branch only called `selectUnit()` on a reselect, leaving the panel
+  showing whichever unit was tapped first. It now calls `show()` there
+  too, matching the idle branch's "any tap refreshes the panel" rule.
 - 2026-08-25 Claude: Fixed a quick-attack bug — canceling from the forecast
   left the unit stranded at the auto-picked attack tile instead of
   returning to its original position with the move/quick-attack highlights
