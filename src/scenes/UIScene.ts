@@ -2,6 +2,7 @@ import { GameObjects, Scene } from 'phaser';
 
 import type { Blessing } from '../game/blessings';
 import type { GameOver } from '../game/game';
+import { terrainAt } from '../game/grid';
 import { teamOf } from '../game/types';
 import type { GameClient } from '../systems/gameClient';
 import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
@@ -178,8 +179,9 @@ export class UIScene extends Scene {
   private refreshUnitStatusBar(): void {
     const id = this.unitStatusBar.getCurrentUnitId();
     if (!id) return;
-    const unit = this.client.getState()?.G.units[id];
-    if (unit) this.unitStatusBar.show(unit);
+    const state = this.client.getState();
+    const unit = state?.G.units[id];
+    if (state && unit) this.unitStatusBar.show(unit, terrainAt(state.G, unit.x, unit.y));
     else this.unitStatusBar.hide();
   }
 

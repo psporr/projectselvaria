@@ -139,6 +139,17 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-24 Claude: `UnitStatusBar` now shows the terrain a unit is
+  standing on and what it's actually granting (e.g. "Forest — +2 Def, -30
+  enemy Hit", or "Plain — no bonus") — a real gap before this, since
+  terrain's defBonus/avoid apply at combat-resolution time
+  (`computeDamage`/`computeHitChance`) and never showed up in the unit's
+  own listed stats, so there was no way to confirm "am I actually getting
+  the forest bonus right now." `UnitStatusBar.show()` now takes the
+  `Terrain` under the unit alongside the `Unit` itself (read off G by the
+  two callers, `TacticalScene`/`UIScene` — the component itself still
+  never reads G directly). Verified with Playwright on both plain and
+  forest tiles.
 - 2026-08-24 Claude: Rebuilt `UnitStatusBar` as a graphical panel — a
   portrait-slot box + big class letter (stand-in until real portrait art
   exists, see `ART_BRIEF.md` §3), a colored name banner, a big HP bar with

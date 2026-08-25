@@ -2,7 +2,7 @@ import { GameObjects, Scene } from 'phaser';
 
 import { effectiveStats } from '../game/equipment';
 import { SKILLS } from '../game/skills';
-import type { Unit } from '../game/types';
+import type { Terrain, Unit } from '../game/types';
 import { DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from './classIcons';
 import { Card, COLORS, FONT_FAMILY } from './kit';
@@ -38,13 +38,16 @@ const INFO_CENTER_X = INFO_X + INFO_WIDTH / 2;
 
 const BANNER_Y = PORTRAIT_Y + 14;
 const BANNER_HEIGHT = 26;
-const HP_Y = BANNER_Y + 28;
+const HP_Y = BANNER_Y + 24;
 const HP_BAR_HEIGHT = 18;
-const STAT_ROW_1_Y = HP_Y + 30;
-const STAT_ROW_2_Y = STAT_ROW_1_Y + 22;
-const STAT_ROW_3_Y = STAT_ROW_2_Y + 22;
-const STAT_PANEL_TOP = STAT_ROW_1_Y - 14;
-const STAT_PANEL_BOTTOM = STAT_ROW_3_Y + 14;
+/** Terrain-under-foot row — what this tile's defBonus/avoid actually does for this unit while it's standing here, since neither shows up in the stat grid above (both apply at combat-resolution time, not to the unit's own listed stats). */
+const TERRAIN_Y = HP_Y + 20;
+const TERRAIN_ICON_X = INFO_X + 10;
+const STAT_ROW_1_Y = TERRAIN_Y + 20;
+const STAT_ROW_2_Y = STAT_ROW_1_Y + 20;
+const STAT_ROW_3_Y = STAT_ROW_2_Y + 20;
+const STAT_PANEL_TOP = STAT_ROW_1_Y - 12;
+const STAT_PANEL_BOTTOM = STAT_ROW_3_Y + 12;
 const STAT_COL_1_X = INFO_X + 10;
 const STAT_COL_2_X = INFO_CENTER_X + 6;
 const SKILL_Y = STAT_PANEL_BOTTOM + 12;
@@ -62,6 +65,14 @@ function hpColor(ratio: number): number {
   return ratio > 0.5 ? 0x5cb85c : ratio > 0.25 ? 0xf0ad4e : 0xd9534f;
 }
 
+/** "Forest — +2 Def, -30 enemy Hit" style summary, or a plain "no bonus" line when the tile grants neither. */
+function terrainLine(terrain: Terrain): string {
+  const parts: string[] = [];
+  if (terrain.defBonus > 0) parts.push(`+${terrain.defBonus} Def`);
+  if (terrain.avoid > 0) parts.push(`-${terrain.avoid} enemy Hit`);
+  return parts.length > 0 ? `${terrain.name} — ${parts.join(', ')}` : `${terrain.name} — no bonus`;
+}
+
 function blendToward(color: number, target: number, amount: number): number {
   const r1 = (color >> 16) & 0xff;
   const g1 = (color >> 8) & 0xff;
@@ -74,20 +85,26 @@ function blendToward(color: number, target: number, amount: number): number {
 
 /**
  * Always-on status panel for whichever unit was last tapped (either team —
- * read-only for enemies). Purely a view: TacticalScene hands it a `Unit`
- * snapshot on tap; it never reads G/ctx itself (HANDOFF.md §5/§7 — same
- * rule `UnitSprite` follows).
+ * read-only for enemies). Purely a view: TacticalScene/UIScene hand it a
+ * `Unit` snapshot plus the `Terrain` under it on tap; it never reads G/ctx
+ * itself (HANDOFF.md §5/§7 — same rule `UnitSprite` follows). Terrain has
+ * to be passed in rather than looked up here specifically because its
+ * effect (defBonus/avoid) never shows up in the unit's own listed stats —
+ * both are applied later, at combat-resolution time (`computeDamage`/
+ * `computeHitChance`, combat.ts) — so without a dedicated row a player
+ * has no way to tell "am I actually getting the forest bonus right now."
  *
  * Graphical layout (2026-08-24) — a portrait-slot + banner + big HP bar +
- * boxed stat grid, adapted from Fire Emblem Heroes' unit-detail screen but
- * condensed to fit this panel's fixed persistent-HUD footprint rather than
- * a dedicated full-screen view, and built from shapes/color only (no
- * portrait, weapon, or skill icon art exists yet — see ART_BRIEF.md). The
- * portrait box and skill-icon slot are sized so real art can drop in later
- * as a texture swap without a layout change. Equipment isn't shown here
- * (it was in the previous plain-text version) — this panel's job is
- * "what do I need to know before I act" (stats/skill/HP), which equipment
- * names aren't; Squad still has the full gear list.
+ * a terrain-under-foot line + boxed stat grid, adapted from Fire Emblem
+ * Heroes' unit-detail screen but condensed to fit this panel's fixed
+ * persistent-HUD footprint rather than a dedicated full-screen view, and
+ * built from shapes/color only (no portrait, weapon, or skill icon art
+ * exists yet — see ART_BRIEF.md). The portrait box and skill-icon slot are
+ * sized so real art can drop in later as a texture swap without a layout
+ * change. Equipment isn't shown here (it was in the previous plain-text
+ * version) — this panel's job is "what do I need to know before I act"
+ * (stats/skill/HP/terrain), which equipment names aren't; Squad still has
+ * the full gear list.
  *
  * Depth 15 — below the other modals (ActionMenu/SystemMenu/etc, depth 20),
  * so an opened modal's own full-screen backdrop naturally covers the panel
@@ -107,6 +124,9 @@ export class UnitStatusBar extends GameObjects.Container {
   private readonly hpBarFill: GameObjects.Rectangle;
   private readonly hpText: GameObjects.Text;
   private readonly hpBarWidth: number;
+
+  private readonly terrainIcon: GameObjects.Arc;
+  private readonly terrainText: GameObjects.Text;
 
   private readonly statPanelGfx: GameObjects.Graphics;
   private readonly statTexts: [GameObjects.Text, GameObjects.Text][];
@@ -181,6 +201,12 @@ export class UnitStatusBar extends GameObjects.Container {
       })
       .setOrigin(0.5);
 
+    // --- terrain-under-foot row ---
+    this.terrainIcon = scene.add.circle(TERRAIN_ICON_X, TERRAIN_Y, 8, 0x2d5a3d).setStrokeStyle(1, 0x000000, 0.4);
+    this.terrainText = scene.add
+      .text(TERRAIN_ICON_X + 16, TERRAIN_Y, '', { fontFamily: FONT_FAMILY, fontSize: '11px', color: COLORS.textPrimary, resolution: DPR })
+      .setOrigin(0, 0.5);
+
     // --- boxed stat grid (Atk/Def, Hit/Crit, Mov/Rng) ---
     this.statPanelGfx = scene.add.graphics();
     this.statPanelGfx.fillStyle(0x000000, 0.25);
@@ -207,6 +233,8 @@ export class UnitStatusBar extends GameObjects.Container {
       this.hpBarBg,
       this.hpBarFill,
       this.hpText,
+      this.terrainIcon,
+      this.terrainText,
       this.statPanelGfx,
       ...this.statTexts.flat(),
       this.skillIcon,
@@ -217,8 +245,8 @@ export class UnitStatusBar extends GameObjects.Container {
     this.setContentVisible(false);
   }
 
-  /** Shows (or refreshes, if already showing this same unit) the panel for `unit`. */
-  show(unit: Unit): void {
+  /** Shows (or refreshes, if already showing this same unit) the panel for `unit`, standing on `terrain` — the caller reads that off G (see class doc comment on why this component doesn't). */
+  show(unit: Unit, terrain: Terrain): void {
     this.current = unit;
     this.hint.setVisible(false);
     this.setContentVisible(true);
@@ -243,6 +271,10 @@ export class UnitStatusBar extends GameObjects.Container {
     this.hpText.setText(`${unit.hp} / ${unit.maxHp}`);
     this.hpBarFill.width = this.hpBarWidth * ratio;
     this.hpBarFill.setFillStyle(hpColor(ratio));
+
+    const hasTerrainBonus = terrain.defBonus > 0 || terrain.avoid > 0;
+    this.terrainIcon.setFillStyle(hasTerrainBonus ? 0x2d5a3d : 0x5a6070);
+    this.terrainText.setText(terrainLine(terrain));
 
     const stats = effectiveStats(unit);
     const skill = SKILLS[unit.className];
@@ -282,6 +314,8 @@ export class UnitStatusBar extends GameObjects.Container {
     this.hpBarBg.setVisible(visible);
     this.hpBarFill.setVisible(visible);
     this.hpText.setVisible(visible);
+    this.terrainIcon.setVisible(visible);
+    this.terrainText.setVisible(visible);
     this.statPanelGfx.setVisible(visible);
     for (const [left, right] of this.statTexts) {
       left.setVisible(visible);

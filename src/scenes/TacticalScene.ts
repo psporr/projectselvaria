@@ -3,7 +3,7 @@ import { GameObjects, Scene } from 'phaser';
 import { BLESSINGS, type Blessing } from '../game/blessings';
 import { decideAction } from '../game/ai';
 import { forecastCombat } from '../game/combat';
-import { computeReachable, computeThreatTiles, targetsFrom, tileKey, unitsOf } from '../game/grid';
+import { computeReachable, computeThreatTiles, targetsFrom, terrainAt, tileKey, unitsOf } from '../game/grid';
 import { ITEMS } from '../game/equipment';
 import { canUseSkill, describeSkillEffect, novaBlastCoords, skillTargets, SKILLS } from '../game/skills';
 import { TERRAIN, teamOf, type GameState, type Unit } from '../game/types';
@@ -358,7 +358,7 @@ export class TacticalScene extends Scene {
         // Any tapped unit (either team, acted or not) populates the status
         // bar as a side effect — read-only for enemies/already-acted units,
         // which fall through without also entering the move-selection flow.
-        this.ui.unitStatusBar.show(unitAtTile);
+        this.ui.unitStatusBar.show(unitAtTile, terrainAt(G, unitAtTile.x, unitAtTile.y));
         if (unitAtTile.team === 'player' && !unitAtTile.hasActed) {
           this.selectUnit(unitAtTile.id);
         }
