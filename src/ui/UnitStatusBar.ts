@@ -56,6 +56,10 @@ const SKILL_ICON_X = INFO_X + 10;
 const TEAM_COLOR: Record<string, number> = { player: 0x4a90d9, enemy: 0xd9534f };
 /** Neutral gray the portrait/banner blend toward once a unit's acted — mirrors UnitSprite's on-board dimming so the two read as the same convention. */
 const ACTED_GRAY = 0x6b7280;
+/** Same green as COLORS.successStroke (0x5ab56a) — Phaser Text color needs a hex string, not a number, so it can't just reference that constant directly. */
+const DEF_BONUS_GREEN = '#5ab56a';
+/** Border color/width shared by both HP bar rectangles — dark enough to stay readable when the bar's green fill sits over a green plains tile behind the panel. */
+const HP_BAR_STROKE = 0x0a0d14;
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -130,6 +134,8 @@ export class UnitStatusBar extends GameObjects.Container {
 
   private readonly statPanelGfx: GameObjects.Graphics;
   private readonly statTexts: [GameObjects.Text, GameObjects.Text][];
+  /** "+2" suffix after the Def stat, shown only while standing on terrain that grants a defBonus — separate from statTexts since it needs its own color and its own show/hide condition. */
+  private readonly defBonusText: GameObjects.Text;
 
   private readonly skillIcon: GameObjects.Arc;
   private readonly skillText: GameObjects.Text;
@@ -187,7 +193,10 @@ export class UnitStatusBar extends GameObjects.Container {
 
     // --- HP bar ---
     this.hpBarWidth = INFO_WIDTH;
-    this.hpBarBg = scene.add.rectangle(INFO_CENTER_X, HP_Y, this.hpBarWidth, HP_BAR_HEIGHT, 0x000000, 0.55);
+    // Bordered so the bar reads clearly over a light/green background — the
+    // card behind it is dark, but stays consistent with UnitSprite's own
+    // on-board bar, which needs the same border for its map-tile background.
+    this.hpBarBg = scene.add.rectangle(INFO_CENTER_X, HP_Y, this.hpBarWidth, HP_BAR_HEIGHT, 0x000000, 0.55).setStrokeStyle(1, HP_BAR_STROKE, 0.9);
     this.hpBarFill = scene.add.rectangle(INFO_X, HP_Y, this.hpBarWidth, HP_BAR_HEIGHT, 0x5cb85c).setOrigin(0, 0.5);
     this.hpText = scene.add
       .text(INFO_CENTER_X, HP_Y, '', {
@@ -216,6 +225,13 @@ export class UnitStatusBar extends GameObjects.Container {
       scene.add.text(STAT_COL_1_X, y, '', { fontFamily: FONT_FAMILY, fontSize: '12px', color: COLORS.textPrimary, resolution: DPR }).setOrigin(0, 0.5),
       scene.add.text(STAT_COL_2_X, y, '', { fontFamily: FONT_FAMILY, fontSize: '12px', color: COLORS.textPrimary, resolution: DPR }).setOrigin(0, 0.5),
     ]);
+    // Positioned in show() each time, right after the Def text's own measured
+    // width — its string length varies (single vs double-digit defBonus), so
+    // a fixed offset would either leave a gap or overlap the Def value.
+    this.defBonusText = scene.add
+      .text(0, STAT_ROW_1_Y, '', { fontFamily: FONT_FAMILY, fontSize: '11px', fontStyle: 'bold', color: DEF_BONUS_GREEN, resolution: DPR })
+      .setOrigin(0, 0.5)
+      .setVisible(false);
 
     // --- skill row ---
     this.skillIcon = scene.add.circle(SKILL_ICON_X, SKILL_Y, 8, COLORS.playerAccent).setStrokeStyle(1, 0x000000, 0.4);
@@ -237,6 +253,7 @@ export class UnitStatusBar extends GameObjects.Container {
       this.terrainText,
       this.statPanelGfx,
       ...this.statTexts.flat(),
+      this.defBonusText,
       this.skillIcon,
       this.skillText,
     ]);
@@ -289,6 +306,13 @@ export class UnitStatusBar extends GameObjects.Container {
       this.statTexts[i][0].setText(left);
       this.statTexts[i][1].setText(right);
     });
+
+    const defText = this.statTexts[0][1];
+    if (terrain.defBonus > 0) {
+      this.defBonusText.setText(`+${terrain.defBonus}`).setPosition(defText.x + defText.width + 4, STAT_ROW_1_Y).setVisible(true);
+    } else {
+      this.defBonusText.setVisible(false);
+    }
 
     this.skillIcon.setFillStyle(unit.skillCooldown > 0 ? 0x5a6070 : teamColor);
     this.skillText.setText(`${skill.name} — ${cooldownLine}`);

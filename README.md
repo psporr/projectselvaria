@@ -139,6 +139,17 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-25 Claude: Two `UnitStatusBar`/`UnitSprite` legibility fixes —
+  the Def stat now shows the current terrain's bonus inline as green
+  `+2`-style text (measured off the Def text's own rendered width, so it
+  sits flush after both single- and double-digit values) instead of only
+  being stated in the terrain row below; and both HP bars (the status
+  panel's and the on-board one over each unit in `UnitSprite`) gained a
+  dark stroke around their background rectangle, since the on-board bar
+  in particular could get lost against image-backed maps whose grass art
+  runs close to the fill's own green. Verified with Playwright: a unit
+  moved onto a forest tile shows both the green `+2` and a clearly
+  bordered HP bar over the map's grass background.
 - 2026-08-24 Claude: `UnitStatusBar` now shows the terrain a unit is
   standing on and what it's actually granting (e.g. "Forest — +2 Def, -30
   enemy Hit", or "Plain — no bonus") — a real gap before this, since

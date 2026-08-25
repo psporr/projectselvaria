@@ -59,7 +59,10 @@ export class UnitSprite extends GameObjects.Container {
       })
       .setOrigin(0.5);
 
-    const hpBarBg = scene.add.rectangle(0, -radius - 8, this.hpBarWidth, 5, 0x000000, 0.6);
+    // Stroked so the bar keeps a visible edge over image-backed maps whose
+    // grass art can run close to the fill's own green (0x5cb85c) — without
+    // an outline a near-full-HP bar could nearly vanish into a green tile.
+    const hpBarBg = scene.add.rectangle(0, -radius - 8, this.hpBarWidth, 5, 0x000000, 0.6).setStrokeStyle(1, 0x000000, 0.9);
     this.hpBar = scene.add.rectangle(0, -radius - 8, this.hpBarWidth, 5, 0x5cb85c);
 
     this.add([this.circle, label, hpBarBg, this.hpBar]);
