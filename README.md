@@ -139,6 +139,27 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-25 Claude: First real hero art shipped — 6 hand-drawn 128×128
+  map sprites (Eirika, Ephraim, Jill, Lyn, Natasha, Takumi; see
+  `ART_BRIEF.md`'s 2026-08-25 status update for the full story, including
+  how the delivered convention diverges from the original spec: per-named-
+  character unique-palette art instead of per-class neutral-tinted art).
+  New `src/ui/heroArt.ts` maps a unit's display name to its texture; both
+  `UnitSprite` (on-board token, scaled down) and `UnitStatusBar` (portrait
+  slot, larger) render the same file at two sizes when a match exists,
+  falling back to the original colored-circle/box placeholder otherwise —
+  every enemy, and any hero not yet drawn. Also **grew the player roster
+  from 7 to 12** across every chapter (Lyn, Takumi, Natasha, Jill, and
+  Ephraim added; Ike's class changed from Barbarian to Swordsman so Jill
+  could take Barbarian) — classes can now have more than one hero.
+  `EquipScreen`'s Squad list card grew taller to fit all 12 rows without
+  overflowing. Known tradeoff, not yet addressed: existing chapters'
+  enemy counts weren't increased to match, so every fight is noticeably
+  easier than before this change (confirmed via `npm run sim`, 0% wipe
+  rate over 20 seeds) — a rebalance pass is a follow-up, not done here.
+  Verified with Playwright: real art renders correctly on-board and in
+  the status panel, placeholder fallback still works for undrawn heroes,
+  and the Squad screen's 12 rows all fit on-card.
 - 2026-08-25 Claude: Fixed `UnitStatusBar` not refreshing when re-selecting
   a different ally (or tapping an enemy) while already in `unit-selected`
   mode — `onTileClicked`'s `'idle'` branch already called

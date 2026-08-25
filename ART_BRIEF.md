@@ -6,6 +6,43 @@ packs — see README's Project Status). Hand this to the artist directly;
 everything here is scoped to be a reasonable v1 ask, not a full character
 art bible.
 
+## Status (2026-08-25)
+
+**The plan below shipped differently than originally specced, and the
+difference is now the actual convention going forward** — this section
+describes what's real; §1's original spec further down is kept for
+historical context but no longer describes what to draw.
+
+6 named-hero map sprites are in (`public/units/*.png`, wired through
+`heroArt.ts` into both `UnitSprite`'s on-board token and
+`UnitStatusBar`'s portrait slot at two different display sizes off the one
+file): **Eirika, Ephraim, Jill, Lyn, Natasha, Takumi.** Two changes from
+the original spec:
+
+- **128×128px, not 48×48.** Large enough to double as the `UnitStatusBar`
+  portrait (native-ish size there) as well as the small on-board token
+  (scaled down) — one file serves both instead of a separate portrait
+  phase later. Draw at 128×128 going forward; the game scales down for the
+  board automatically.
+- **One unique full-color piece per specific named hero, not one
+  neutral-palette piece per class.** No runtime team-tint — each
+  character is hand-painted in their own palette (GBA Fire Emblem's own
+  convention, actually, more than the tint-based approach originally
+  specced). This means there's no "one sprite covers both teams" shortcut:
+  every hero who needs art needs their own painting, and **enemies
+  currently stay the flat-circle placeholder** (a deliberate short-term
+  choice, not an oversight — see `HANDOFF.md`/README if that's changed).
+
+Remaining roster without art yet, in case more sprites are coming: Byleth,
+Corrin, Selva, Lissa, Olivia (`src/game/maps.ts` has the full 12-hero
+roster and each one's class).
+
+**Framing consistency note for future sprites:** the first batch varied in
+how much of the 128×128 canvas each character's actual content fills (some
+characters nearly edge-to-edge, others in a much smaller centered box) —
+worth aiming for a consistent scale across characters so they read as the
+same "camera distance" once several sit on the board together.
+
 ## Why this exists
 
 The game currently renders every unit as a flat-colored circle with a
@@ -122,13 +159,16 @@ wide capped to screen width).
 
 ## Delivery & integration
 
-- Drop files in a new `src/assets/` directory (doesn't exist yet — the
-  project has shipped zero art so far, confirmed via `CREDITS.md`).
-- Once the 7 map-sprite PNGs exist, the loading/rendering code
-  (`BootScene.ts` preload + `UnitSprite.ts` swapping its `Graphics` circle
-  for a real texture) is a contained, low-risk change — happy to build
-  that the moment files land, no need to wait for all 3 phases.
-- Record the artist's name/license (or "original, no external license" —
-  see how the old `winteremblem` prototype's art was credited) in
-  `CREDITS.md` once delivered, matching the project's existing convention
-  for tracking asset provenance.
+- **Actual location (2026-08-25): `public/units/<name>.png`**, lowercase
+  hero first name, loaded by `TacticalScene.preload()` and looked up via
+  `heroArt.ts`'s `heroTextureKey()` — not `src/assets/` as originally
+  planned here (Vite's `public/` convention matches how `public/maps/*.png`
+  background art already loads, so map sprites followed the same pattern
+  once it came time to actually wire them in).
+- Adding a new hero's art is now just two steps: drop
+  `public/units/<name>.png` (128×128, transparent, see the framing-
+  consistency note above) and add that name (lowercase) to `heroArt.ts`'s
+  `HERO_SPRITE_NAMES` — `UnitSprite` and `UnitStatusBar` both pick it up
+  automatically for any unit whose display name matches, no other code
+  change needed.
+- Artist credit recorded in `CREDITS.md`.

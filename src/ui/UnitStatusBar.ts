@@ -5,6 +5,7 @@ import { SKILLS } from '../game/skills';
 import type { Terrain, Unit } from '../game/types';
 import { DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from './classIcons';
+import { heroTextureKey } from './heroArt';
 import { Card, COLORS, FONT_FAMILY } from './kit';
 
 // Sits right below the board, at a fixed position — TacticalScene now
@@ -21,11 +22,11 @@ const BAR_TOP = BAR_Y - BAR_HEIGHT / 2;
 const CARD_LEFT = LOGICAL_WIDTH / 2 - BAR_WIDTH / 2;
 const CARD_RIGHT = LOGICAL_WIDTH / 2 + BAR_WIDTH / 2;
 
-// Portrait-slot box on the left — a graphical stand-in (team-colored panel
-// + big class letter) for where a real character portrait drops in once
-// one's commissioned (see ART_BRIEF.md §3). Sized so that swap is a texture
-// change, not a layout change: an art asset lands here at PORTRAIT_W x
-// PORTRAIT_H and nothing else on the panel has to move.
+// Portrait-slot box on the left — shows real hero art (heroArt.ts) when the
+// shown unit has any, falling back to a team-colored panel + big class
+// letter otherwise (every enemy, and any hero not yet drawn). Sized so a
+// newly-drawn hero's art just drops in at PORTRAIT_W x PORTRAIT_H with no
+// layout change.
 const PORTRAIT_X = CARD_LEFT + 8;
 const PORTRAIT_Y = BAR_TOP + 8;
 const PORTRAIT_W = 96;
@@ -101,11 +102,12 @@ function blendToward(color: number, target: number, amount: number): number {
  * Graphical layout (2026-08-24) — a portrait-slot + banner + big HP bar +
  * a terrain-under-foot line + boxed stat grid, adapted from Fire Emblem
  * Heroes' unit-detail screen but condensed to fit this panel's fixed
- * persistent-HUD footprint rather than a dedicated full-screen view, and
- * built from shapes/color only (no portrait, weapon, or skill icon art
- * exists yet — see ART_BRIEF.md). The portrait box and skill-icon slot are
- * sized so real art can drop in later as a texture swap without a layout
- * change. Equipment isn't shown here (it was in the previous plain-text
+ * persistent-HUD footprint rather than a dedicated full-screen view. The
+ * portrait box shows real art (2026-08-25) for whichever named heroes have
+ * it (`heroArt.ts`) and falls back to the shapes/color placeholder
+ * (team-colored box + class letter) for everyone else — every enemy, and
+ * any hero not yet drawn (skill icon art still doesn't exist — see
+ * ART_BRIEF.md). Equipment isn't shown here (it was in the previous plain-text
  * version) — this panel's job is "what do I need to know before I act"
  * (stats/skill/HP/terrain), which equipment names aren't; Squad still has
  * the full gear list.
@@ -119,6 +121,8 @@ export class UnitStatusBar extends GameObjects.Container {
 
   private readonly portraitGfx: GameObjects.Graphics;
   private readonly portraitLetter: GameObjects.Text;
+  /** Real hero art, shown instead of `portraitLetter` when the shown unit's name matches one of `heroArt.ts`'s drawn characters — texture swapped per-unit in show() since this one Image is reused across every unit tapped. */
+  private readonly portraitImage: GameObjects.Image;
   private readonly levelBadge: GameObjects.Text;
 
   private readonly bannerGfx: GameObjects.Graphics;
@@ -167,6 +171,13 @@ export class UnitStatusBar extends GameObjects.Container {
         resolution: DPR,
       })
       .setOrigin(0.5);
+    // '__WHITE' is just a safe placeholder texture at construction time —
+    // show() always swaps it to a real hero texture before making this
+    // visible, or leaves it hidden and shows portraitLetter instead.
+    this.portraitImage = scene.add
+      .image(PORTRAIT_X + PORTRAIT_W / 2, PORTRAIT_Y + PORTRAIT_H - 6, '__WHITE')
+      .setOrigin(0.5, 1)
+      .setVisible(false);
     this.levelBadge = scene.add
       .text(PORTRAIT_X + PORTRAIT_W - 8, PORTRAIT_Y + PORTRAIT_H - 8, '', {
         fontFamily: FONT_FAMILY,
@@ -243,6 +254,7 @@ export class UnitStatusBar extends GameObjects.Container {
       this.hint,
       this.portraitGfx,
       this.portraitLetter,
+      this.portraitImage,
       this.levelBadge,
       this.bannerGfx,
       this.nameText,
@@ -276,7 +288,15 @@ export class UnitStatusBar extends GameObjects.Container {
     this.portraitGfx.fillRoundedRect(PORTRAIT_X, PORTRAIT_Y, PORTRAIT_W, PORTRAIT_H, 10);
     this.portraitGfx.lineStyle(2, panelColor, 1);
     this.portraitGfx.strokeRoundedRect(PORTRAIT_X, PORTRAIT_Y, PORTRAIT_W, PORTRAIT_H, 10);
-    this.portraitLetter.setText(CLASS_LETTER[unit.className] ?? '?').setAlpha(unit.hasActed ? 0.6 : 1);
+    const textureKey = heroTextureKey(unit.name);
+    const hasArt = this.scene.textures.exists(textureKey);
+    this.portraitLetter.setVisible(!hasArt).setText(CLASS_LETTER[unit.className] ?? '?').setAlpha(unit.hasActed ? 0.6 : 1);
+    if (hasArt) {
+      const artSize = PORTRAIT_W - 12;
+      this.portraitImage.setTexture(textureKey).setDisplaySize(artSize, artSize).setAlpha(unit.hasActed ? 0.55 : 1).setVisible(true);
+    } else {
+      this.portraitImage.setVisible(false);
+    }
     this.levelBadge.setText(`Lv.${unit.level}`);
 
     this.bannerGfx.clear();
@@ -331,7 +351,15 @@ export class UnitStatusBar extends GameObjects.Container {
 
   private setContentVisible(visible: boolean): void {
     this.portraitGfx.setVisible(visible);
-    this.portraitLetter.setVisible(visible);
+    // portraitLetter/portraitImage are mutually exclusive per-unit (only one
+    // of the two applies, decided in show() by whether that unit has real
+    // art) — only force both off here when hiding the whole panel; showing
+    // it is left to show()'s own hasArt branch instead of blindly turning
+    // both on, which would show the letter fallback behind real art too.
+    if (!visible) {
+      this.portraitLetter.setVisible(false);
+      this.portraitImage.setVisible(false);
+    }
     this.levelBadge.setVisible(visible);
     this.bannerGfx.setVisible(visible);
     this.nameText.setVisible(visible);

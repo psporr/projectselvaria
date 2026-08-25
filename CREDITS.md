@@ -18,6 +18,12 @@ Project boilerplate (`index.html`, `public/favicon.png`, `public/style.css`,
 MIT licensed, Copyright (c) 2025 Phaser Studio Inc. The template's build-time
 analytics ping (`log.js`) was dropped.
 
+## Art
+
+Hero map sprites (`public/units/*.png` — Eirika, Ephraim, Jill, Lyn,
+Natasha, Takumi, added 2026-08-25) are original pixel art, hand-drawn for
+this project by a friend of the developer. No external license involved.
+
 ## Design lineage
 
 `HANDOFF.md` carries the game design, rules, and technical lessons forward

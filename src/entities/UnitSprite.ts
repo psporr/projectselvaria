@@ -1,13 +1,16 @@
-import { GameObjects, Scene } from 'phaser';
+import { GameObjects, Scene, TintModes } from 'phaser';
 import type { Unit } from '../game/types';
 import { DPR } from '../systems/viewport';
 import { CLASS_LETTER } from '../ui/classIcons';
+import { heroTextureKey } from '../ui/heroArt';
 import { FONT_FAMILY } from '../ui/kit';
 
 const TEAM_COLOR: Record<string, number> = { player: 0x4a90d9, enemy: 0xd9534f };
 /** Neutral gray a spent unit's color blends toward — classic FE "grayed out, already acted" convention. */
 const ACTED_GRAY = 0x6b7280;
 const ACTED_BLEND = 0.55;
+/** Brief tint used for both flash() and the acted-dim on real hero art — a color blend like the placeholder circle's isn't meaningful over painted art, so dimming there is alpha-only (see sync()'s doc comment). */
+const HIT_FLASH_ALPHA_DURATION_MS = 160;
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -31,14 +34,26 @@ function blendToward(color: number, target: number, amount: number): number {
  * A view of a Unit — owns no truth, just renders whatever the last sync()
  * gave it. TacticalScene is the only thing that reads game state; this only
  * ever gets told what to show (HANDOFF.md §5/§7).
+ *
+ * Two render modes, chosen once at construction (a unit's name/art doesn't
+ * change mid-match): a named hero with real art (`heroArt.ts`'s
+ * `HERO_SPRITE_NAMES`) gets that PNG; everyone else — every enemy (always
+ * anonymous, see `game/maps.ts`), and any hero not yet drawn — keeps the
+ * original colored-circle-plus-class-letter placeholder. The two modes
+ * share the HP bar but diverge on how "acted" and "just hit" render: the
+ * circle's flat fill can blend toward gray or flash a solid color, but
+ * neither means anything applied to painted art, so the art mode uses alpha
+ * alone for both (dim on acted, a brief full-opacity-then-fade pulse on
+ * hit) instead.
  */
 export class UnitSprite extends GameObjects.Container {
-  private readonly circle: GameObjects.Arc;
+  private readonly circle: GameObjects.Arc | null;
+  private readonly portrait: GameObjects.Image | null;
   private readonly hpBar: GameObjects.Rectangle;
   private readonly hpBarWidth: number;
   private readonly baseColor: number;
   private readonly actedColor: number;
-  /** Whatever sync() last set the circle's fill to — flash() reverts here instead of always baseColor, so a hit on an already-acted (dimmed) unit doesn't briefly un-dim it. */
+  /** Whatever sync() last set the circle's fill to — flash() reverts here instead of always baseColor, so a hit on an already-acted (dimmed) unit doesn't briefly un-dim it. Unused in art mode (flash() there just pulses alpha). */
   private currentFill: number;
 
   constructor(scene: Scene, x: number, y: number, tileSize: number, unit: Unit, dimmed: boolean) {
@@ -49,15 +64,27 @@ export class UnitSprite extends GameObjects.Container {
     this.currentFill = this.baseColor;
 
     const radius = tileSize * 0.32;
-    this.circle = scene.add.circle(0, 0, radius, this.baseColor).setStrokeStyle(2, 0x000000, 0.4);
-    const label = scene.add
-      .text(0, 0, CLASS_LETTER[unit.className] ?? '?', {
-        fontFamily: FONT_FAMILY,
-        fontSize: `${Math.round(tileSize * 0.28)}px`,
-        color: '#ffffff',
-        resolution: DPR,
-      })
-      .setOrigin(0.5);
+    const textureKey = heroTextureKey(unit.name);
+    const hasArt = scene.textures.exists(textureKey);
+
+    const visuals: GameObjects.GameObject[] = [];
+    if (hasArt) {
+      this.circle = null;
+      this.portrait = scene.add.image(0, 0, textureKey).setDisplaySize(tileSize * 0.92, tileSize * 0.92);
+      visuals.push(this.portrait);
+    } else {
+      this.portrait = null;
+      this.circle = scene.add.circle(0, 0, radius, this.baseColor).setStrokeStyle(2, 0x000000, 0.4);
+      const label = scene.add
+        .text(0, 0, CLASS_LETTER[unit.className] ?? '?', {
+          fontFamily: FONT_FAMILY,
+          fontSize: `${Math.round(tileSize * 0.28)}px`,
+          color: '#ffffff',
+          resolution: DPR,
+        })
+        .setOrigin(0.5);
+      visuals.push(this.circle, label);
+    }
 
     // Stroked so the bar keeps a visible edge over image-backed maps whose
     // grass art can run close to the fill's own green (0x5cb85c) — without
@@ -65,7 +92,7 @@ export class UnitSprite extends GameObjects.Container {
     const hpBarBg = scene.add.rectangle(0, -radius - 8, this.hpBarWidth, 5, 0x000000, 0.6).setStrokeStyle(1, 0x000000, 0.9);
     this.hpBar = scene.add.rectangle(0, -radius - 8, this.hpBarWidth, 5, 0x5cb85c);
 
-    this.add([this.circle, label, hpBarBg, this.hpBar]);
+    this.add([...visuals, hpBarBg, this.hpBar]);
     scene.add.existing(this);
 
     this.sync(unit, dimmed);
@@ -85,17 +112,30 @@ export class UnitSprite extends GameObjects.Container {
     const ratio = clamp01(unit.hp / unit.maxHp);
     this.hpBar.width = this.hpBarWidth * ratio;
     this.hpBar.fillColor = ratio > 0.5 ? 0x5cb85c : ratio > 0.25 ? 0xf0ad4e : 0xd9534f;
+
+    if (this.portrait) {
+      // No flat fill to blend toward gray on painted art — alpha alone
+      // carries "already acted" here.
+      this.portrait.setAlpha(dimmed ? 0.55 : 1);
+      return;
+    }
+
     // A spent unit dims and desaturates toward gray — alpha alone read as
     // "translucent"; the color blend makes "already acted" unambiguous at a
     // glance, the standard Fire Emblem convention.
     this.currentFill = dimmed ? this.actedColor : this.baseColor;
-    this.circle.setFillStyle(this.currentFill);
-    this.circle.setAlpha(dimmed ? 0.6 : 1);
+    this.circle!.setFillStyle(this.currentFill);
+    this.circle!.setAlpha(dimmed ? 0.6 : 1);
   }
 
-  /** Brief color flash to draw the eye to a unit that was just hit. */
+  /** Brief flash to draw the eye to a unit that was just hit — `setFillStyle` for the placeholder circle, a FILL-mode tint for real art (Phaser 4 replaced `setTintFill(color)` with `setTint(color).setTintMode(FILL)`: repaints every opaque pixel solid `color` while keeping the sprite's own alpha/shape, so it reads the same way regardless of acted-dim state). */
   flash(color: number): void {
-    this.circle.setFillStyle(color);
-    this.scene.time.delayedCall(160, () => this.circle.setFillStyle(this.currentFill));
+    if (this.portrait) {
+      this.portrait.setTintMode(TintModes.FILL).setTint(color);
+      this.scene.time.delayedCall(HIT_FLASH_ALPHA_DURATION_MS, () => this.portrait!.clearTint());
+      return;
+    }
+    this.circle!.setFillStyle(color);
+    this.scene.time.delayedCall(HIT_FLASH_ALPHA_DURATION_MS, () => this.circle!.setFillStyle(this.currentFill));
   }
 }
