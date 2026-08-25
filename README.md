@@ -139,6 +139,19 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-25 Claude: Fixed a quick-attack bug — canceling from the forecast
+  left the unit stranded at the auto-picked attack tile instead of
+  returning to its original position with the move/quick-attack highlights
+  showing again. `enterAttackConfirm` now takes an explicit `onCancel`
+  rather than always reusing `resumeTargeting` (which assumes a
+  deliberately-chosen destination, true for the manual Attack-from-menu
+  flow but not for quick attack's auto-picked one): quick attack's cancel
+  now goes through a new `cancelQuickAttack`, which snaps the sprite back
+  and re-enters `unit-selected` so `selectUnit` recomputes both highlight
+  sets. The manual flow's cancel behavior (stay at the chosen tile,
+  re-show valid targets) is unchanged. Verified with Playwright for both
+  the quick-attack cancel (unit returns, highlights reappear) and the
+  manual-flow cancel (unit stays put, no regression).
 - 2026-08-25 Claude: Quick attack — while choosing a destination
   (`unit-selected` mode), any enemy strikeable from some reachable tile now
   lights up on its own tile (red, same color the manual awaiting-target

@@ -395,7 +395,7 @@ export class TacticalScene extends Scene {
           this.pendingDestination = { x: attackFrom.x, y: attackFrom.y };
           this.previewMoveTo(unit.id, attackFrom.x, attackFrom.y);
           const synthetic: Unit = { ...unit, x: attackFrom.x, y: attackFrom.y };
-          this.enterAttackConfirm(G, synthetic, unitAtTile);
+          this.enterAttackConfirm(G, synthetic, unitAtTile, () => this.cancelQuickAttack(unit.id));
           return;
         }
       }
@@ -424,7 +424,7 @@ export class TacticalScene extends Scene {
           : false;
 
       if (targetInRange && unitAtTile) {
-        this.enterAttackConfirm(G, synthetic, unitAtTile);
+        this.enterAttackConfirm(G, synthetic, unitAtTile, () => this.resumeTargeting(unit.id, 'attack'));
       } else {
         this.finishSelection();
       }
@@ -564,7 +564,35 @@ export class TacticalScene extends Scene {
     else this.beginSkillTargeting(state.G, unit, dest);
   }
 
-  private enterAttackConfirm(G: GameState, attacker: Unit, defender: Unit): void {
+  /**
+   * Cancel from a quick attack's forecast — unlike resumeTargeting (which
+   * keeps a deliberately-chosen destination), the quick-attack destination
+   * was auto-picked, so canceling should feel like nothing happened: snap
+   * the sprite back to its real tile (same idea as finishSelection's own
+   * snap-back) and re-enter 'unit-selected' so the move/quick-attack
+   * highlights reappear, instead of leaving the unit stranded at a tile the
+   * player never chose with only a leftover targeting highlight.
+   */
+  private cancelQuickAttack(unitId: string): void {
+    const unit = this.client.getState()?.G.units[unitId];
+    const sprite = this.unitSprites.get(unitId);
+    if (unit && sprite) {
+      const { px, py } = this.tileCenter(unit.x, unit.y);
+      this.tweens.add({ targets: sprite, x: px, y: py, duration: 150, ease: 'Quad.easeOut' });
+    }
+    if (unit) this.selectUnit(unit.id);
+    else this.finishSelection();
+  }
+
+  /**
+   * `onCancel` differs by entry point: the manual flow (onTileClicked's
+   * 'awaiting-target' branch) got here via a destination the player
+   * deliberately walked to, so its Cancel re-enters targeting at that same
+   * tile (`resumeTargeting`). Quick attack's destination was auto-picked —
+   * the player never chose it — so its Cancel needs to undo that pick
+   * entirely (`cancelQuickAttack`) rather than treat it as deliberate.
+   */
+  private enterAttackConfirm(G: GameState, attacker: Unit, defender: Unit, onCancel: () => void): void {
     this.clearHighlights();
     const forecast = forecastCombat(G, attacker, defender);
     const lines = formatAttackForecast(G, attacker, defender, forecast);
@@ -578,7 +606,7 @@ export class TacticalScene extends Scene {
         this.client.moves.attackUnit(attacker.id, defender.id);
         this.finishSelection();
       },
-      () => this.resumeTargeting(attacker.id, 'attack'),
+      onCancel,
     );
   }
 
