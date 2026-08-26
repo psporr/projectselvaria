@@ -139,6 +139,25 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-26 Claude: Fixed the hero art the 2026-08-26 art commit broke, and
+  wired in the first bust portrait. That commit renamed every hero map
+  sprite to add a `128` suffix (`eirika.png` -> `eirika128.png`) and two
+  don't lowercase-match their filename at all (`Ephraim` -> `emphraim128.png`,
+  a typo in the source file; `L'Arachel` -> `larachel128.png`, punctuation
+  stripped) — `heroArt.ts` now has an explicit override table for those two
+  and everything else derives `<name>128.png`, so all 24 named heroes (the
+  original 6 plus 18 new ones added in that commit) resolve correctly again.
+  The 18 new heroes aren't in any chapter's roster yet — art-only for now,
+  roster growth is a separate decision. `public/portrait/jill.png` (a
+  1024x1024 bust, a new higher-detail art category from the 128px map
+  sprites) is cropped square around the face/shoulders, background keyed
+  to transparent, downscaled to 256x256, and now shows in
+  `UnitStatusBar`'s portrait slot in place of the map sprite when a unit
+  has one (`heroArt.ts`'s new `HERO_PORTRAIT_NAMES`/`heroPortraitTextureKey`,
+  same layered-fallback pattern as the map sprites). The enemy-class
+  sprites that same commit added aren't wired in yet — their filenames
+  don't map to any existing class, so that's pending a class-roster design
+  discussion.
 - 2026-08-26 Claude: Custom favicon. `public/favicon.png` is now a 32×32
   crop of the shield emblem from `public/project selvaria icon.png` (the
   project's logo, added in the same commit as the new unit/enemy/portrait

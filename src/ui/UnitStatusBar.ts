@@ -5,7 +5,7 @@ import { SKILLS } from '../game/skills';
 import type { Terrain, Unit } from '../game/types';
 import { DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from './classIcons';
-import { heroTextureKey } from './heroArt';
+import { heroPortraitTextureKey, heroTextureKey } from './heroArt';
 import { Card, COLORS, FONT_FAMILY } from './kit';
 
 // Sits right below the board, at a fixed position — TacticalScene now
@@ -299,7 +299,10 @@ export class UnitStatusBar extends GameObjects.Container {
     this.portraitGfx.fillRoundedRect(PORTRAIT_X, PORTRAIT_Y, PORTRAIT_W, PORTRAIT_H, 10);
     this.portraitGfx.lineStyle(2, panelColor, 1);
     this.portraitGfx.strokeRoundedRect(PORTRAIT_X, PORTRAIT_Y, PORTRAIT_W, PORTRAIT_H, 10);
-    const textureKey = heroTextureKey(unit.name);
+    // Prefer a dedicated bust portrait (heroArt.ts's HERO_PORTRAIT_NAMES) over the
+    // map sprite here — UnitSprite always uses the map sprite regardless.
+    const portraitKey = heroPortraitTextureKey(unit.name);
+    const textureKey = this.scene.textures.exists(portraitKey) ? portraitKey : heroTextureKey(unit.name);
     const hasArt = this.scene.textures.exists(textureKey);
     this.portraitLetter.setVisible(!hasArt).setText(CLASS_LETTER[unit.className] ?? '?').setAlpha(unit.hasActed ? 0.6 : 1);
     if (hasArt) {

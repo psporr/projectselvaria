@@ -13,7 +13,7 @@ import { applyDprZoom, DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import type { ActionMenuChoice, ActionMenuOption } from '../ui/ActionMenu';
 import { formatAttackForecast } from '../ui/ForecastPanel';
 import type { SystemMenuChoice, SystemMenuOption } from '../ui/SystemMenu';
-import { heroTextureKey, HERO_SPRITE_NAMES } from '../ui/heroArt';
+import { heroSpriteBasename, heroTextureKey, HERO_PORTRAIT_NAMES, heroPortraitTextureKey, HERO_SPRITE_NAMES } from '../ui/heroArt';
 import { FONT_FAMILY } from '../ui/kit';
 import type { UIScene } from './UIScene';
 
@@ -150,7 +150,11 @@ export class TacticalScene extends Scene {
   preload(): void {
     for (const name of HERO_SPRITE_NAMES) {
       const key = heroTextureKey(name);
-      if (!this.textures.exists(key)) this.load.image(key, `units/${name}.png`);
+      if (!this.textures.exists(key)) this.load.image(key, `units/${heroSpriteBasename(name)}.png`);
+    }
+    for (const name of HERO_PORTRAIT_NAMES) {
+      const key = heroPortraitTextureKey(name);
+      if (!this.textures.exists(key)) this.load.image(key, `portrait/${name}.png`);
     }
     for (const basename of new Set(Object.values(CHAPTERS_WITH_BACKGROUND_ART))) {
       const key = `${basename}-bg`;
