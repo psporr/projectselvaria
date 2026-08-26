@@ -139,6 +139,17 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-25 Claude: Added a corner-bracket tile cursor (`TacticalScene`'s
+  `showTileCursor`/`hideTileCursor`) — a classic tactics-RPG reticle
+  marking exactly which single tile the player just selected, on top of
+  (not instead of) the existing flat-color range/target overlays. Shows
+  on a move destination once picked (stays through the action menu) and
+  on an attack or skill target once picked, whether via the manual
+  destination→menu→target flow or the quick-attack shortcut (stays
+  through the forecast confirm); clears on cancel, on a fresh
+  selection, or once target-picking starts (replacing a destination
+  cursor). Verified with Playwright across the move-destination,
+  quick-attack-target, and cancel-clears-it cases.
 - 2026-08-25 Claude: Trimmed the player starting lineup from 12 heroes back
   down to just the 6 with real map art — Eirika, Lyn, Takumi, Natasha,
   Jill, Ephraim — across every chapter, dropping Byleth/Corrin/Selva/

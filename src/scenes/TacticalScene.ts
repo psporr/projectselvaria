@@ -63,6 +63,14 @@ const SKILL_HIGHLIGHT = 0xf0ad4e;
 const ENEMY_STEP_DELAY_MS = 450;
 const BLESSING_DELAY_MS = 700;
 
+/** Corner-bracket tile cursor — a classic tactics-RPG "you selected this square" reticle, distinct from the flat-color range/target overlays `highlightTiles` paints. See `showTileCursor`'s doc comment for exactly when it appears. */
+const CURSOR_COLOR = 0xff5a5a;
+const CURSOR_THICKNESS = 3;
+/** Fraction of tileSize each bracket arm is inset from the tile's true edge. */
+const CURSOR_INSET_RATIO = 0.1;
+/** Fraction of tileSize each bracket arm extends along the edge. */
+const CURSOR_ARM_RATIO = 0.26;
+
 /**
  * UI interaction mode — the second, separate state machine (HANDOFF.md §7).
  * boardgame.io owns whose turn it is; this only owns what a click does next.
@@ -104,6 +112,8 @@ export class TacticalScene extends Scene {
   private readonly unitSprites = new Map<string, UnitSprite>();
   private readonly highlightRects: GameObjects.Rectangle[] = [];
   private readonly threatRects: GameObjects.Rectangle[] = [];
+  /** Corner-bracket reticle on whichever single tile the player just selected (a move destination or an attack/skill target) — see `showTileCursor`. Null when nothing's currently selected. */
+  private tileCursorGfx: GameObjects.Graphics | null = null;
   private threatOverlayVisible = false;
   private lastUnits: Record<string, Unit> = {};
 
@@ -156,6 +166,7 @@ export class TacticalScene extends Scene {
     this.unitSprites.clear();
     this.highlightRects.length = 0;
     this.threatRects.length = 0;
+    this.tileCursorGfx = null;
     this.threatOverlayVisible = false;
     this.lastUnits = {};
     this.mode = 'idle';
@@ -351,6 +362,50 @@ export class TacticalScene extends Scene {
     }
   }
 
+  /**
+   * Draws the corner-bracket cursor on (x, y) — a single-tile reticle
+   * marking exactly which square the player just selected, on top of (not
+   * instead of) the flat-color range/target overlays. Shown on a move
+   * destination once picked (stays up through the action menu) and on an
+   * attack/skill target once picked (stays up through the forecast
+   * confirm); hidden by `hideTileCursor` whenever that selection is
+   * abandoned or superseded — see the call sites in `onTileClicked`,
+   * `selectUnit`, `beginAttackTargeting`/`beginSkillTargeting`, and
+   * `finishSelection`.
+   */
+  private showTileCursor(x: number, y: number): void {
+    this.hideTileCursor();
+    const { px, py } = this.tileCenter(x, y);
+    const half = this.tileSize / 2;
+    const inset = this.tileSize * CURSOR_INSET_RATIO;
+    const arm = this.tileSize * CURSOR_ARM_RATIO;
+    const left = px - half + inset;
+    const right = px + half - inset;
+    const top = py - half + inset;
+    const bottom = py + half - inset;
+
+    const g = this.add.graphics().setDepth(1.5);
+    g.lineStyle(CURSOR_THICKNESS, CURSOR_COLOR, 1);
+    // Each corner: an anchor point plus the direction (dx, dy) its two arms
+    // extend in, toward the tile's center.
+    const corners: Array<{ cx: number; cy: number; dx: number; dy: number }> = [
+      { cx: left, cy: top, dx: 1, dy: 1 },
+      { cx: right, cy: top, dx: -1, dy: 1 },
+      { cx: left, cy: bottom, dx: 1, dy: -1 },
+      { cx: right, cy: bottom, dx: -1, dy: -1 },
+    ];
+    for (const { cx, cy, dx, dy } of corners) {
+      g.lineBetween(cx, cy, cx + dx * arm, cy);
+      g.lineBetween(cx, cy, cx, cy + dy * arm);
+    }
+    this.tileCursorGfx = g;
+  }
+
+  private hideTileCursor(): void {
+    this.tileCursorGfx?.destroy();
+    this.tileCursorGfx = null;
+  }
+
   // --- player input -------------------------------------------------------
 
   private onTileClicked(x: number, y: number): void {
@@ -390,6 +445,7 @@ export class TacticalScene extends Scene {
       if (reachable.has(tileKey(x, y))) {
         this.pendingDestination = { x, y };
         this.previewMoveTo(unit.id, x, y);
+        this.showTileCursor(x, y);
         this.openActionMenu(G, unit);
         return;
       }
@@ -407,6 +463,7 @@ export class TacticalScene extends Scene {
         if (attackFrom) {
           this.pendingDestination = { x: attackFrom.x, y: attackFrom.y };
           this.previewMoveTo(unit.id, attackFrom.x, attackFrom.y);
+          this.showTileCursor(unitAtTile.x, unitAtTile.y);
           const synthetic: Unit = { ...unit, x: attackFrom.x, y: attackFrom.y };
           this.enterAttackConfirm(G, synthetic, unitAtTile, () => this.cancelQuickAttack(unit.id));
           return;
@@ -437,6 +494,7 @@ export class TacticalScene extends Scene {
           : false;
 
       if (targetInRange && unitAtTile) {
+        this.showTileCursor(unitAtTile.x, unitAtTile.y);
         this.enterAttackConfirm(G, synthetic, unitAtTile, () => this.resumeTargeting(unit.id, 'attack'));
       } else {
         this.finishSelection();
@@ -456,6 +514,7 @@ export class TacticalScene extends Scene {
       const validTarget = unitAtTile ? skillTargets(G, synthetic).some((t) => t.id === unitAtTile.id) : false;
 
       if (validTarget && unitAtTile) {
+        this.showTileCursor(unitAtTile.x, unitAtTile.y);
         this.enterSkillConfirm(G, unit, synthetic, unitAtTile);
       } else {
         this.finishSelection();
@@ -471,6 +530,7 @@ export class TacticalScene extends Scene {
     this.selectedUnitId = unitId;
     this.pendingDestination = null;
     this.clearHighlights();
+    this.hideTileCursor();
     const { G } = this.client.getState()!;
     const unit = G.units[unitId];
     const reachable = computeReachable(G, unit);
@@ -548,6 +608,10 @@ export class TacticalScene extends Scene {
     const synthetic: Unit = { ...unit, x: dest.x, y: dest.y };
     this.mode = 'awaiting-target';
     this.clearHighlights();
+    // The destination cursor (or a stale target cursor, if re-entering after
+    // a cancel) is done its job once target-picking starts — the range
+    // highlight below takes over until a target tile is actually tapped.
+    this.hideTileCursor();
     this.highlightTiles(
       targetsFrom(G, synthetic, dest.x, dest.y).map((t) => ({ x: t.x, y: t.y })),
       TARGET_HIGHLIGHT,
@@ -558,6 +622,7 @@ export class TacticalScene extends Scene {
     const synthetic: Unit = { ...unit, x: dest.x, y: dest.y };
     this.mode = 'skill-targeting';
     this.clearHighlights();
+    this.hideTileCursor();
     this.highlightTiles(
       skillTargets(G, synthetic).map((t) => ({ x: t.x, y: t.y })),
       SKILL_HIGHLIGHT,
@@ -761,6 +826,7 @@ export class TacticalScene extends Scene {
     this.selectedUnitId = null;
     this.pendingDestination = null;
     this.clearHighlights();
+    this.hideTileCursor();
 
     const unit = unitId ? this.client.getState()?.G.units[unitId] : undefined;
     const sprite = unitId ? this.unitSprites.get(unitId) : undefined;
