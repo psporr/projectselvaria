@@ -139,6 +139,18 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-25 Claude: Tile cursor now blinks and clears itself after 2
+  seconds (`CURSOR_LIFETIME_MS`, `CURSOR_BLINK_HALF_MS`) instead of
+  lingering indefinitely on the last-tapped tile — a yoyo alpha tween
+  plus a `time.delayedCall` in `showTileCursor`, both tracked
+  (`tileCursorBlinkTween`/`tileCursorHideTimer`) and torn down in
+  `hideTileCursor` so a fresh tap never leaves a stale timer running
+  against the wrong tile. Also now clears immediately once an action
+  actually resolves — attack confirm, skill confirm, and Wait — rather
+  than waiting out the blink, since "which tile did I select" stops
+  mattering the moment that's decided. Verified with Playwright: alpha
+  visibly cycles over the first ~600ms, the cursor is gone by 2.2s if
+  untouched, and it disappears right away when an attack is confirmed.
 - 2026-08-25 Claude: Generalized the tile cursor to follow every board tap
   (any mode — idle, unit-selected, targeting) instead of only appearing
   for a "committed" move-destination/attack-target pick — `onTileClicked`

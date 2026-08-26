@@ -1,4 +1,4 @@
-import { GameObjects, Scene } from 'phaser';
+import { GameObjects, Scene, Time, Tweens } from 'phaser';
 
 import { BLESSINGS, type Blessing } from '../game/blessings';
 import { decideAction } from '../game/ai';
@@ -70,6 +70,10 @@ const CURSOR_THICKNESS = 3;
 const CURSOR_INSET_RATIO = 0.1;
 /** Fraction of tileSize each bracket arm extends along the edge. */
 const CURSOR_ARM_RATIO = 0.26;
+/** How long the cursor blinks before auto-clearing itself — see showTileCursor's doc comment. */
+const CURSOR_LIFETIME_MS = 2000;
+/** One blink cycle (dim then back to full) — CURSOR_LIFETIME_MS / this is roughly how many blinks play out. */
+const CURSOR_BLINK_HALF_MS = 250;
 
 /**
  * UI interaction mode — the second, separate state machine (HANDOFF.md §7).
@@ -112,8 +116,10 @@ export class TacticalScene extends Scene {
   private readonly unitSprites = new Map<string, UnitSprite>();
   private readonly highlightRects: GameObjects.Rectangle[] = [];
   private readonly threatRects: GameObjects.Rectangle[] = [];
-  /** Corner-bracket reticle on whichever single tile the player just selected (a move destination or an attack/skill target) — see `showTileCursor`. Null when nothing's currently selected. */
+  /** Corner-bracket reticle on whichever tile the player last tapped — see `showTileCursor`. Null once it's blinked out, been dismissed by a resolved action, or nothing's been tapped yet. */
   private tileCursorGfx: GameObjects.Graphics | null = null;
+  private tileCursorBlinkTween: Tweens.Tween | null = null;
+  private tileCursorHideTimer: Time.TimerEvent | null = null;
   private threatOverlayVisible = false;
   private lastUnits: Record<string, Unit> = {};
 
@@ -167,6 +173,8 @@ export class TacticalScene extends Scene {
     this.highlightRects.length = 0;
     this.threatRects.length = 0;
     this.tileCursorGfx = null;
+    this.tileCursorBlinkTween = null;
+    this.tileCursorHideTimer = null;
     this.threatOverlayVisible = false;
     this.lastUnits = {};
     this.mode = 'idle';
@@ -368,9 +376,14 @@ export class TacticalScene extends Scene {
    * instead of) the flat-color range/target overlays. Called once, in
    * `onTileClicked`, for every tap that reaches this scene (any mode) — it
    * always tracks the tile you're currently looking at (move destination,
-   * attack/skill target, an inspected unit or empty tile, ...) rather than
-   * only appearing for a "committed" selection, so it's never explicitly
-   * hidden mid-battle; only `create()`'s reset (a fresh scene) clears it.
+   * attack/skill target, an inspected unit or empty tile, ...).
+   *
+   * Transient rather than persistent (2026-08-25): it blinks for
+   * CURSOR_LIFETIME_MS and then clears itself via `hideTileCursor` — a
+   * glance cue, not a lasting marker — and `enterAttackConfirm`/
+   * `enterSkillConfirm`/`onActionChosen`'s 'wait' branch also clear it
+   * early the moment their action actually resolves, since a completed
+   * action makes "which tile did I select" moot.
    */
   private showTileCursor(x: number, y: number): void {
     this.hideTileCursor();
@@ -398,9 +411,21 @@ export class TacticalScene extends Scene {
       g.lineBetween(cx, cy, cx, cy + dy * arm);
     }
     this.tileCursorGfx = g;
+    this.tileCursorBlinkTween = this.tweens.add({
+      targets: g,
+      alpha: { from: 1, to: 0.15 },
+      duration: CURSOR_BLINK_HALF_MS,
+      yoyo: true,
+      repeat: -1,
+    });
+    this.tileCursorHideTimer = this.time.delayedCall(CURSOR_LIFETIME_MS, () => this.hideTileCursor());
   }
 
   private hideTileCursor(): void {
+    this.tileCursorBlinkTween?.stop();
+    this.tileCursorBlinkTween = null;
+    this.tileCursorHideTimer?.remove();
+    this.tileCursorHideTimer = null;
     this.tileCursorGfx?.destroy();
     this.tileCursorGfx = null;
   }
@@ -591,6 +616,7 @@ export class TacticalScene extends Scene {
     if (choice === 'wait') {
       this.client.moves.moveUnit(unit.id, dest.x, dest.y);
       this.client.moves.waitUnit(unit.id);
+      this.hideTileCursor();
       this.finishSelection();
       return;
     }
@@ -677,6 +703,7 @@ export class TacticalScene extends Scene {
         const dest = this.pendingDestination!;
         this.client.moves.moveUnit(attacker.id, dest.x, dest.y);
         this.client.moves.attackUnit(attacker.id, defender.id);
+        this.hideTileCursor();
         this.finishSelection();
       },
       onCancel,
@@ -700,6 +727,7 @@ export class TacticalScene extends Scene {
         const dest = this.pendingDestination!;
         this.client.moves.moveUnit(unit.id, dest.x, dest.y);
         this.client.moves.useSkill(unit.id, target.id);
+        this.hideTileCursor();
         this.finishSelection();
       },
       () => this.resumeTargeting(unit.id, 'skill'),
