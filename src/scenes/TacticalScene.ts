@@ -13,7 +13,7 @@ import { applyDprZoom, DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import type { ActionMenuChoice, ActionMenuOption } from '../ui/ActionMenu';
 import { formatAttackForecast } from '../ui/ForecastPanel';
 import type { SystemMenuChoice, SystemMenuOption } from '../ui/SystemMenu';
-import { heroTextureKey, HERO_SPRITE_NAMES } from '../ui/heroArt';
+import { ensureGrayscaleHeroTexture, heroTextureKey, HERO_SPRITE_NAMES } from '../ui/heroArt';
 import { FONT_FAMILY } from '../ui/kit';
 import type { UIScene } from './UIScene';
 
@@ -194,6 +194,13 @@ export class TacticalScene extends Scene {
 
     this.scene.launch('UI', { client: this.client, tactical: this });
     this.ui = this.scene.get('UI') as UIScene;
+
+    // Preload's PNGs have actually landed in the texture manager by now
+    // (preload() itself only registers the load) — bake each one's
+    // grayscale "acted" variant before any UnitSprite construction below
+    // might need it. Idempotent (ensureGrayscaleHeroTexture skips an
+    // already-baked key), so re-running on scene restart is harmless.
+    for (const name of HERO_SPRITE_NAMES) ensureGrayscaleHeroTexture(this, name);
 
     this.drawBoard();
     this.syncUnits();
@@ -475,6 +482,12 @@ export class TacticalScene extends Scene {
       if (reachable.has(tileKey(x, y))) {
         this.pendingDestination = { x, y };
         this.previewMoveTo(unit.id, x, y);
+        // Refresh against the destination's terrain, not wherever the unit
+        // was standing when first selected — the panel's terrain row/+N Def
+        // bonus otherwise stayed stuck on the origin tile the whole time
+        // the action menu was open, showing a bonus that no longer applies
+        // (or missing one that now does) once the unit's actually moving.
+        this.ui.unitStatusBar.show(unit, terrainAt(G, x, y));
         this.openActionMenu(G, unit);
         return;
       }
@@ -851,11 +864,20 @@ export class TacticalScene extends Scene {
     this.pendingDestination = null;
     this.clearHighlights();
 
-    const unit = unitId ? this.client.getState()?.G.units[unitId] : undefined;
+    const state = this.client.getState();
+    const unit = unitId && state ? state.G.units[unitId] : undefined;
     const sprite = unitId ? this.unitSprites.get(unitId) : undefined;
     if (unit && sprite) {
       const { px, py } = this.tileCenter(unit.x, unit.y);
       this.tweens.add({ targets: sprite, x: px, y: py, duration: 150, ease: 'Quad.easeOut' });
+    }
+    // Re-show the unit's real (unmoved-if-cancelled, or post-action if
+    // confirmed) terrain — otherwise the panel keeps showing whatever
+    // destination tile was last picked (e.g. a forest's +2 Def) even after
+    // backing out of it, since picking a destination is the only other
+    // place that refreshes the panel's terrain row.
+    if (unit && state) {
+      this.ui.unitStatusBar.show(unit, terrainAt(state.G, unit.x, unit.y));
     }
   }
 

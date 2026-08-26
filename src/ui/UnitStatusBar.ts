@@ -5,7 +5,7 @@ import { SKILLS } from '../game/skills';
 import type { Terrain, Unit } from '../game/types';
 import { DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from './classIcons';
-import { heroTextureKey } from './heroArt';
+import { heroGrayTextureKey, heroTextureKey } from './heroArt';
 import { Card, COLORS, FONT_FAMILY } from './kit';
 
 // Sits right below the board, at a fixed position — TacticalScene now
@@ -297,8 +297,12 @@ export class UnitStatusBar extends GameObjects.Container {
     const hasArt = this.scene.textures.exists(textureKey);
     this.portraitLetter.setVisible(!hasArt).setText(CLASS_LETTER[unit.className] ?? '?').setAlpha(unit.hasActed ? 0.6 : 1);
     if (hasArt) {
+      // Grayscale (baked by UnitSprite's TacticalScene.create() call, see
+      // heroArt.ts's ensureGrayscaleHeroTexture) rather than a faded alpha
+      // for an acted unit — matches the on-board sprite's own treatment.
       const artSize = PORTRAIT_W - 12;
-      this.portraitImage.setTexture(textureKey).setDisplaySize(artSize, artSize).setAlpha(unit.hasActed ? 0.55 : 1).setVisible(true);
+      const artKey = unit.hasActed ? heroGrayTextureKey(unit.name) : textureKey;
+      this.portraitImage.setTexture(artKey).setDisplaySize(artSize, artSize).setAlpha(1).setVisible(true);
     } else {
       this.portraitImage.setVisible(false);
     }
@@ -371,6 +375,10 @@ export class UnitStatusBar extends GameObjects.Container {
     if (!visible) {
       this.portraitLetter.setVisible(false);
       this.portraitImage.setVisible(false);
+      // Bug (2026-08-26): left out of this force-hide, the "+2"-style
+      // suffix stayed visible — at its last position — after switching to
+      // showTerrain()/hide(), floating with nothing else on the panel.
+      this.defBonusText.setVisible(false);
     }
     this.levelBadge.setVisible(visible);
     this.bannerGfx.setVisible(visible);

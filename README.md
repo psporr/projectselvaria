@@ -139,6 +139,32 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-26 Claude: Two fixes.
+  (1) The terrain-bonus "+2"-style suffix next to Def in `UnitStatusBar`
+  could get stuck showing a stale bonus — it was left out of
+  `setContentVisible`'s force-hide (so `showTerrain()`/`hide()` never
+  cleared it), and picking a move destination never refreshed the panel
+  at all (so it kept showing whichever tile the unit was standing on when
+  first selected, not the destination — the more common way to hit this,
+  since moving off a forest tile without the panel ever updating made a
+  stale "+2" outlive the tile it came from). Fixed all three: `defBonusText`
+  now force-hides with everything else, picking a destination re-shows the
+  unit against that tile's terrain, and `finishSelection` (Cancel, or an
+  action resolving) re-shows the unit against its real post-selection
+  terrain instead of leaving the panel on whatever it last had.
+  (2) Acted units now render **grayscale** instead of faded/transparent —
+  `heroArt.ts`'s new `ensureGrayscaleHeroTexture` bakes a one-time
+  luminance-converted copy of each hero PNG (canvas pixel pass; alpha
+  channel untouched, so transparency/silhouette survives) since this
+  Phaser build has no built-in grayscale FX pipeline, and both
+  `UnitSprite` (on-board) and `UnitStatusBar` (portrait) swap to it at
+  full opacity for `hasActed` instead of dropping alpha — reads as
+  "spent," not "hard to see." The placeholder circle (no art yet) already
+  desaturated via a color blend; it just lost its extra alpha fade too, so
+  it's consistent with the art path. Verified with Playwright: `+2`
+  correctly appears/disappears across select → move → cancel, and an
+  acted unit's on-board sprite and status-panel portrait both show true
+  grayscale, not transparency.
 - 2026-08-25 Claude: Tile cursor now blinks and clears itself after 2
   seconds (`CURSOR_LIFETIME_MS`, `CURSOR_BLINK_HALF_MS`) instead of
   lingering indefinitely on the last-tapped tile — a yoyo alpha tween

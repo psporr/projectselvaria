@@ -2,14 +2,14 @@ import { GameObjects, Scene, TintModes } from 'phaser';
 import type { Unit } from '../game/types';
 import { DPR } from '../systems/viewport';
 import { CLASS_LETTER } from '../ui/classIcons';
-import { heroTextureKey } from '../ui/heroArt';
+import { heroGrayTextureKey, heroTextureKey } from '../ui/heroArt';
 import { FONT_FAMILY } from '../ui/kit';
 
 const TEAM_COLOR: Record<string, number> = { player: 0x4a90d9, enemy: 0xd9534f };
 /** Neutral gray a spent unit's color blends toward — classic FE "grayed out, already acted" convention. */
 const ACTED_GRAY = 0x6b7280;
 const ACTED_BLEND = 0.55;
-/** Brief tint used for both flash() and the acted-dim on real hero art — a color blend like the placeholder circle's isn't meaningful over painted art, so dimming there is alpha-only (see sync()'s doc comment). */
+/** How long flash()'s hit-tint holds before reverting. */
 const HIT_FLASH_ALPHA_DURATION_MS = 160;
 
 function clamp01(value: number): number {
@@ -40,20 +40,23 @@ function blendToward(color: number, target: number, amount: number): number {
  * `HERO_SPRITE_NAMES`) gets that PNG; everyone else — every enemy (always
  * anonymous, see `game/maps.ts`), and any hero not yet drawn — keeps the
  * original colored-circle-plus-class-letter placeholder. The two modes
- * share the HP bar but diverge on how "acted" and "just hit" render: the
- * circle's flat fill can blend toward gray or flash a solid color, but
- * neither means anything applied to painted art, so the art mode uses alpha
- * alone for both (dim on acted, a brief full-opacity-then-fade pulse on
- * hit) instead.
+ * share the HP bar but render "acted" differently: the circle blends its
+ * flat fill toward gray, while the art mode swaps to a baked grayscale
+ * texture (`heroArt.ts`'s `ensureGrayscaleHeroTexture`) — both stay at full
+ * alpha (2026-08-26: dimming used to fade alpha instead, which read as
+ * "faded out" rather than "spent," and made an acted unit harder to spot
+ * on a busy board).
  */
 export class UnitSprite extends GameObjects.Container {
   private readonly circle: GameObjects.Arc | null;
   private readonly portrait: GameObjects.Image | null;
+  private readonly portraitTextureKey: string;
+  private readonly portraitGrayTextureKey: string;
   private readonly hpBar: GameObjects.Rectangle;
   private readonly hpBarWidth: number;
   private readonly baseColor: number;
   private readonly actedColor: number;
-  /** Whatever sync() last set the circle's fill to — flash() reverts here instead of always baseColor, so a hit on an already-acted (dimmed) unit doesn't briefly un-dim it. Unused in art mode (flash() there just pulses alpha). */
+  /** Whatever sync() last set the circle's fill to — flash() reverts here instead of always baseColor, so a hit on an already-acted (dimmed) unit doesn't briefly un-dim it. Unused in art mode (flash() there tints instead). */
   private currentFill: number;
 
   constructor(scene: Scene, x: number, y: number, tileSize: number, unit: Unit, dimmed: boolean) {
@@ -64,13 +67,14 @@ export class UnitSprite extends GameObjects.Container {
     this.currentFill = this.baseColor;
 
     const radius = tileSize * 0.32;
-    const textureKey = heroTextureKey(unit.name);
-    const hasArt = scene.textures.exists(textureKey);
+    this.portraitTextureKey = heroTextureKey(unit.name);
+    this.portraitGrayTextureKey = heroGrayTextureKey(unit.name);
+    const hasArt = scene.textures.exists(this.portraitTextureKey);
 
     const visuals: GameObjects.GameObject[] = [];
     if (hasArt) {
       this.circle = null;
-      this.portrait = scene.add.image(0, 0, textureKey).setDisplaySize(tileSize * 0.92, tileSize * 0.92);
+      this.portrait = scene.add.image(0, 0, this.portraitTextureKey).setDisplaySize(tileSize * 0.92, tileSize * 0.92);
       visuals.push(this.portrait);
     } else {
       this.portrait = null;
@@ -114,18 +118,17 @@ export class UnitSprite extends GameObjects.Container {
     this.hpBar.fillColor = ratio > 0.5 ? 0x5cb85c : ratio > 0.25 ? 0xf0ad4e : 0xd9534f;
 
     if (this.portrait) {
-      // No flat fill to blend toward gray on painted art — alpha alone
-      // carries "already acted" here.
-      this.portrait.setAlpha(dimmed ? 0.55 : 1);
+      // Swaps to a pre-baked grayscale texture rather than fading alpha —
+      // see the class doc comment on why.
+      this.portrait.setTexture(dimmed ? this.portraitGrayTextureKey : this.portraitTextureKey);
       return;
     }
 
-    // A spent unit dims and desaturates toward gray — alpha alone read as
-    // "translucent"; the color blend makes "already acted" unambiguous at a
-    // glance, the standard Fire Emblem convention.
+    // A spent unit desaturates toward gray, at full opacity — the color
+    // blend makes "already acted" unambiguous at a glance, the standard
+    // Fire Emblem convention, without also fading the unit out.
     this.currentFill = dimmed ? this.actedColor : this.baseColor;
     this.circle!.setFillStyle(this.currentFill);
-    this.circle!.setAlpha(dimmed ? 0.6 : 1);
   }
 
   /** Brief flash to draw the eye to a unit that was just hit — `setFillStyle` for the placeholder circle, a FILL-mode tint for real art (Phaser 4 replaced `setTintFill(color)` with `setTint(color).setTintMode(FILL)`: repaints every opaque pixel solid `color` while keeping the sprite's own alpha/shape, so it reads the same way regardless of acted-dim state). */
