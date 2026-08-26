@@ -139,6 +139,13 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-26 Claude: Custom favicon. `public/favicon.png` is now a 32×32
+  crop of the shield emblem from `public/project selvaria icon.png` (the
+  project's logo, added in the same commit as the new unit/enemy/portrait
+  art), replacing the old generic Phaser-template icon. The "PROJECT
+  SELVARIA" wordmark under the shield was cropped out since it isn't
+  legible at favicon size; `index.html`'s existing `<link rel="icon">`
+  needed no change since the path and MIME type already matched.
 - 2026-08-26 Claude: Replaced the canvas-baked grayscale texture (the
   previous entry below) with Phaser 4's actual built-in mechanism —
   turns out this Phaser build does have grayscale, just renamed from
