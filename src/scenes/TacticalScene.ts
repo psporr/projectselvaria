@@ -13,7 +13,7 @@ import { applyDprZoom, DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import type { ActionMenuChoice, ActionMenuOption } from '../ui/ActionMenu';
 import { formatAttackForecast } from '../ui/ForecastPanel';
 import type { SystemMenuChoice, SystemMenuOption } from '../ui/SystemMenu';
-import { ensureGrayscaleHeroTexture, heroTextureKey, HERO_SPRITE_NAMES } from '../ui/heroArt';
+import { heroTextureKey, HERO_SPRITE_NAMES } from '../ui/heroArt';
 import { FONT_FAMILY } from '../ui/kit';
 import type { UIScene } from './UIScene';
 
@@ -194,13 +194,6 @@ export class TacticalScene extends Scene {
 
     this.scene.launch('UI', { client: this.client, tactical: this });
     this.ui = this.scene.get('UI') as UIScene;
-
-    // Preload's PNGs have actually landed in the texture manager by now
-    // (preload() itself only registers the load) — bake each one's
-    // grayscale "acted" variant before any UnitSprite construction below
-    // might need it. Idempotent (ensureGrayscaleHeroTexture skips an
-    // already-baked key), so re-running on scene restart is harmless.
-    for (const name of HERO_SPRITE_NAMES) ensureGrayscaleHeroTexture(this, name);
 
     this.drawBoard();
     this.syncUnits();

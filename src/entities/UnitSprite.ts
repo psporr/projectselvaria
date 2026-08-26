@@ -1,8 +1,8 @@
-import { GameObjects, Scene, TintModes } from 'phaser';
+import { Filters, GameObjects, Scene, TintModes } from 'phaser';
 import type { Unit } from '../game/types';
 import { DPR } from '../systems/viewport';
 import { CLASS_LETTER } from '../ui/classIcons';
-import { heroGrayTextureKey, heroTextureKey } from '../ui/heroArt';
+import { heroTextureKey } from '../ui/heroArt';
 import { FONT_FAMILY } from '../ui/kit';
 
 const TEAM_COLOR: Record<string, number> = { player: 0x4a90d9, enemy: 0xd9534f };
@@ -41,17 +41,23 @@ function blendToward(color: number, target: number, amount: number): number {
  * anonymous, see `game/maps.ts`), and any hero not yet drawn — keeps the
  * original colored-circle-plus-class-letter placeholder. The two modes
  * share the HP bar but render "acted" differently: the circle blends its
- * flat fill toward gray, while the art mode swaps to a baked grayscale
- * texture (`heroArt.ts`'s `ensureGrayscaleHeroTexture`) — both stay at full
- * alpha (2026-08-26: dimming used to fade alpha instead, which read as
+ * flat fill toward gray, while the art mode toggles a live GPU grayscale
+ * filter (`Image.enableFilters()` + `filters.internal.addColorMatrix()`,
+ * Phaser 4's renamed successor to Phaser 3's per-object FX — see
+ * `Display.ColorMatrix.grayscale()`) on and off via the filter
+ * controller's own `active` flag — no second baked texture per hero
+ * (2026-08-26; an earlier version baked one via canvas pixel manipulation,
+ * which worked but doubled every hero's texture memory for no reason once
+ * this turned out to be a one-line built-in). Both modes stay at full
+ * alpha either way — dimming used to fade alpha instead, which read as
  * "faded out" rather than "spent," and made an acted unit harder to spot
- * on a busy board).
+ * on a busy board.
  */
 export class UnitSprite extends GameObjects.Container {
   private readonly circle: GameObjects.Arc | null;
   private readonly portrait: GameObjects.Image | null;
-  private readonly portraitTextureKey: string;
-  private readonly portraitGrayTextureKey: string;
+  /** The grayscale filter controller for `portrait` — null in circle mode. Toggling `.active` is a live GPU effect, not a texture swap, so there's nothing to pre-generate or cache. */
+  private readonly portraitGrayscale: Filters.ColorMatrix | null;
   private readonly hpBar: GameObjects.Rectangle;
   private readonly hpBarWidth: number;
   private readonly baseColor: number;
@@ -67,17 +73,21 @@ export class UnitSprite extends GameObjects.Container {
     this.currentFill = this.baseColor;
 
     const radius = tileSize * 0.32;
-    this.portraitTextureKey = heroTextureKey(unit.name);
-    this.portraitGrayTextureKey = heroGrayTextureKey(unit.name);
-    const hasArt = scene.textures.exists(this.portraitTextureKey);
+    const textureKey = heroTextureKey(unit.name);
+    const hasArt = scene.textures.exists(textureKey);
 
     const visuals: GameObjects.GameObject[] = [];
     if (hasArt) {
       this.circle = null;
-      this.portrait = scene.add.image(0, 0, this.portraitTextureKey).setDisplaySize(tileSize * 0.92, tileSize * 0.92);
+      this.portrait = scene.add.image(0, 0, textureKey).setDisplaySize(tileSize * 0.92, tileSize * 0.92);
+      this.portrait.enableFilters();
+      this.portraitGrayscale = this.portrait.filters!.internal.addColorMatrix();
+      this.portraitGrayscale.colorMatrix.grayscale(1);
+      this.portraitGrayscale.active = false;
       visuals.push(this.portrait);
     } else {
       this.portrait = null;
+      this.portraitGrayscale = null;
       this.circle = scene.add.circle(0, 0, radius, this.baseColor).setStrokeStyle(2, 0x000000, 0.4);
       const label = scene.add
         .text(0, 0, CLASS_LETTER[unit.className] ?? '?', {
@@ -118,9 +128,9 @@ export class UnitSprite extends GameObjects.Container {
     this.hpBar.fillColor = ratio > 0.5 ? 0x5cb85c : ratio > 0.25 ? 0xf0ad4e : 0xd9534f;
 
     if (this.portrait) {
-      // Swaps to a pre-baked grayscale texture rather than fading alpha —
-      // see the class doc comment on why.
-      this.portrait.setTexture(dimmed ? this.portraitGrayTextureKey : this.portraitTextureKey);
+      // Toggles the live grayscale filter rather than fading alpha — see
+      // the class doc comment on why.
+      this.portraitGrayscale!.active = dimmed;
       return;
     }
 

@@ -1,11 +1,11 @@
-import { GameObjects, Scene } from 'phaser';
+import { Filters, GameObjects, Scene } from 'phaser';
 
 import { effectiveStats } from '../game/equipment';
 import { SKILLS } from '../game/skills';
 import type { Terrain, Unit } from '../game/types';
 import { DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from './classIcons';
-import { heroGrayTextureKey, heroTextureKey } from './heroArt';
+import { heroTextureKey } from './heroArt';
 import { Card, COLORS, FONT_FAMILY } from './kit';
 
 // Sits right below the board, at a fixed position — TacticalScene now
@@ -128,6 +128,8 @@ export class UnitStatusBar extends GameObjects.Container {
   private readonly portraitLetter: GameObjects.Text;
   /** Real hero art, shown instead of `portraitLetter` when the shown unit's name matches one of `heroArt.ts`'s drawn characters — texture swapped per-unit in show() since this one Image is reused across every unit tapped. */
   private readonly portraitImage: GameObjects.Image;
+  /** Live grayscale filter on `portraitImage`, toggled per-unit in show() — persists across its texture swaps (added once at construction; see UnitSprite.ts's own doc comment for why this replaced a baked-texture approach). */
+  private readonly portraitGrayscale: Filters.ColorMatrix;
   private readonly levelBadge: GameObjects.Text;
 
   private readonly bannerGfx: GameObjects.Graphics;
@@ -183,6 +185,10 @@ export class UnitStatusBar extends GameObjects.Container {
       .image(PORTRAIT_X + PORTRAIT_W / 2, PORTRAIT_Y + PORTRAIT_H - 6, '__WHITE')
       .setOrigin(0.5, 1)
       .setVisible(false);
+    this.portraitImage.enableFilters();
+    this.portraitGrayscale = this.portraitImage.filters!.internal.addColorMatrix();
+    this.portraitGrayscale.colorMatrix.grayscale(1);
+    this.portraitGrayscale.active = false;
     this.levelBadge = scene.add
       .text(PORTRAIT_X + PORTRAIT_W - 8, PORTRAIT_Y + PORTRAIT_H - 8, '', {
         fontFamily: FONT_FAMILY,
@@ -297,12 +303,11 @@ export class UnitStatusBar extends GameObjects.Container {
     const hasArt = this.scene.textures.exists(textureKey);
     this.portraitLetter.setVisible(!hasArt).setText(CLASS_LETTER[unit.className] ?? '?').setAlpha(unit.hasActed ? 0.6 : 1);
     if (hasArt) {
-      // Grayscale (baked by UnitSprite's TacticalScene.create() call, see
-      // heroArt.ts's ensureGrayscaleHeroTexture) rather than a faded alpha
-      // for an acted unit — matches the on-board sprite's own treatment.
+      // Live grayscale filter toggle, not a faded alpha, for an acted unit
+      // — matches the on-board sprite's own treatment (UnitSprite.ts).
       const artSize = PORTRAIT_W - 12;
-      const artKey = unit.hasActed ? heroGrayTextureKey(unit.name) : textureKey;
-      this.portraitImage.setTexture(artKey).setDisplaySize(artSize, artSize).setAlpha(1).setVisible(true);
+      this.portraitImage.setTexture(textureKey).setDisplaySize(artSize, artSize).setAlpha(1).setVisible(true);
+      this.portraitGrayscale.active = unit.hasActed;
     } else {
       this.portraitImage.setVisible(false);
     }

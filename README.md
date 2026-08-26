@@ -139,6 +139,23 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-26 Claude: Replaced the canvas-baked grayscale texture (the
+  previous entry below) with Phaser 4's actual built-in mechanism —
+  turns out this Phaser build does have grayscale, just renamed from
+  Phaser 3's per-object FX to "Filters" (`Image.enableFilters()` +
+  `filters.internal.addColorMatrix()`, wrapping
+  `Display.ColorMatrix.grayscale()`), which I'd missed searching under
+  the old names. `UnitSprite`/`UnitStatusBar` now add one `ColorMatrix`
+  filter per hero portrait at construction and just flip its `.active`
+  flag for `hasActed` — a live GPU effect, not a second texture, so
+  `heroArt.ts` no longer bakes or exports anything grayscale-related
+  (`ensureGrayscaleHeroTexture`/`heroGrayTextureKey` are gone). Also
+  answered: no, CSS can't do this — the whole game draws into one shared
+  `<canvas>`, and CSS filters apply to a DOM element as a whole, not a
+  region within one. Verified with Playwright: on-board sprite and
+  status-panel portrait both render true grayscale for an acted unit,
+  and a combat sequence (attack, counter, hit-flash) still renders
+  correctly with the filter active throughout.
 - 2026-08-26 Claude: Two fixes.
   (1) The terrain-bonus "+2"-style suffix next to Def in `UnitStatusBar`
   could get stuck showing a stale bonus — it was left out of
