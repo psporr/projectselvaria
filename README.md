@@ -139,6 +139,17 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-25 Claude: Trimmed the player starting lineup from 12 heroes back
+  down to just the 6 with real map art — Eirika, Lyn, Takumi, Natasha,
+  Jill, Ephraim — across every chapter, dropping Byleth/Corrin/Selva/
+  Ike/Lissa/Olivia (all still placeholder circle+letter, no art yet) from
+  the starting units array for now. Their `UnitSpec` entries are simple to
+  re-add once they have art too (see `maps.ts`'s updated roster doc
+  comment). `EquipScreen`'s Squad card reverted from 680 back to its
+  original 520 (6 rows fits comfortably; the 680 bump was specifically for
+  the brief 12-hero roster). `npm run sim` still shows a 0% wipe rate over
+  20 seeds at 6 units, same as at 12 — not obviously a difficulty signal
+  either way, so leaving real balance judgment to actual play.
 - 2026-08-25 Claude: First real hero art shipped — 6 hand-drawn 128×128
   map sprites (Eirika, Ephraim, Jill, Lyn, Natasha, Takumi; see
   `ART_BRIEF.md`'s 2026-08-25 status update for the full story, including

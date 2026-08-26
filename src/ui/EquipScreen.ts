@@ -10,13 +10,13 @@ import { Button, Card, COLORS, FONT_FAMILY } from './kit';
 type EquipView = { kind: 'roster' } | { kind: 'unit'; unitId: string } | { kind: 'slot'; unitId: string; slot: ItemSlot };
 
 const CARD_WIDTH = 420;
-// Tall enough for the roster view's 12 rows (2026-08-25: roster grew from
-// 7 to 12 heroes) at ROW_HEIGHT+ROW_GAP each plus ROW_START_Y and a bottom
-// margin, with room to spare — a fixed constant rather than a per-view
-// dynamic size since the other two views (a unit's 3 equipment slots, a
-// slot's item candidates) just get extra blank space below, which is a
-// smaller cost than building real scroll/masking for a still-small list.
-const CARD_HEIGHT = 680;
+// Fits the roster view's rows (currently 6 heroes — see maps.ts's roster
+// doc comment) at ROW_HEIGHT+ROW_GAP each plus ROW_START_Y and a bottom
+// margin, with room to spare. Briefly bumped to 680 for a 12-hero roster
+// (2026-08-25) and reverted here when that roster shrank back down; if the
+// roster grows past ~9-10 again, this needs to grow with it (or gain real
+// scroll/masking, not attempted yet since the list has always stayed small).
+const CARD_HEIGHT = 520;
 const ROW_HEIGHT = 40;
 const ROW_GAP = 6;
 const ROW_START_Y = 56;
