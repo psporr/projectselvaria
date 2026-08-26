@@ -139,6 +139,24 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-25 Claude: Generalized the tile cursor to follow every board tap
+  (any mode — idle, unit-selected, targeting) instead of only appearing
+  for a "committed" move-destination/attack-target pick — `onTileClicked`
+  now calls `showTileCursor` once, unconditionally, near the top, and the
+  scattered `hideTileCursor` calls tied to specific state transitions
+  (`selectUnit`, `beginAttackTargeting`/`beginSkillTargeting`,
+  `finishSelection`) are gone: the cursor just tracks the last-tapped
+  tile and stays there (e.g. still visible on a quick-attack's target
+  after Cancel, rather than vanishing). Tapping an enemy already showed
+  its status in `UnitStatusBar` — now confirmed working with the cursor
+  too, in both idle and unit-selected modes. New: tapping an **empty**
+  tile now shows that tile's terrain name and bonus (`UnitStatusBar`'s
+  new `showTerrain`, reusing its pre-first-tap hint slot) instead of
+  opening the System Menu — that menu is now dock-button-only
+  (`openSystemMenu`'s doc comment). Verified with Playwright: cursor +
+  terrain info on an empty tap, cursor + status on an enemy tap, the
+  Menu dock button still opens the system menu, and the cursor
+  correctly persists on the quick-attack target tile after Cancel.
 - 2026-08-25 Claude: Added a corner-bracket tile cursor (`TacticalScene`'s
   `showTileCursor`/`hideTileCursor`) — a classic tactics-RPG reticle
   marking exactly which single tile the player just selected, on top of

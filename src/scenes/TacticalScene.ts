@@ -364,14 +364,13 @@ export class TacticalScene extends Scene {
 
   /**
    * Draws the corner-bracket cursor on (x, y) — a single-tile reticle
-   * marking exactly which square the player just selected, on top of (not
-   * instead of) the flat-color range/target overlays. Shown on a move
-   * destination once picked (stays up through the action menu) and on an
-   * attack/skill target once picked (stays up through the forecast
-   * confirm); hidden by `hideTileCursor` whenever that selection is
-   * abandoned or superseded — see the call sites in `onTileClicked`,
-   * `selectUnit`, `beginAttackTargeting`/`beginSkillTargeting`, and
-   * `finishSelection`.
+   * marking exactly which square the player last tapped, on top of (not
+   * instead of) the flat-color range/target overlays. Called once, in
+   * `onTileClicked`, for every tap that reaches this scene (any mode) — it
+   * always tracks the tile you're currently looking at (move destination,
+   * attack/skill target, an inspected unit or empty tile, ...) rather than
+   * only appearing for a "committed" selection, so it's never explicitly
+   * hidden mid-battle; only `create()`'s reset (a fresh scene) clears it.
    */
   private showTileCursor(x: number, y: number): void {
     this.hideTileCursor();
@@ -418,6 +417,9 @@ export class TacticalScene extends Scene {
     if (ctx.gameover || G.awaitingBlessing || teamOf(ctx.currentPlayer) !== 'player') return;
 
     const unitAtTile = Object.values(G.units).find((u) => u.x === x && u.y === y);
+    // Every tap that reaches here moves the cursor — see showTileCursor's
+    // doc comment on why this is the one call site for it.
+    this.showTileCursor(x, y);
 
     if (this.mode === 'idle') {
       if (unitAtTile) {
@@ -429,7 +431,10 @@ export class TacticalScene extends Scene {
           this.selectUnit(unitAtTile.id);
         }
       } else {
-        this.openSystemMenu();
+        // An empty tile just shows its terrain in the same panel (see
+        // UnitStatusBar.showTerrain) — the system menu moved to being
+        // dock-button-only (openSystemMenu's own doc comment).
+        this.ui.unitStatusBar.showTerrain(terrainAt(G, x, y));
       }
       return;
     }
@@ -445,7 +450,6 @@ export class TacticalScene extends Scene {
       if (reachable.has(tileKey(x, y))) {
         this.pendingDestination = { x, y };
         this.previewMoveTo(unit.id, x, y);
-        this.showTileCursor(x, y);
         this.openActionMenu(G, unit);
         return;
       }
@@ -463,7 +467,6 @@ export class TacticalScene extends Scene {
         if (attackFrom) {
           this.pendingDestination = { x: attackFrom.x, y: attackFrom.y };
           this.previewMoveTo(unit.id, attackFrom.x, attackFrom.y);
-          this.showTileCursor(unitAtTile.x, unitAtTile.y);
           const synthetic: Unit = { ...unit, x: attackFrom.x, y: attackFrom.y };
           this.enterAttackConfirm(G, synthetic, unitAtTile, () => this.cancelQuickAttack(unit.id));
           return;
@@ -494,7 +497,6 @@ export class TacticalScene extends Scene {
           : false;
 
       if (targetInRange && unitAtTile) {
-        this.showTileCursor(unitAtTile.x, unitAtTile.y);
         this.enterAttackConfirm(G, synthetic, unitAtTile, () => this.resumeTargeting(unit.id, 'attack'));
       } else {
         this.finishSelection();
@@ -514,7 +516,6 @@ export class TacticalScene extends Scene {
       const validTarget = unitAtTile ? skillTargets(G, synthetic).some((t) => t.id === unitAtTile.id) : false;
 
       if (validTarget && unitAtTile) {
-        this.showTileCursor(unitAtTile.x, unitAtTile.y);
         this.enterSkillConfirm(G, unit, synthetic, unitAtTile);
       } else {
         this.finishSelection();
@@ -530,7 +531,6 @@ export class TacticalScene extends Scene {
     this.selectedUnitId = unitId;
     this.pendingDestination = null;
     this.clearHighlights();
-    this.hideTileCursor();
     const { G } = this.client.getState()!;
     const unit = G.units[unitId];
     const reachable = computeReachable(G, unit);
@@ -608,10 +608,6 @@ export class TacticalScene extends Scene {
     const synthetic: Unit = { ...unit, x: dest.x, y: dest.y };
     this.mode = 'awaiting-target';
     this.clearHighlights();
-    // The destination cursor (or a stale target cursor, if re-entering after
-    // a cancel) is done its job once target-picking starts — the range
-    // highlight below takes over until a target tile is actually tapped.
-    this.hideTileCursor();
     this.highlightTiles(
       targetsFrom(G, synthetic, dest.x, dest.y).map((t) => ({ x: t.x, y: t.y })),
       TARGET_HIGHLIGHT,
@@ -622,7 +618,6 @@ export class TacticalScene extends Scene {
     const synthetic: Unit = { ...unit, x: dest.x, y: dest.y };
     this.mode = 'skill-targeting';
     this.clearHighlights();
-    this.hideTileCursor();
     this.highlightTiles(
       skillTargets(G, synthetic).map((t) => ({ x: t.x, y: t.y })),
       SKILL_HIGHLIGHT,
@@ -714,12 +709,13 @@ export class TacticalScene extends Scene {
   /** Opens the field/system menu (End Turn / Squad / Danger Zone / Restart / Cancel). */
   /**
    * Squad/Danger Zone live on UIScene's bottom dock only — this is the
-   * overflow menu for everything else reachable from an empty-tile tap:
-   * End Turn (a natural gesture on its own, without needing the dock),
-   * Battle Log (moved off the always-visible board screen, see
-   * UnitStatusBar's doc comment), and Restart (the one rare, destructive
-   * action). Reachable via the dock's own Menu button or by tapping an
-   * empty board tile.
+   * overflow menu for everything else: End Turn (a natural gesture on its
+   * own, without needing the dock), Battle Log (moved off the
+   * always-visible board screen, see UnitStatusBar's doc comment), and
+   * Restart (the one rare, destructive action). Reachable via the dock's
+   * own Menu button only (2026-08-25) — an empty-tile tap used to open
+   * this too, but now shows that tile's terrain instead
+   * (UnitStatusBar.showTerrain, onTileClicked's 'idle' branch).
    */
   openSystemMenu(): void {
     if (this.inputSuspended) return;
@@ -826,7 +822,6 @@ export class TacticalScene extends Scene {
     this.selectedUnitId = null;
     this.pendingDestination = null;
     this.clearHighlights();
-    this.hideTileCursor();
 
     const unit = unitId ? this.client.getState()?.G.units[unitId] : undefined;
     const sprite = unitId ? this.unitSprites.get(unitId) : undefined;

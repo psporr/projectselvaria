@@ -59,6 +59,8 @@ const TEAM_COLOR: Record<string, number> = { player: 0x4a90d9, enemy: 0xd9534f }
 const ACTED_GRAY = 0x6b7280;
 /** Same green as COLORS.successStroke (0x5ab56a) — Phaser Text color needs a hex string, not a number, so it can't just reference that constant directly. */
 const DEF_BONUS_GREEN = '#5ab56a';
+/** Shown before anything's ever been tapped — `hide()` restores this exact text/color, so it needs to be shared rather than a literal repeated in both places. */
+const DEFAULT_HINT = 'Tap a tile to see its info';
 /** Border color/width shared by both HP bar rectangles — dark enough to stay readable when the bar's green fill sits over a green plains tile behind the panel. */
 const HP_BAR_STROKE = 0x0a0d14;
 
@@ -90,14 +92,17 @@ function blendToward(color: number, target: number, amount: number): number {
 
 /**
  * Always-on status panel for whichever unit was last tapped (either team —
- * read-only for enemies). Purely a view: TacticalScene/UIScene hand it a
- * `Unit` snapshot plus the `Terrain` under it on tap; it never reads G/ctx
- * itself (HANDOFF.md §5/§7 — same rule `UnitSprite` follows). Terrain has
- * to be passed in rather than looked up here specifically because its
- * effect (defBonus/avoid) never shows up in the unit's own listed stats —
- * both are applied later, at combat-resolution time (`computeDamage`/
- * `computeHitChance`, combat.ts) — so without a dedicated row a player
- * has no way to tell "am I actually getting the forest bonus right now."
+ * read-only for enemies), or — via `showTerrain` (2026-08-25) — the plain
+ * terrain info for a tapped tile with no unit on it, using the same hint
+ * slot the pre-first-tap instruction normally occupies. Purely a view:
+ * TacticalScene/UIScene hand it a `Unit` snapshot plus the `Terrain` under
+ * it on tap; it never reads G/ctx itself (HANDOFF.md §5/§7 — same rule
+ * `UnitSprite` follows). Terrain has to be passed in rather than looked up
+ * here specifically because its effect (defBonus/avoid) never shows up in
+ * the unit's own listed stats — both are applied later, at combat-
+ * resolution time (`computeDamage`/`computeHitChance`, combat.ts) — so
+ * without a dedicated display a player has no way to tell "am I actually
+ * getting the forest bonus right now."
  *
  * Graphical layout (2026-08-24) — a portrait-slot + banner + big HP bar +
  * a terrain-under-foot line + boxed stat grid, adapted from Fire Emblem
@@ -152,7 +157,7 @@ export class UnitStatusBar extends GameObjects.Container {
     new Card(scene, LOGICAL_WIDTH / 2, BAR_Y, BAR_WIDTH, BAR_HEIGHT);
 
     this.hint = scene.add
-      .text(LOGICAL_WIDTH / 2, BAR_Y, 'Tap a unit to see its status', {
+      .text(LOGICAL_WIDTH / 2, BAR_Y, DEFAULT_HINT, {
         fontFamily: FONT_FAMILY,
         fontSize: '13px',
         color: COLORS.textDisabled,
@@ -338,10 +343,17 @@ export class UnitStatusBar extends GameObjects.Container {
     this.skillText.setText(`${skill.name} — ${cooldownLine}`);
   }
 
+  /** Shows just a tapped empty tile's terrain — no unit there, so this repurposes the pre-first-tap hint text/slot rather than the unit-specific rows (portrait/HP/stats/skill), which have nothing to show without a unit. */
+  showTerrain(terrain: Terrain): void {
+    this.current = null;
+    this.setContentVisible(false);
+    this.hint.setText(terrainLine(terrain)).setColor(COLORS.textPrimary).setVisible(true);
+  }
+
   hide(): void {
     this.current = null;
     this.setContentVisible(false);
-    this.hint.setVisible(true);
+    this.hint.setText(DEFAULT_HINT).setColor(COLORS.textDisabled).setVisible(true);
   }
 
   /** Id of the unit currently shown, if any — UIScene uses this to re-fetch and re-show fresh data on every state change (this component never reads G itself). */
