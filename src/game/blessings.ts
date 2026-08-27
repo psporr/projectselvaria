@@ -131,10 +131,10 @@ export const BLESSINGS: Blessing[] = [
   {
     id: 'renewal',
     name: 'Blessing of Renewal',
-    description: "Every unit's skill is ready to use again immediately.",
+    description: "Every unit's skills are ready to use again immediately.",
     rarity: 'common',
     apply: (G) => {
-      for (const unit of unitsOf(G, 'player')) unit.skillCooldown = 0;
+      for (const unit of unitsOf(G, 'player')) unit.skillCooldowns = {};
     },
   },
   {

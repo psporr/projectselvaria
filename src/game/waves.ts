@@ -70,7 +70,7 @@ export function spawnWave(G: GameState, wave: number, random: ShuffleAPI): void 
       level: wave,
       exp: 0,
       equipment: {},
-      skillCooldown: 0,
+      skillCooldowns: {},
       debuffDef: 0,
       debuffTurns: 0,
     };

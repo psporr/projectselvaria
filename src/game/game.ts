@@ -240,10 +240,12 @@ export const waitUnit = ({ G, ctx }: { G: GameState; ctx: Ctx }, unitId: string)
 };
 
 /**
- * Every class's active skill, dispatched from one move since each case is
- * short and they share the activeUnit/cooldown gate. `targetId` is null for
- * Nova, the only AoE skill — there's nothing to pick, it just hits
- * everything in range.
+ * Every class's active skill(s), dispatched from one move since each case is
+ * short and they share the activeUnit/cooldown gate. A class with more than
+ * one skill (SKILLS[unit.className] is an array) picks which one to use via
+ * `skillId`, each tracked on its own cooldown in unit.skillCooldowns.
+ * `targetId` is null for Nova, the only AoE skill — there's nothing to pick,
+ * it just hits everything in range.
  *
  * Every offensive skill rolls hit/crit the same way a basic attack does
  * (HANDOFF.md §3) — a skill changes what an attack does, not whether it can
@@ -254,12 +256,15 @@ export const waitUnit = ({ G, ctx }: { G: GameState; ctx: Ctx }, unitId: string)
 export const useSkill = (
   { G, ctx, random }: { G: GameState; ctx: Ctx; random: DropRandomAPI },
   unitId: string,
+  skillId: string,
   targetId: string | null,
 ) => {
   const unit = activeUnit(G, ctx, unitId);
-  if (!unit || unit.skillCooldown > 0) return INVALID_MOVE;
+  if (!unit) return INVALID_MOVE;
 
-  const skill = SKILLS[unit.className];
+  const skill = SKILLS[unit.className].find((candidate) => candidate.id === skillId);
+  if (!skill || (unit.skillCooldowns[skillId] ?? 0) > 0) return INVALID_MOVE;
+
   const target = targetId ? G.units[targetId] : undefined;
   // Set by any case whose hit killed its target, so the shared exp grant at
   // the bottom can credit a kill rather than a plain hit.
@@ -267,7 +272,7 @@ export const useSkill = (
 
   switch (skill.id) {
     case 'heal': {
-      if (!target || !skillTargets(G, unit).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
       const healAmount = Math.min(target.maxHp - target.hp, unit.atk + HEAL_BONUS);
       target.hp += healAmount;
       pushLog(G, `${unit.name} heals ${target.name} for ${healAmount}.`);
@@ -275,7 +280,7 @@ export const useSkill = (
     }
 
     case 'dance': {
-      if (!target || !skillTargets(G, unit).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
       target.hasMoved = false;
       target.hasActed = false;
       pushLog(G, `${unit.name} dances for ${target.name} — they can act again!`);
@@ -283,7 +288,7 @@ export const useSkill = (
     }
 
     case 'sword-dance': {
-      if (!target || !skillTargets(G, unit).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
       let dealt = 0;
       let landed = 0;
       let crits = 0;
@@ -309,7 +314,7 @@ export const useSkill = (
     }
 
     case 'guard-break': {
-      if (!target || !skillTargets(G, unit).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
       // Ignores the target's terrain *defence* bonus, not its terrain
       // *avoid* — Guard Break breaks their guard, not their footing.
       const normalDamage = Math.max(1, effectiveStats(unit).atk - effectiveStats(target).def);
@@ -336,7 +341,7 @@ export const useSkill = (
     }
 
     case 'snipe': {
-      if (!target || !skillTargets(G, unit).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
       const base = computeAttackChances(G, unit, target);
       const normalDamage = base.normalDamage + SNIPE_BONUS;
       const chances: AttackChances = { ...base, normalDamage, critDamage: normalDamage * 2 };
@@ -358,7 +363,7 @@ export const useSkill = (
     }
 
     case 'nova': {
-      if (!target || !skillTargets(G, unit).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
       const hits = novaBlastTargets(G, unit, target);
       let totalDealt = 0;
       let connected = 0;
@@ -388,7 +393,7 @@ export const useSkill = (
     }
 
     case 'rampage': {
-      if (!target || !skillTargets(G, unit).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
       const roll = rollAttack(computeAttackChances(G, unit, target), random);
       if (!roll.hit) {
         pushLog(G, `${unit.name}'s rampage misses ${target.name}!`);
@@ -397,7 +402,7 @@ export const useSkill = (
         pushLog(G, `${unit.name} rampages into ${target.name} for ${roll.damage}${roll.crit ? ' (Critical!)' : ''}.`);
         if (target.hp <= 0) {
           killUnit(G, target, random, unit);
-          unit.skillCooldown = Math.max(1, skill.cooldown - G.modifiers.cooldownReduction);
+          unit.skillCooldowns[skillId] = Math.max(1, skill.cooldown - G.modifiers.cooldownReduction);
           grantExp(G, unit, EXP_PER_KILL);
           // Deliberately leaves hasMoved/hasActed false — a kill refunds the turn.
           return;
@@ -408,7 +413,7 @@ export const useSkill = (
     }
 
     case 'shield-slam': {
-      if (!target || !skillTargets(G, unit).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
       // Ignores the target's terrain *avoid*, not its terrain *defence* —
       // the mirror image of Guard Break, which breaks guard but not footing.
       const chances: AttackChances = {
@@ -434,7 +439,7 @@ export const useSkill = (
     }
 
     case 'snatch': {
-      if (!target || !skillTargets(G, unit).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
       const roll = rollAttack(computeAttackChances(G, unit, target), random);
       if (!roll.hit) {
         pushLog(G, `${unit.name}'s snatch misses ${target.name}!`);
@@ -453,7 +458,7 @@ export const useSkill = (
     }
 
     case 'execute': {
-      if (!target || !skillTargets(G, unit).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
       const base = computeAttackChances(G, unit, target);
       const bonus = target.hp <= target.maxHp / 2 ? EXECUTE_BONUS : 0;
       const normalDamage = base.normalDamage + bonus;
@@ -475,7 +480,7 @@ export const useSkill = (
     }
 
     case 'focused-strike': {
-      if (!target || !skillTargets(G, unit).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
       const base = computeAttackChances(G, unit, target);
       const chances: AttackChances = {
         ...base,
@@ -499,7 +504,7 @@ export const useSkill = (
     }
 
     case 'curse': {
-      if (!target || !skillTargets(G, unit).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
       const roll = rollAttack(computeAttackChances(G, unit, target), random);
       if (!roll.hit) {
         pushLog(G, `${unit.name}'s curse misses ${target.name}!`);
@@ -522,7 +527,7 @@ export const useSkill = (
       return INVALID_MOVE;
   }
 
-  unit.skillCooldown = Math.max(1, skill.cooldown - G.modifiers.cooldownReduction);
+  unit.skillCooldowns[skillId] = Math.max(1, skill.cooldown - G.modifiers.cooldownReduction);
   grantExp(G, unit, skill.id === 'heal' ? EXP_PER_HEAL : killedTarget ? EXP_PER_KILL : EXP_PER_ATTACK);
   unit.hasMoved = true;
   unit.hasActed = true;
@@ -704,7 +709,9 @@ const SelvariaGameBase: Game<GameState> = {
       for (const unit of unitsOf(G, team)) {
         unit.hasMoved = false;
         unit.hasActed = false;
-        if (unit.skillCooldown > 0) unit.skillCooldown -= 1;
+        for (const skillId of Object.keys(unit.skillCooldowns)) {
+          if (unit.skillCooldowns[skillId] > 0) unit.skillCooldowns[skillId] -= 1;
+        }
         if (unit.debuffTurns > 0) unit.debuffTurns -= 1;
       }
       if (team === 'player' && G.modifiers.healPerTurn > 0) {

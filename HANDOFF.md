@@ -72,7 +72,11 @@ the same class share identical numbers, so balance lives in one table.
 `src/game/classes.ts`'s `CLASS_STATS` is the source of truth — 12 as of
 2026-08-26, five more added alongside anonymous enemy-class art, see
 README's "Recent changes"). The shape below (one class = one skill = one
-stat line) still holds for all of them.
+stat line) still holds for all 12 of them, but is no longer a hard rule of
+the engine — `SKILLS` (`src/game/skills.ts`) is keyed to an *array* of
+skills per class (2026-08-27, see "Recent changes"), each with its own
+cooldown (`Unit.skillCooldowns`, keyed by skill id), so a future class can
+carry more than one active skill with no further infrastructure work.
 
 ### Levelling
 
@@ -99,8 +103,9 @@ comment and README's "Recent changes"). A unit is eligible once it's
 player-controlled, level 10+ (`PROMOTION_LEVEL`), and its class has a
 `PROMOTES_TO` entry.
 Promoting (`promoteUnit`) swaps its class outright — level resets to 1 on
-the new class's curve, a full heal, and its one active skill changes with
-it (`SKILLS` is keyed by class, so this needs no separate skill-swap step).
+the new class's curve, a full heal, and its active skill(s) change with it
+(`SKILLS` is keyed by class to an array, so this needs no separate
+skill-swap step regardless of how many skills either class has).
 No additive skills, no partial carry-over of the old class — this is a
 clean class change, not a stat bonus layered on top.
 
@@ -206,7 +211,11 @@ build time, keeping ASCII as the authoring format.
 
 ### Skills
 
-One signature active skill per class, usable from level 1, **3-turn cooldown**.
+One signature active skill per class, usable from level 1, **3-turn cooldown**
+(as of 2026-08-27, `SKILLS: Record<ClassName, SkillDef[]>` — every class
+still has exactly one entry, but a class *can* carry more than one, each
+tracked on its own cooldown via `Unit.skillCooldowns[skillId]`; the action
+menu lists one option per skill automatically).
 Designed so each breaks a *different* rule rather than being a stat tweak:
 
 | Class | Skill | Effect |

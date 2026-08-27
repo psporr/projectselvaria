@@ -167,8 +167,8 @@ export function canPromote(unit: Unit): boolean {
  * to level 1 on the new class's curve, and fully heals — matching classic
  * FE promotion feel (a real jump, not a continuation of the old curve).
  * `SKILLS[unit.className]` (skills.ts) is already keyed by class, so the
- * unit's active skill swaps automatically with no separate step. Resets
- * skillCooldown/debuffDef/debuffTurns too, so a promoted unit starts its
+ * unit's active skill(s) swap automatically with no separate step. Resets
+ * skillCooldowns/debuffDef/debuffTurns too, so a promoted unit starts its
  * new loadout fresh rather than carrying over old-class leftovers.
  * Caller's responsibility to have checked `canPromote` first.
  */
@@ -187,7 +187,7 @@ export function promoteUnit(unit: Unit): void {
   unit.hit = stats.hit;
   unit.crit = stats.crit;
   unit.hp = stats.maxHp;
-  unit.skillCooldown = 0;
+  unit.skillCooldowns = {};
   unit.debuffDef = 0;
   unit.debuffTurns = 0;
 }

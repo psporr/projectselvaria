@@ -130,6 +130,15 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 *(Add a line here when you start something. Format: `- [Name] what, since when`.)*
 
+- [Claude] Class tree rework, since 2026-08-27 — 3 sequenced parts (user
+  confirmed): Part 1 (multi-skill infra, this entry's "Recent changes")
+  shipped; next is Part 2 (branching promotion — a base class offering
+  multiple advanced options, e.g. Lancer -> Lancemaster **or** General),
+  then Part 3 (new class content: a Fighter base class plus 9 new advanced
+  classes, full `PROMOTES_TO` tree, Jill reclassed Barbarian -> Fighter).
+  Plan at the time of writing lives in this session's plan-mode history if
+  needed, but each part is independently verified and shipped, so treat
+  the code + this log as the source of truth over any stale plan text.
 - [Claude] Graphical art pass — blocked on custom art being commissioned
   (unit sprites first, terrain tileset held to ship together with them,
   portraits after that). See `ART_BRIEF.md` for the spec handed to the
@@ -142,6 +151,39 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-27 Claude: Multi-skill infrastructure (class tree rework, Part 1
+  of 3 — see "In progress"). `SKILLS` (`src/game/skills.ts`) changed shape
+  from `Record<ClassName, SkillDef>` to `Record<ClassName, SkillDef[]>`,
+  and `Unit.skillCooldown: number` became `Unit.skillCooldowns:
+  Record<string, number>` keyed by skill id — every one of the 12 existing
+  classes still has exactly one skill, wrapped in a 1-element array, so
+  this ships as pure architecture with **zero player-visible change**; it
+  exists so a future class (Sage, in Part 3) can carry two independent
+  skills on separate cooldowns with no further plumbing. `useSkill` gained
+  a `skillId` middle argument (`useSkill(unitId, skillId, targetId)`);
+  `skillRange`/`skillTargets`/`canUseSkill`/`describeSkillEffect`
+  (`skills.ts`) all take an explicit `SkillDef` now instead of resolving
+  `SKILLS[unit.className]` internally. `TacticalScene`'s action menu loops
+  over a unit's skill array, one menu option per skill (`skill:${id}`
+  choice ids — `ActionMenu.ts`'s `ActionMenuChoice` widened to a template
+  literal type); a new `selectedSkillId` field threads the choice through
+  targeting/confirm. `UnitStatusBar`'s skill row became up to 2 rows in
+  the same fixed footprint — a single-skill class (all of them, today)
+  renders byte-for-byte the same as before.
+  Verified: `typecheck`/`build`/`validate-maps` clean; `sim -- --batch 30`
+  produced the exact same 30/30-wave-cap result as the pre-Part-1
+  baseline, proving the refactor didn't move any numbers. Since the
+  headless AI never calls `useSkill` (it only moves/attacks/waits), that
+  alone doesn't exercise the new code — so a temporary script (deleted
+  after, not committed) drove a real seeded `Client` through actual AI
+  play until a unit had a legal in-range skill use, called the new 3-arg
+  `useSkill`, and asserted: the move was accepted, `skillCooldowns[id]`
+  was set to the skill's cooldown (not the old scalar), it ticked down on
+  the unit's own next turn, and reached 0 (ready) again on schedule — an
+  actual run hit this via Lyn's Snipe. Playwright confirmed the single-
+  skill status bar row (e.g. Marisa's "Snatch — Ready") renders unchanged,
+  and that the action menu still correctly omits any skill option when no
+  target is in range from the selected tile.
 - 2026-08-27 Claude: Campaign mode is reachable for the first time — a main
   menu (`ChapterSelectScene`, now the game's first scene) picks Roguelike
   or a Campaign chapter (fresh, or Continue from a save). Closes out the

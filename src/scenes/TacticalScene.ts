@@ -8,7 +8,7 @@ import { computeReachable, computeThreatTiles, quickAttackPositions, targetsFrom
 import { ITEMS } from '../game/equipment';
 import { CAMPAIGN_CHAPTERS, TEST_MAP_2, type CampaignCarryOver, type ChapterDef } from '../game/maps';
 import { saveCampaign, clearCampaignSave } from '../game/save';
-import { canUseSkill, describeSkillEffect, novaBlastCoords, skillTargets, SKILLS } from '../game/skills';
+import { canUseSkill, describeSkillEffect, novaBlastCoords, skillTargets, SKILLS, type SkillDef } from '../game/skills';
 import { TERRAIN, teamOf, type GameMode, type GameState, type Unit } from '../game/types';
 import { UnitSprite } from '../entities/UnitSprite';
 import { createGameClient, type GameClient } from '../systems/gameClient';
@@ -154,6 +154,8 @@ export class TacticalScene extends Scene {
 
   private mode: UiMode = 'idle';
   private selectedUnitId: string | null = null;
+  /** Which of the acting unit's (possibly several) skills is being targeted/confirmed — set in openActionMenu/onActionChosen, read by the skill-targeting flow instead of re-deriving "the" skill from SKILLS[unit.className]. */
+  private selectedSkillId: string | null = null;
   /** The tile picked in 'unit-selected', held until an action is confirmed — see UiMode. */
   private pendingDestination: { x: number; y: number } | null = null;
   /** Guards against re-opening the blessing picker on every state change while it's already up. */
@@ -225,6 +227,7 @@ export class TacticalScene extends Scene {
     this.lastUnits = {};
     this.mode = 'idle';
     this.selectedUnitId = null;
+    this.selectedSkillId = null;
     this.pendingDestination = null;
     this.blessingPickerOpen = false;
     this.promotionPickerOpen = false;
@@ -596,10 +599,11 @@ export class TacticalScene extends Scene {
       }
 
       const synthetic: Unit = { ...unit, x: dest.x, y: dest.y };
-      const validTarget = unitAtTile ? skillTargets(G, synthetic).some((t) => t.id === unitAtTile.id) : false;
+      const skill = SKILLS[unit.className].find((candidate) => candidate.id === this.selectedSkillId);
+      const validTarget = unitAtTile && skill ? skillTargets(G, synthetic, skill).some((t) => t.id === unitAtTile.id) : false;
 
-      if (validTarget && unitAtTile) {
-        this.enterSkillConfirm(G, unit, synthetic, unitAtTile);
+      if (validTarget && unitAtTile && skill) {
+        this.enterSkillConfirm(G, unit, synthetic, unitAtTile, skill);
       } else {
         this.finishSelection();
       }
@@ -635,7 +639,6 @@ export class TacticalScene extends Scene {
   private openActionMenu(G: GameState, unit: Unit): void {
     const dest = this.pendingDestination!;
     const synthetic: Unit = { ...unit, x: dest.x, y: dest.y };
-    const skill = SKILLS[unit.className];
 
     this.clearHighlights();
     // Attack/Skill only appear at all when there's an actual target in
@@ -648,8 +651,10 @@ export class TacticalScene extends Scene {
     if (targetsFrom(G, synthetic, dest.x, dest.y).length > 0) {
       options.push({ id: 'attack', label: 'Attack', enabled: true });
     }
-    if (skillTargets(G, synthetic).length > 0) {
-      options.push({ id: 'skill', label: skill.name, enabled: canUseSkill(G, synthetic) });
+    for (const skill of SKILLS[unit.className]) {
+      if (skillTargets(G, synthetic, skill).length > 0) {
+        options.push({ id: `skill:${skill.id}`, label: skill.name, enabled: canUseSkill(G, synthetic, skill) });
+      }
     }
     options.push({ id: 'wait', label: 'Wait', enabled: true }, { id: 'cancel', label: 'Cancel', enabled: true });
 
@@ -684,8 +689,8 @@ export class TacticalScene extends Scene {
       return;
     }
 
-    // 'skill'
-    this.beginSkillTargeting(G, unit, dest);
+    // `skill:${skillId}`
+    this.beginSkillTargeting(G, unit, dest, choice.slice('skill:'.length));
   }
 
   private beginAttackTargeting(G: GameState, unit: Unit, dest: { x: number; y: number }): void {
@@ -698,12 +703,18 @@ export class TacticalScene extends Scene {
     );
   }
 
-  private beginSkillTargeting(G: GameState, unit: Unit, dest: { x: number; y: number }): void {
+  private beginSkillTargeting(G: GameState, unit: Unit, dest: { x: number; y: number }, skillId: string): void {
     const synthetic: Unit = { ...unit, x: dest.x, y: dest.y };
+    const skill = SKILLS[unit.className].find((candidate) => candidate.id === skillId);
+    if (!skill) {
+      this.finishSelection();
+      return;
+    }
     this.mode = 'skill-targeting';
+    this.selectedSkillId = skillId;
     this.clearHighlights();
     this.highlightTiles(
-      skillTargets(G, synthetic).map((t) => ({ x: t.x, y: t.y })),
+      skillTargets(G, synthetic, skill).map((t) => ({ x: t.x, y: t.y })),
       SKILL_HIGHLIGHT,
     );
   }
@@ -718,7 +729,8 @@ export class TacticalScene extends Scene {
       return;
     }
     if (kind === 'attack') this.beginAttackTargeting(state.G, unit, dest);
-    else this.beginSkillTargeting(state.G, unit, dest);
+    else if (this.selectedSkillId) this.beginSkillTargeting(state.G, unit, dest, this.selectedSkillId);
+    else this.finishSelection();
   }
 
   /**
@@ -768,15 +780,14 @@ export class TacticalScene extends Scene {
     );
   }
 
-  private enterSkillConfirm(G: GameState, unit: Unit, synthetic: Unit, target: Unit): void {
+  private enterSkillConfirm(G: GameState, unit: Unit, synthetic: Unit, target: Unit, skill: SkillDef): void {
     this.clearHighlights();
-    const skill = SKILLS[unit.className];
     // Nova hits a plus-shaped blast, not just the tapped tile — show what it
     // will actually hit before the player commits (skills.ts).
     if (skill.id === 'nova') {
       this.highlightTiles(novaBlastCoords(target), TARGET_HIGHLIGHT);
     }
-    const lines = [`${unit.name} uses ${skill.name} on ${target.name}.`, describeSkillEffect(G, synthetic, target)];
+    const lines = [`${unit.name} uses ${skill.name} on ${target.name}.`, describeSkillEffect(G, synthetic, target, skill)];
 
     this.mode = 'confirming';
     this.ui.showForecast(
@@ -784,7 +795,7 @@ export class TacticalScene extends Scene {
       () => {
         const dest = this.pendingDestination!;
         this.client.moves.moveUnit(unit.id, dest.x, dest.y);
-        this.client.moves.useSkill(unit.id, target.id);
+        this.client.moves.useSkill(unit.id, skill.id, target.id);
         this.hideTileCursor();
         this.finishSelection();
       },
@@ -971,6 +982,7 @@ export class TacticalScene extends Scene {
     const unitId = this.selectedUnitId;
     this.mode = 'idle';
     this.selectedUnitId = null;
+    this.selectedSkillId = null;
     this.pendingDestination = null;
     this.clearHighlights();
 

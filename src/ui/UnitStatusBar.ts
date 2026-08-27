@@ -53,6 +53,8 @@ const STAT_COL_1_X = INFO_X + 10;
 const STAT_COL_2_X = INFO_CENTER_X + 6;
 const SKILL_Y = STAT_PANEL_BOTTOM + 12;
 const SKILL_ICON_X = INFO_X + 10;
+/** Vertical gap between skill row 0 and row 1, only used once a unit has a second skill — comfortably inside the bar's remaining footprint below SKILL_Y. */
+const SKILL_ROW_GAP = 16;
 
 const TEAM_COLOR: Record<string, number> = { player: 0x4a90d9, enemy: 0xd9534f };
 /** Neutral gray the portrait/banner blend toward once a unit's acted — mirrors UnitSprite's on-board dimming so the two read as the same convention. */
@@ -148,8 +150,9 @@ export class UnitStatusBar extends GameObjects.Container {
   /** "+2" suffix after the Def stat, shown only while standing on terrain that grants a defBonus — separate from statTexts since it needs its own color and its own show/hide condition. */
   private readonly defBonusText: GameObjects.Text;
 
-  private readonly skillIcon: GameObjects.Arc;
-  private readonly skillText: GameObjects.Text;
+  /** Up to 2 skill rows — most classes use only row 0; a class with 2 skills (e.g. Sage) packs both into the same footprint. Row 1 stays hidden for a single-skill class, so that case renders identically to before multi-skill classes existed. */
+  private readonly skillIcons: GameObjects.Arc[];
+  private readonly skillTexts: GameObjects.Text[];
 
   private current: Unit | null = null;
 
@@ -255,11 +258,15 @@ export class UnitStatusBar extends GameObjects.Container {
       .setOrigin(0, 0.5)
       .setVisible(false);
 
-    // --- skill row ---
-    this.skillIcon = scene.add.circle(SKILL_ICON_X, SKILL_Y, 8, COLORS.playerAccent).setStrokeStyle(1, 0x000000, 0.4);
-    this.skillText = scene.add
-      .text(SKILL_ICON_X + 16, SKILL_Y, '', { fontFamily: FONT_FAMILY, fontSize: '12px', color: COLORS.textPrimary, resolution: DPR })
-      .setOrigin(0, 0.5);
+    // --- skill row(s) ---
+    this.skillIcons = [0, 1].map((row) =>
+      scene.add.circle(SKILL_ICON_X, SKILL_Y + row * SKILL_ROW_GAP, 8, COLORS.playerAccent).setStrokeStyle(1, 0x000000, 0.4),
+    );
+    this.skillTexts = [0, 1].map((row) =>
+      scene.add
+        .text(SKILL_ICON_X + 16, SKILL_Y + row * SKILL_ROW_GAP, '', { fontFamily: FONT_FAMILY, fontSize: '12px', color: COLORS.textPrimary, resolution: DPR })
+        .setOrigin(0, 0.5),
+    );
 
     this.add([
       this.hint,
@@ -277,8 +284,8 @@ export class UnitStatusBar extends GameObjects.Container {
       this.statPanelGfx,
       ...this.statTexts.flat(),
       this.defBonusText,
-      this.skillIcon,
-      this.skillText,
+      ...this.skillIcons,
+      ...this.skillTexts,
     ]);
     this.setDepth(15);
     scene.add.existing(this);
@@ -347,8 +354,6 @@ export class UnitStatusBar extends GameObjects.Container {
     this.terrainText.setText(terrainLine(terrain));
 
     const stats = effectiveStats(unit);
-    const skill = SKILLS[unit.className];
-    const cooldownLine = unit.skillCooldown > 0 ? `CD ${unit.skillCooldown}` : 'Ready';
 
     const pairs: [string, string][] = [
       [`Atk ${stats.atk}`, `Def ${stats.def}`],
@@ -367,8 +372,18 @@ export class UnitStatusBar extends GameObjects.Container {
       this.defBonusText.setVisible(false);
     }
 
-    this.skillIcon.setFillStyle(unit.skillCooldown > 0 ? 0x5a6070 : teamColor);
-    this.skillText.setText(`${skill.name} — ${cooldownLine}`);
+    const skills = SKILLS[unit.className];
+    for (let row = 0; row < 2; row++) {
+      const skill = skills[row];
+      if (!skill) {
+        this.skillIcons[row].setVisible(false);
+        this.skillTexts[row].setVisible(false);
+        continue;
+      }
+      const cooldown = unit.skillCooldowns[skill.id] ?? 0;
+      this.skillIcons[row].setVisible(true).setFillStyle(cooldown > 0 ? 0x5a6070 : teamColor);
+      this.skillTexts[row].setVisible(true).setText(`${skill.name} — ${cooldown > 0 ? `CD ${cooldown}` : 'Ready'}`);
+    }
   }
 
   /** Shows just a tapped empty tile's terrain — no unit there, so this repurposes the pre-first-tap hint text/slot rather than the unit-specific rows (portrait/HP/stats/skill), which have nothing to show without a unit. */
@@ -417,7 +432,7 @@ export class UnitStatusBar extends GameObjects.Container {
       left.setVisible(visible);
       right.setVisible(visible);
     }
-    this.skillIcon.setVisible(visible);
-    this.skillText.setVisible(visible);
+    for (const icon of this.skillIcons) icon.setVisible(visible);
+    for (const text of this.skillTexts) text.setVisible(visible);
   }
 }

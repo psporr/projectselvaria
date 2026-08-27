@@ -196,7 +196,7 @@ export function buildGameState(
       level,
       exp: carried?.exp ?? 0,
       equipment: carried?.equipment ?? {},
-      skillCooldown: 0,
+      skillCooldowns: {},
       debuffDef: 0,
       debuffTurns: 0,
     };

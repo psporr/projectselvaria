@@ -2,7 +2,7 @@ import { GameObjects, Scene } from 'phaser';
 import { LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { Button, Card } from './kit';
 
-export type ActionMenuChoice = 'attack' | 'skill' | 'wait' | 'cancel';
+export type ActionMenuChoice = 'attack' | 'wait' | 'cancel' | `skill:${string}`;
 
 export interface ActionMenuOption {
   id: ActionMenuChoice;

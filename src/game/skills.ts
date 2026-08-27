@@ -43,12 +43,17 @@ export interface SkillDef {
 const SKILL_COOLDOWN = 3;
 
 /**
- * One signature active skill per class, usable from level 1. Deliberately
- * built to feel structurally different from each other, not just stat
- * tweaks: two support skills that never touch damage, and five offensive
- * skills that each break a different normal-attack rule (extra hit, ignores
- * terrain, guaranteed no counter, hits everyone in range, or refunds the
- * turn on a kill).
+ * One or more signature active skills per class, usable from level 1.
+ * Deliberately built to feel structurally different from each other, not
+ * just stat tweaks: two support skills that never touch damage, and several
+ * offensive skills that each break a different normal-attack rule (extra
+ * hit, ignores terrain, guaranteed no counter, hits everyone in range, or
+ * refunds the turn on a kill).
+ *
+ * Every class currently has exactly one skill, but the array shape is the
+ * general case — a class with two independent skills (each with its own
+ * cooldown, tracked by id in Unit.skillCooldowns) just lists two entries
+ * here, no other infrastructure changes.
  *
  * Every offensive skill still rolls hit/crit like a basic attack (HANDOFF.md
  * §3) — a skill changes *what* an attack does, not whether it can miss.
@@ -56,126 +61,149 @@ const SKILL_COOLDOWN = 3;
  * ignores the target's terrain *defence* bonus (breaking their guard), but
  * not their terrain *avoid* — the target can still dodge.
  */
-export const SKILLS: Record<ClassName, SkillDef> = {
-  Cleric: {
-    id: 'heal',
-    name: 'Heal',
-    description: 'Restore HP to an ally in range.',
-    cooldown: SKILL_COOLDOWN,
-    targetType: 'ally',
-    category: 'heal',
-    rangeBonus: 0,
-  },
-  Dancer: {
-    id: 'dance',
-    name: 'Dance',
-    description: "Refresh an ally who's already acted, so they can move and act again.",
-    cooldown: SKILL_COOLDOWN,
-    targetType: 'ally',
-    category: 'utility',
-    rangeBonus: 0,
-  },
-  Swordsman: {
-    id: 'sword-dance',
-    name: 'Sword Dance',
-    description: 'Strike the same target twice in one action.',
-    cooldown: SKILL_COOLDOWN,
-    targetType: 'enemy',
-    category: 'attack',
-    rangeBonus: 0,
-  },
-  Lancer: {
-    id: 'guard-break',
-    name: 'Guard Break',
-    description: "Attack ignoring the target's terrain defense bonus.",
-    cooldown: SKILL_COOLDOWN,
-    targetType: 'enemy',
-    category: 'attack',
-    rangeBonus: 0,
-  },
-  Archer: {
-    id: 'snipe',
-    name: 'Snipe',
-    description: 'Bonus damage from +1 range; the target cannot counter.',
-    cooldown: SKILL_COOLDOWN,
-    targetType: 'enemy',
-    category: 'attack',
-    rangeBonus: 1,
-  },
-  Mage: {
-    id: 'nova',
-    name: 'Nova',
-    description: 'A plus-shaped blast centered on the target, for reduced damage each.',
-    cooldown: SKILL_COOLDOWN,
-    targetType: 'enemy',
-    category: 'attack',
-    rangeBonus: 0,
-  },
-  Barbarian: {
-    id: 'rampage',
-    name: 'Rampage',
-    description: 'A normal attack, but a kill lets the unit act again immediately.',
-    cooldown: SKILL_COOLDOWN,
-    targetType: 'enemy',
-    category: 'attack',
-    rangeBonus: 0,
-  },
-  General: {
-    id: 'shield-slam',
-    name: 'Shield Slam',
-    description: "Attack ignoring the target's terrain avoid bonus.",
-    cooldown: SKILL_COOLDOWN,
-    targetType: 'enemy',
-    category: 'attack',
-    rangeBonus: 0,
-  },
-  Thief: {
-    id: 'snatch',
-    name: 'Snatch',
-    description: 'Attack that heals the Thief for the damage dealt.',
-    cooldown: SKILL_COOLDOWN,
-    targetType: 'enemy',
-    category: 'attack',
-    rangeBonus: 0,
-  },
-  Assassin: {
-    id: 'execute',
-    name: 'Execute',
-    description: 'Bonus damage against a target at or below half HP.',
-    cooldown: SKILL_COOLDOWN,
-    targetType: 'enemy',
-    category: 'attack',
-    rangeBonus: 0,
-  },
-  Mercenary: {
-    id: 'focused-strike',
-    name: 'Focused Strike',
-    description: 'A precise attack with bonus Hit and Crit.',
-    cooldown: SKILL_COOLDOWN,
-    targetType: 'enemy',
-    category: 'attack',
-    rangeBonus: 0,
-  },
-  'Dark Mage': {
-    id: 'curse',
-    name: 'Curse',
-    description: `Attack that also lowers the target's Def by ${CURSE_DEBUFF_DEF} for ${CURSE_DEBUFF_TURNS} turns.`,
-    cooldown: SKILL_COOLDOWN,
-    targetType: 'enemy',
-    category: 'attack',
-    rangeBonus: 0,
-  },
+export const SKILLS: Record<ClassName, SkillDef[]> = {
+  Cleric: [
+    {
+      id: 'heal',
+      name: 'Heal',
+      description: 'Restore HP to an ally in range.',
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'ally',
+      category: 'heal',
+      rangeBonus: 0,
+    },
+  ],
+  Dancer: [
+    {
+      id: 'dance',
+      name: 'Dance',
+      description: "Refresh an ally who's already acted, so they can move and act again.",
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'ally',
+      category: 'utility',
+      rangeBonus: 0,
+    },
+  ],
+  Swordsman: [
+    {
+      id: 'sword-dance',
+      name: 'Sword Dance',
+      description: 'Strike the same target twice in one action.',
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 0,
+    },
+  ],
+  Lancer: [
+    {
+      id: 'guard-break',
+      name: 'Guard Break',
+      description: "Attack ignoring the target's terrain defense bonus.",
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 0,
+    },
+  ],
+  Archer: [
+    {
+      id: 'snipe',
+      name: 'Snipe',
+      description: 'Bonus damage from +1 range; the target cannot counter.',
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 1,
+    },
+  ],
+  Mage: [
+    {
+      id: 'nova',
+      name: 'Nova',
+      description: 'A plus-shaped blast centered on the target, for reduced damage each.',
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 0,
+    },
+  ],
+  Barbarian: [
+    {
+      id: 'rampage',
+      name: 'Rampage',
+      description: 'A normal attack, but a kill lets the unit act again immediately.',
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 0,
+    },
+  ],
+  General: [
+    {
+      id: 'shield-slam',
+      name: 'Shield Slam',
+      description: "Attack ignoring the target's terrain avoid bonus.",
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 0,
+    },
+  ],
+  Thief: [
+    {
+      id: 'snatch',
+      name: 'Snatch',
+      description: 'Attack that heals the Thief for the damage dealt.',
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 0,
+    },
+  ],
+  Assassin: [
+    {
+      id: 'execute',
+      name: 'Execute',
+      description: 'Bonus damage against a target at or below half HP.',
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 0,
+    },
+  ],
+  Mercenary: [
+    {
+      id: 'focused-strike',
+      name: 'Focused Strike',
+      description: 'A precise attack with bonus Hit and Crit.',
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 0,
+    },
+  ],
+  'Dark Mage': [
+    {
+      id: 'curse',
+      name: 'Curse',
+      description: `Attack that also lowers the target's Def by ${CURSE_DEBUFF_DEF} for ${CURSE_DEBUFF_TURNS} turns.`,
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 0,
+    },
+  ],
 };
 
 /** The reach a unit's skill can target from its current tile. */
-export function skillRange(unit: Unit): number {
-  return effectiveStats(unit).range + SKILLS[unit.className].rangeBonus;
+export function skillRange(unit: Unit, skill: SkillDef): number {
+  return effectiveStats(unit).range + skill.rangeBonus;
 }
 
 /** Valid single-select targets for a unit's skill from its current tile. */
-export function skillTargets(G: GameState, unit: Unit): Unit[] {
-  const skill = SKILLS[unit.className];
-  const range = skillRange(unit);
+export function skillTargets(G: GameState, unit: Unit, skill: SkillDef): Unit[] {
+  const range = skillRange(unit, skill);
 
   if (skill.targetType === 'ally') {
     const allies = unitsOf(G, unit.team).filter(
@@ -210,10 +238,10 @@ export function novaBlastTargets(G: GameState, unit: Unit, target: Coord): Unit[
   );
 }
 
-/** Whether a unit's skill has any legal use right now — cooldown and targets both. */
-export function canUseSkill(G: GameState, unit: Unit): boolean {
-  if (unit.skillCooldown > 0) return false;
-  return skillTargets(G, unit).length > 0;
+/** Whether a given skill of a unit's has any legal use right now — cooldown and targets both. */
+export function canUseSkill(G: GameState, unit: Unit, skill: SkillDef): boolean {
+  if ((unit.skillCooldowns[skill.id] ?? 0) > 0) return false;
+  return skillTargets(G, unit, skill).length > 0;
 }
 
 /**
@@ -225,9 +253,7 @@ export function canUseSkill(G: GameState, unit: Unit): boolean {
  * reported alongside rather than folded into a single expected number, the
  * same convention the Fire Emblem combat forecast uses.
  */
-export function describeSkillEffect(G: GameState, unit: Unit, target: Unit | null): string {
-  const skill = SKILLS[unit.className];
-
+export function describeSkillEffect(G: GameState, unit: Unit, target: Unit | null, skill: SkillDef): string {
   switch (skill.id) {
     case 'heal': {
       if (!target) return '';

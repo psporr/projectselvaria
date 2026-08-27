@@ -113,11 +113,11 @@ export interface Unit {
   exp: number;
   /** Only ever populated for player units — enemies never carry loot. */
   equipment: EquipmentSlots;
-  /** Turns until this unit's class skill is usable again. 0 = ready. */
-  skillCooldown: number;
+  /** Turns until each of this unit's class skills is usable again, keyed by SkillDef.id. Absent = ready (0). */
+  skillCooldowns: Record<string, number>;
   /** Flat Def penalty from Dark Mage's Curse, applied in effectiveStats() while debuffTurns > 0. */
   debuffDef: number;
-  /** Turns left on the Curse debuff above; decremented in turn.onBegin the same way skillCooldown is. */
+  /** Turns left on the Curse debuff above; decremented in turn.onBegin the same way skillCooldowns are. */
   debuffTurns: number;
 }
 
