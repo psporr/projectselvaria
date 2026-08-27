@@ -139,6 +139,15 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-26 Claude: Jill's portrait was replaced with a proper 150×250
+  portrait-shaped crop (supplied directly, not Claude's earlier square
+  crop). `UnitStatusBar`'s portrait slot was forcing every portrait/sprite
+  into a square display size regardless of its actual shape, which would
+  have squished the new tall portrait — `show()` now scales whatever
+  texture's showing (portrait, hero map sprite, or enemy-class sprite) to
+  fit inside the box at its own aspect ratio instead, so the 128×128 square
+  sprites still land square (unchanged) and the portrait now displays at
+  its real proportions.
 - 2026-08-26 Claude: 5 new classes — General, Thief, Assassin, Mercenary,
   Dark Mage — plus anonymous enemy-class art for 7 of the game's 12 classes
   (see CREDITS.md). Design discussion first (`tactical-rpg-design` skill's

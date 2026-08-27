@@ -316,8 +316,16 @@ export class UnitStatusBar extends GameObjects.Container {
     if (hasArt) {
       // Live grayscale filter toggle, not a faded alpha, for an acted unit
       // — matches the on-board sprite's own treatment (UnitSprite.ts).
-      const artSize = PORTRAIT_W - 12;
-      this.portraitImage.setTexture(textureKey).setDisplaySize(artSize, artSize).setAlpha(1).setVisible(true);
+      // Scaled to fit inside the box (6px margin per side) preserving the
+      // source texture's own aspect ratio, rather than forcing a square —
+      // the 128x128 map/enemy sprites still land square this way, but a
+      // portrait (e.g. jill.png at 150x250) displays at its real shape
+      // instead of being squished.
+      this.portraitImage.setTexture(textureKey);
+      const maxW = PORTRAIT_W - 12;
+      const maxH = PORTRAIT_H - 12;
+      const fitScale = Math.min(maxW / this.portraitImage.width, maxH / this.portraitImage.height);
+      this.portraitImage.setDisplaySize(this.portraitImage.width * fitScale, this.portraitImage.height * fitScale).setAlpha(1).setVisible(true);
       this.portraitGrayscale.active = unit.hasActed;
     } else {
       this.portraitImage.setVisible(false);

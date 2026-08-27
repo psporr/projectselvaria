@@ -41,10 +41,11 @@ unit, not a class skin, so it's unused pending a story decision.
 
 `public/portrait/jill.png` (added 2026-08-26, same source) is a bust
 portrait — the first of a separate, higher-detail art category from the
-map sprites (`ART_BRIEF.md`'s "Portraits (later)" section). Cropped square
-around the face/shoulders and its white background keyed to transparent to
-fit `UnitStatusBar`'s portrait slot, which now shows it in place of the map
-sprite when a unit has one.
+map sprites (`ART_BRIEF.md`'s "Portraits (later)" section). Originally
+cropped square by Claude; replaced 2026-08-26 with a 150×250 portrait-
+shaped crop supplied directly, which `UnitStatusBar`'s portrait slot now
+displays at its real aspect ratio (scaled to fit, not squished to a
+square) in place of the map sprite when a unit has one.
 
 `public/favicon.png` (added 2026-08-26) is a 32×32 crop of the shield
 emblem from `public/project selvaria icon.png` (the project's logo,
