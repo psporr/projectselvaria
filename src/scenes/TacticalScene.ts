@@ -2,14 +2,17 @@ import { GameObjects, Scene, Time, Tweens } from 'phaser';
 
 import { BLESSINGS, type Blessing } from '../game/blessings';
 import { decideAction } from '../game/ai';
-import { PROMOTES_TO } from '../game/classes';
+import { canPromote, PROMOTES_TO } from '../game/classes';
 import { forecastCombat } from '../game/combat';
 import { computeReachable, computeThreatTiles, quickAttackPositions, targetsFrom, terrainAt, tileKey, unitsOf } from '../game/grid';
 import { ITEMS } from '../game/equipment';
+import { CAMPAIGN_CHAPTERS, TEST_MAP_2, type CampaignCarryOver, type ChapterDef } from '../game/maps';
+import { saveCampaign, clearCampaignSave } from '../game/save';
 import { canUseSkill, describeSkillEffect, novaBlastCoords, skillTargets, SKILLS } from '../game/skills';
-import { TERRAIN, teamOf, type GameState, type Unit } from '../game/types';
+import { TERRAIN, teamOf, type GameMode, type GameState, type Unit } from '../game/types';
 import { UnitSprite } from '../entities/UnitSprite';
 import { createGameClient, type GameClient } from '../systems/gameClient';
+import { browserStorage } from '../systems/storage';
 import { applyDprZoom, DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import type { ActionMenuChoice, ActionMenuOption } from '../ui/ActionMenu';
 import { formatAttackForecast } from '../ui/ForecastPanel';
@@ -108,6 +111,21 @@ const CURSOR_BLINK_HALF_MS = 250;
 type UiMode = 'idle' | 'unit-selected' | 'action-menu' | 'awaiting-target' | 'skill-targeting' | 'confirming';
 
 /**
+ * Scene-start data (`ChapterSelectScene.ts`'s `this.scene.start('Tactical', data)`).
+ * Every field is optional and defaults to today's original behavior when
+ * omitted entirely — booting with no data at all (BootScene's old direct
+ * hand-off, and anything else that doesn't know about chapter selection)
+ * still lands on the roguelike default, TEST_MAP_2, unchanged.
+ */
+export interface TacticalSceneData {
+  mode?: GameMode;
+  /** Looked up against CAMPAIGN_CHAPTERS when mode is 'campaign'; ignored otherwise. */
+  chapterId?: string;
+  carryOver?: CampaignCarryOver;
+  baseLevel?: number;
+}
+
+/**
  * The grid, unit sprites, movement/attack/skill input, and the enemy
  * auto-play loop. Renders entirely from the boardgame.io client's G/ctx and
  * dispatches moves back — it never owns authoritative state (HANDOFF.md
@@ -155,9 +173,15 @@ export class TacticalScene extends Scene {
   private lastDropCount = 0;
   /** ctx.turn of the enemy phase whose opening action we've already handed off to onEnemyPhaseBannerDone() — see scheduleAutoAdvance(). */
   private enemyPhaseIntroDone: number | null = null;
+  /** Set in init(), read in create() and re-passed by restartBattle() so a campaign battle restarts the same chapter/carryOver instead of falling back to the roguelike default. */
+  private sceneData: TacticalSceneData = {};
 
   constructor() {
     super('Tactical');
+  }
+
+  init(data: TacticalSceneData = {}): void {
+    this.sceneData = data;
   }
 
   preload(): void {
@@ -207,7 +231,12 @@ export class TacticalScene extends Scene {
     this.inputSuspended = false;
     this.enemyPhaseIntroDone = null;
 
-    this.client = createGameClient();
+    const mode: GameMode = this.sceneData.mode ?? 'roguelike';
+    const chapter: ChapterDef =
+      mode === 'campaign'
+        ? (CAMPAIGN_CHAPTERS.find((candidate) => candidate.id === this.sceneData.chapterId) ?? CAMPAIGN_CHAPTERS[0])
+        : TEST_MAP_2;
+    this.client = createGameClient(mode, chapter, this.sceneData.carryOver, this.sceneData.baseLevel);
     this.cameras.main.setBackgroundColor('#111318');
     applyDprZoom(this);
 
@@ -860,10 +889,75 @@ export class TacticalScene extends Scene {
     }
   }
 
-  /** Restarts the scene with a fresh game client and cleans up previous state. */
+  /**
+   * Restarts the scene with a fresh game client and cleans up previous
+   * state. Re-passes sceneData explicitly — Phaser's scene.restart() with
+   * no argument does not automatically re-supply the data init() received
+   * the first time, so without this a campaign battle's "Restart Battle"
+   * would silently fall back to the roguelike default instead of restarting
+   * the same chapter/carryOver.
+   */
   restartBattle(): void {
     this.scene.stop('UI');
-    this.scene.restart();
+    this.scene.restart(this.sceneData);
+  }
+
+  /**
+   * Campaign chapter cleared (UIScene's game-over "Continue"/"Chapter
+   * Select" button, campaign-mode branch) — builds a CampaignCarryOver from
+   * the surviving squad, offers promotion to anyone eligible (reusing
+   * PromotionPicker, but applied to the carry-over record being built
+   * rather than a live Unit — the match is already over, no more moves to
+   * dispatch), then hands off to finishCampaignContinue().
+   */
+  continueCampaign(): void {
+    const state = this.client.getState();
+    if (!state) return;
+    const { G } = state;
+
+    const carryOver: CampaignCarryOver = {
+      units: {},
+      inventory: G.inventory,
+      nextItemInstance: G.nextItemInstance,
+    };
+    for (const unit of unitsOf(G, 'player')) {
+      carryOver.units[unit.id] = { level: unit.level, exp: unit.exp, equipment: unit.equipment };
+    }
+
+    const eligible = unitsOf(G, 'player').filter(canPromote);
+    if (eligible.length === 0) {
+      this.finishCampaignContinue(G.chapterId, carryOver);
+      return;
+    }
+
+    const candidates: PromotionCandidate[] = eligible.map((unit) => ({
+      unitId: unit.id,
+      name: unit.name,
+      fromClass: unit.className,
+      toClass: PROMOTES_TO[unit.className]!,
+    }));
+    this.ui.showPromotionPicker(candidates, (unitIds) => {
+      for (const id of unitIds) {
+        const unit = G.units[id];
+        const nextClass = unit && PROMOTES_TO[unit.className];
+        if (!unit || !nextClass) continue;
+        carryOver.units[id] = { level: 1, exp: 0, equipment: unit.equipment, className: nextClass };
+      }
+      this.finishCampaignContinue(G.chapterId, carryOver);
+    });
+  }
+
+  /** Saves progress (or clears it, if that was the last chapter) and returns to Chapter Select — its own save-detection offers Continue from there, so there's no separate "resume" path to build. */
+  private finishCampaignContinue(clearedChapterId: string, carryOver: CampaignCarryOver): void {
+    const clearedIndex = CAMPAIGN_CHAPTERS.findIndex((candidate) => candidate.id === clearedChapterId);
+    const next = clearedIndex >= 0 ? CAMPAIGN_CHAPTERS[clearedIndex + 1] : undefined;
+    if (next) {
+      saveCampaign(browserStorage, { chapterId: next.id, carryOver, savedAt: new Date().toISOString() });
+    } else {
+      clearCampaignSave(browserStorage);
+    }
+    this.scene.stop('UI');
+    this.scene.start('ChapterSelect');
   }
 
   /**

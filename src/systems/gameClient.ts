@@ -1,5 +1,7 @@
 import { Client } from 'boardgame.io/client';
-import { ProjectSelvaria } from '../game/game';
+import { createSelvariaGame } from '../game/game';
+import type { CampaignCarryOver, ChapterDef } from '../game/maps';
+import type { GameMode, GameState } from '../game/types';
 
 /**
  * The vanilla (non-React) boardgame.io client, constructed once outside any
@@ -14,13 +16,22 @@ import { ProjectSelvaria } from '../game/game';
  * `_ClientImpl` — the package only exports the `Client` factory function
  * from its public `boardgame.io/client` entry point.
  */
-export type GameClient = ReturnType<typeof Client<import('../game/types').GameState>>;
+export type GameClient = ReturnType<typeof Client<GameState>>;
 
-export function createGameClient(): GameClient {
+/**
+ * Builds the Game definition for `mode`/`chapter` (via `createSelvariaGame`,
+ * game.ts) and constructs a client against it. `mode`/`chapter` are now
+ * caller-supplied rather than hardcoded — `ChapterSelectScene` picks them,
+ * `TacticalScene.init()` passes them through — so the same client factory
+ * serves both a roguelike run and any campaign chapter, fresh or resumed
+ * from a `CampaignCarryOver`.
+ */
+export function createGameClient(mode: GameMode, chapter: ChapterDef, carryOver?: CampaignCarryOver, baseLevel?: number): GameClient {
+  const game = createSelvariaGame(mode, chapter, carryOver, baseLevel);
   // boardgame.io's built-in debug panel is a React/DOM overlay meant for
   // developing the Game definition itself — not part of the shipped game,
   // and it visually collides with TacticalScene's own HUD.
-  const client = Client({ game: ProjectSelvaria, numPlayers: 2, debug: false });
+  const client = Client({ game, numPlayers: 2, debug: false });
   client.start();
   return client;
 }

@@ -283,32 +283,40 @@ Three maps exist and are worth carrying over:
 - **Chapter 2: The Long March** — 11×14, rout. Three bands of wall with gaps
   at centre and flanks, two river crossings.
 
-Squad: Eirika (Swordsman), Byleth (Archer), Corrin (Lancer), Selva (Mage),
-Ike (Barbarian), Lissa (Cleric), Olivia (Dancer).
+Squad (stale note fixed 2026-08-27, was still the pre-launch placeholder
+roster): Jill (Barbarian), Marisa (Thief), Ephraim (Lancer), Lyn (Archer),
+Solen (Mage), Natasha (Cleric) — `src/game/maps.ts`'s doc comment on
+`CampaignCarryOver` is the source of truth going forward; this file won't
+be kept in lockstep with every roster tweak.
 
 **Enemy naming rule**: roguelike enemies are anonymous — display name is always
 `"<Class> Shadow"`. Campaign enemies keep their authored names (Gate Chief,
 Vale Captain), because chapters carry story around named individuals.
 
+**Chapter select + the chapter-to-chapter pipeline are live** (2026-08-27):
+`ChapterSelectScene` is the game's first scene now (`main.ts`), offering
+Roguelike or a campaign chapter (fresh, or Continue from a
+`localStorage`-backed save). Clearing a `'rout'` chapter builds a real
+`CampaignCarryOver` from the survivors, offers promotion to anyone
+eligible (see the Promotion section above), saves, and returns to Chapter
+Select. See `TacticalScene.continueCampaign()`/`finishCampaignContinue()`
+and `systems/gameClient.ts`'s now-parameterized `createGameClient`.
+
 ### Story system
 
 Chapters carry optional `intro` / `outro` dialogue scripts plus mid-battle
-**map events**. Four trigger types, all implemented and working:
-
-- `turnReached` — per-team and 1-indexed ("enemy turn 2" = the second time it
-  becomes the enemy's phase, not the second global turn). Authors think in
-  team turns; honour that.
-- `unitDefeated` — a named unit dies.
-- `unitReachesTile` — any (optionally team-filtered) unit steps on a tile.
-- `enemyCountAtMost` — objective progress.
-
-A firing beat **genuinely pauses** the CPU, not just visually overlays it.
-Trigger evaluation is a pure function (`isTriggerMet`) kept separate from the
-UI.
-
-**Story data lives outside the synced game state** — it's presentation, not
-rules, and doesn't need to be deterministic or network-replicated. This matters
-for multiplayer (§9).
+**map events**, with four trigger types (`turnReached`, `unitDefeated`,
+`unitReachesTile`, `enemyCountAtMost`) and a pure `isTriggerMet` evaluator
+kept separate from the UI, all in `src/game/story.ts`. **Correction
+2026-08-27: this section previously said "all implemented and working" —
+that overstated it.** The pure trigger-evaluation logic and the chapter
+data (`intro`/`outro`/`events` on `CAMPAIGN_CHAPTER_1`/`_2`) do exist, but
+no scene renders `intro`/`outro` dialogue or evaluates `isTriggerMet`
+against live `G`/`ctx` yet — campaign chapters are now reachable and
+playable (chapter select, above) but currently play through without their
+story beats. Still true below: story data intentionally lives outside the
+synced game state, so wiring the rendering later doesn't touch
+determinism/multiplayer (§9) — there's just no renderer yet.
 
 ---
 

@@ -9,9 +9,17 @@ import type { DialogueScript, MapEvent } from './story';
  * no entry here just starts that chapter at its authored defaults — covers
  * both a fallen unit (rejoins fresh rather than staying dead across
  * chapters) and a unit new to a later chapter.
+ *
+ * `className` is only present if the unit was promoted (`classes.ts`'s
+ * `PROMOTES_TO`) before carrying over — absent means "use next chapter's
+ * authored default class," preserving every non-promoted unit's usual
+ * behavior. Promotion at chapter-end resets level/exp the same way
+ * `promoteUnit` does for a live unit, just applied to this carry-over
+ * record instead of a `Unit` directly, since the match is already over by
+ * then (no more moves to dispatch).
  */
 export interface CampaignCarryOver {
-  units: Record<string, { level: number; exp: number; equipment: EquipmentSlots }>;
+  units: Record<string, { level: number; exp: number; equipment: EquipmentSlots; className?: ClassName }>;
   inventory: Item[];
   nextItemInstance: number;
 }
@@ -149,13 +157,15 @@ export function buildGameState(
 
   const units: Record<string, Unit> = {};
   for (const spec of chapter.units) {
-    const className =
-      'className' in spec ? spec.className : shuffledClasses[nextRandomClassIndex++ % shuffledClasses.length];
     // A unit carried over from a previous campaign chapter picks up where it
     // left off; anyone else — roguelike, a fresh campaign chapter, a unit
     // that fell and wasn't in the carry-over — starts at its authored
     // default. Enemies never carry over.
     const carried = spec.team === 'player' ? carryOver?.units[spec.id] : undefined;
+    // A promoted unit's carried className overrides the chapter's authored
+    // one; everyone else resolves exactly as before.
+    const className =
+      carried?.className ?? ('className' in spec ? spec.className : shuffledClasses[nextRandomClassIndex++ % shuffledClasses.length]);
     // The squad starts battle-tested; a fresh wave-1 enemy hasn't seen combat yet.
     const level = carried?.level ?? (spec.team === 'player' ? baseLevel : 1);
     const stats = statsAtLevel(className, level);

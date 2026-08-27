@@ -119,8 +119,11 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 ### Not built yet
 
 - `CombatOverlayScene` (HANDOFF.md §7 phase 2 — GBA-style combat presentation)
-- Campaign chapters in the UI (maps/story exist in `src/game/`, no chapter
-  select or dialogue rendering)
+- Campaign chapter *dialogue* rendering — `ChapterDef.intro`/`.outro` and
+  `MapEvent` triggers (`src/game/story.ts`) still have no scene reading
+  them, so campaign chapters play without their story beats. Chapter
+  select and the chapter-to-chapter pipeline itself shipped 2026-08-27
+  (see "Recent changes") — that was the other half of this line.
 - Multiplayer, mobile app wrap (both explicitly deferred, HANDOFF.md §9/§10)
 
 ### In progress
@@ -139,6 +142,47 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-27 Claude: Campaign mode is reachable for the first time — a main
+  menu (`ChapterSelectScene`, now the game's first scene) picks Roguelike
+  or a Campaign chapter (fresh, or Continue from a save). Closes out the
+  promotion plan's "part 2" and the standing "no chapter select" gap
+  (`README`'s old "Not built yet" line, `HANDOFF.md` §4).
+  `createGameClient` (`systems/gameClient.ts`) takes `mode`/`chapter`/
+  `carryOver`/`baseLevel` now instead of hardcoding the roguelike game
+  object; `TacticalScene` reads them via a new `init(data)`, defaulting to
+  today's exact roguelike behavior when nothing's passed (`BootScene`'s
+  old direct hand-off, or anything else that doesn't know about chapter
+  selection). `restartBattle()` re-passes that data explicitly — Phaser's
+  `scene.restart()` doesn't automatically re-supply `init()`'s data on its
+  own, which would've silently dropped a campaign battle back to the
+  roguelike default on restart.
+  Clearing a `'rout'` campaign chapter now does something: builds a real
+  `CampaignCarryOver` from the surviving squad's level/exp/equipment
+  (`TacticalScene.continueCampaign()`), offers promotion to anyone
+  eligible first (reusing `PromotionPicker`, applied to the carry-over
+  record being built rather than a live unit, since the match is already
+  over), saves via the already-existing but previously-uncalled
+  `save.ts`/`storage.ts`, and returns to Chapter Select. `CampaignCarryOver`
+  gained a `className?` field so a promoted unit's new class carries into
+  the next chapter (`buildGameState`, `maps.ts`, reads it as an override).
+  Verified end-to-end in the browser, not just headlessly: typecheck/
+  build/validate-maps/sim (30-batch, unaffected — the roguelike default
+  path is provably unchanged) all clean; Playwright confirmed the menu,
+  the unaffected "Start Run" path, a fresh campaign chapter starting at
+  the documented `PLAYER_START_LEVEL + chapterIndex`, a real chapter
+  clear (driven via direct move dispatch, not blind UI taps, since the
+  actual click-to-quick-attack sequencing proved too fragile to script
+  reliably) producing the new "CHAPTER CLEAR" screen, Continue building
+  and saving a correct carry-over, Chapter Select then offering "Continue
+  — The Long March", and — seeding a save directly to test the promotion
+  path without replaying combat — a unit's carried `className` override
+  (e.g. "Assassin") correctly replacing the next chapter's authored
+  default class on load.
+  Story rendering (chapter `intro`/`outro` dialogue, mid-battle map
+  events) is still unbuilt — campaign chapters play through without their
+  narrative beats for now; see the corrected note in HANDOFF.md §4 (its
+  old "all implemented and working" claim was wrong — only the pure
+  trigger-evaluation logic and data exist, nothing renders it).
 - 2026-08-27 Claude: Wired the first promotion pair (Thief -> Assassin,
   `classes.ts`'s `PROMOTES_TO`) and reshuffled the 6-hero roster
   (`maps.ts`, across all 6 chapters) so it's actually reachable in a real

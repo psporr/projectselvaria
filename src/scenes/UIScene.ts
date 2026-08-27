@@ -3,6 +3,7 @@ import { GameObjects, Scene } from 'phaser';
 import type { Blessing } from '../game/blessings';
 import type { GameOver } from '../game/game';
 import { terrainAt } from '../game/grid';
+import { CAMPAIGN_CHAPTERS } from '../game/maps';
 import { teamOf } from '../game/types';
 import type { GameClient } from '../systems/gameClient';
 import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
@@ -145,7 +146,17 @@ export class UIScene extends Scene {
       .setInteractive({ useHandCursor: true })
       .setDepth(32)
       .setVisible(false)
-      .on('pointerup', () => this.tactical.restartBattle());
+      .on('pointerup', () => {
+        // Branches at click-time off live state rather than a handler swap,
+        // since this one button/label pair serves three cases (defeat,
+        // roguelike victory, campaign chapter clear) — see refreshHud()'s
+        // matching label logic just above.
+        const state = this.client.getState();
+        const gameover = state?.ctx.gameover as GameOver | undefined;
+        const isCampaignWin = gameover?.winner === 'player' && state?.G.mode === 'campaign';
+        if (isCampaignWin) this.tactical.continueCampaign();
+        else this.tactical.restartBattle();
+      });
 
     this.gameOverRestartText = this.add
       .text(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2 + 36, 'Restart Battle', {
@@ -208,8 +219,12 @@ export class UIScene extends Scene {
     if (ctx.gameover) {
       const gameover = ctx.gameover as GameOver;
       const isVictory = gameover.winner === 'player';
-      this.gameOverText.setText(isVictory ? 'VICTORY' : 'DEFEAT');
+      const isCampaignWin = isVictory && G.mode === 'campaign';
+      const isLastChapter = isCampaignWin && CAMPAIGN_CHAPTERS[CAMPAIGN_CHAPTERS.length - 1]?.id === G.chapterId;
+      const headline = isCampaignWin ? (isLastChapter ? 'CAMPAIGN\nCOMPLETE' : 'CHAPTER\nCLEAR') : isVictory ? 'VICTORY' : 'DEFEAT';
+      this.gameOverText.setText(headline);
       this.gameOverText.setColor(isVictory ? '#7cd992' : '#ff6b6b');
+      this.gameOverRestartText.setText(isCampaignWin ? (isLastChapter ? 'Chapter Select' : 'Continue') : 'Restart Battle');
       this.gameOverBackdrop.setVisible(true);
       this.gameOverCard.setVisible(true);
       this.gameOverText.setVisible(true);
