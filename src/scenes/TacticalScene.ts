@@ -564,7 +564,11 @@ export class TacticalScene extends Scene {
         return;
       }
 
-      this.finishSelection();
+      // If unitAtTile was set, the status bar already refreshed to it just
+      // above — finishSelection()'s own default behavior would otherwise
+      // clobber that back to the unit we're deselecting, which is exactly
+      // backwards from what a tap on a different unit should do.
+      this.finishSelection(unitAtTile !== undefined);
       return;
     }
 
@@ -976,8 +980,15 @@ export class TacticalScene extends Scene {
    * previewed destination while G still has it at the real (unmoved) tile —
    * snap it back. If the action WAS confirmed, G's position already matches
    * the preview, so this is a no-op.
+   *
+   * `skipStatusBarRefresh` — pass true when the caller already refreshed
+   * the status bar to something more relevant than the unit being
+   * deselected (e.g. onTileClicked's 'unit-selected' branch, tapping a
+   * different unit that isn't itself selectable) — otherwise this would
+   * unconditionally show the old (now-deselected) unit's info right after,
+   * stomping that fresher update.
    */
-  private finishSelection(): void {
+  private finishSelection(skipStatusBarRefresh = false): void {
     const unitId = this.selectedUnitId;
     this.mode = 'idle';
     this.selectedUnitId = null;
@@ -997,7 +1008,7 @@ export class TacticalScene extends Scene {
     // destination tile was last picked (e.g. a forest's +2 Def) even after
     // backing out of it, since picking a destination is the only other
     // place that refreshes the panel's terrain row.
-    if (unit && state) {
+    if (!skipStatusBarRefresh && unit && state) {
       this.ui.unitStatusBar.show(unit, terrainAt(state.G, unit.x, unit.y));
     }
   }

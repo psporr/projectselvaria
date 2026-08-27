@@ -130,6 +130,10 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 *(Add a line here when you start something. Format: `- [Name] what, since when`.)*
 
+- [Claude] EXP is at 5x (`classes.ts`'s `TESTING_EXP_MULTIPLIER`), since
+  2026-08-27, deliberately temporary — the repo owner asked for it to speed
+  up manually testing the class-tree rework (reaching level 10/promotion
+  fast). **Set it back to 1 once that testing pass is done.**
 - [Claude] Graphical art pass — blocked on custom art being commissioned
   (unit sprites first, terrain tileset held to ship together with them,
   portraits after that). See `ART_BRIEF.md` for the spec handed to the
@@ -142,6 +146,40 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-27 Claude: Three small fixes from the repo owner's own testing
+  pass on today's class-tree rework:
+  1. **Status bar bug**: selecting a unit (showing its walkable tiles),
+     then tapping a *different* unit that wasn't itself selectable (an
+     already-acted ally, an enemy out of quick-attack range) correctly
+     refreshed `UnitStatusBar` to that unit (`onTileClicked`'s
+     `'unit-selected'` branch already did this), but the very next line
+     always fell through to `finishSelection()`, which — unconditionally —
+     re-showed the *original* (now-deselected) unit, clobbering that
+     refresh back to stale info. Fixed by having `finishSelection()` take
+     an optional `skipStatusBarRefresh` flag, set only at that one call
+     site (`TacticalScene.ts`).
+  2. **Random enemy pool trimmed to classes with real art**: `ALL_CLASSES`
+     (`classes.ts`, drawn from by `spawnWave`/`randomClass: true` units)
+     was letting several classes with no `heroArt.ts` enemy sprite spawn
+     as random mobs, rendering as the generic circle+letter placeholder —
+     now correctly rare/intentional-looking rather than "half the enemies
+     are broken." Trimmed to the 9 classes that actually have anonymous
+     enemy art (Swordsman/Archer/Lancer/Barbarian/General/Thief/Assassin/
+     Mercenary/Dark Mage) — Mage/Cleric/Dancer (no art, predates today) and
+     Fighter (new base class, also no art yet) all drop out of the random
+     pool until art exists; none of this affects the named hero roster,
+     which is never drawn from this pool. Add a class back here the moment
+     it gets real enemy art.
+  3. **5x EXP for testing** — see "In progress" above; temporary, revert
+     `TESTING_EXP_MULTIPLIER` to 1 once the testing pass wraps up.
+  Verified: `typecheck`/`build`/`validate-maps` clean; `sim -- --batch 30`
+  still matches the historical baseline exactly (30/30 wave cap) even with
+  5x EXP driving far more promotion offers per run (the harness still
+  declines them all, per the Part 3 entry below). Playwright reproduced
+  the exact status-bar bug (select a unit, tap a distant enemy, confirm
+  the panel showed the enemy and stayed there) and confirmed the trimmed
+  enemy pool — every random spawn in the test run rendered with real
+  sprite art, no placeholder circles.
 - 2026-08-27 Claude: Main menu redesign (`ChapterSelectScene`, plus a
   matching touch-up to `BootScene`'s splash) — per the repo owner, it "look
   weird in mobile and not beautiful." The old menu was a flat navy screen

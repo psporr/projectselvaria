@@ -101,33 +101,34 @@ export const CLASS_STATS: Record<ClassName, ClassStats> = {
  * units (maps.ts) draw from for a fresh enemy — every class here can appear
  * as a random, unpromoted, wave-1-strength mob.
  *
- * Deliberately **not** every `ClassName`: the 9 advanced classes added in
- * the class-tree rework's Part 3 (2026-08-27) run noticeably stronger than
- * the base 12 on average (they're tuned as a *promotion's* payoff, roughly
- * a tier up) — confirmed the hard way, `npm run sim -- --batch 30` went
- * from the established 0% wipe / 100% wave-cap baseline to a 100% wipe
- * rate the one time all 9 were included here (see README's "Recent
- * changes" for the full before/after). They stay reachable only through
- * `PROMOTES_TO`, never as a random spawn — Assassin/Mercenary already being
- * in this pool isn't a counter-precedent, they're only 2 of 12 there, not
- * 9 of 22 here. Fighter is the one Part-3 addition that DOES belong in this
- * pool — it's a base class, stat-of-a-piece with the original 12, not a
- * promotion payoff.
+ * Restricted (2026-08-27, per the repo owner) to classes with real anonymous
+ * enemy art — `src/ui/heroArt.ts`'s `ENEMY_CLASS_SPRITE_BASENAME` is the
+ * actual source of truth for which classes those are; this list must be
+ * kept in sync with it by hand, since `game/` can't import from `ui/`
+ * (HANDOFF.md §7 — pure logic never knows about rendering). A class with no
+ * enemy art still renders as an enemy fine (the circle+letter placeholder,
+ * same fallback every unit without art gets), but every random spawn was
+ * hitting that fallback for several classes at once and reading as broken
+ * rather than "art not done yet" — this trims the pool back to what
+ * actually looks finished, art added here as it lands.
+ *
+ * This is also, incidentally, why none of the 9 class-tree-rework advanced
+ * classes (Part 3, 2026-08-27) or Fighter show up here: none of the 10 have
+ * enemy art yet either, on top of the 9 promotion-only ones already running
+ * noticeably stronger than a wave-1 base class (confirmed the hard way,
+ * `npm run sim -- --batch 30` — see README's "Recent changes"). They stay
+ * reachable only through `PROMOTES_TO`, never a random spawn.
  */
 export const ALL_CLASSES: ClassName[] = [
   'Swordsman',
   'Archer',
   'Lancer',
-  'Mage',
   'Barbarian',
-  'Cleric',
-  'Dancer',
   'General',
   'Thief',
   'Assassin',
   'Mercenary',
   'Dark Mage',
-  'Fighter',
 ];
 
 /**
@@ -141,10 +142,17 @@ export const LEVEL_GROWTH = { atk: 1, def: 1, maxHp: 2 };
 /** The player squad starts stronger than a fresh wave-1 recruit. */
 export const PLAYER_START_LEVEL = 5;
 
-/** How much EXP landing an attack, a kill, or a heal grants, and how much a level costs. */
-export const EXP_PER_ATTACK = 20;
-export const EXP_PER_KILL = 50;
-export const EXP_PER_HEAL = 50;
+/**
+ * How much EXP landing an attack, a kill, or a heal grants, and how much a
+ * level costs. Multiplied 5x (2026-08-27, per the repo owner, "for
+ * testing") so a real playthrough reaches level 10+ and promotion-eligible
+ * fast enough to actually exercise it — drop `TESTING_EXP_MULTIPLIER` back
+ * to 1 once that testing pass is done.
+ */
+const TESTING_EXP_MULTIPLIER = 5;
+export const EXP_PER_ATTACK = 20 * TESTING_EXP_MULTIPLIER;
+export const EXP_PER_KILL = 50 * TESTING_EXP_MULTIPLIER;
+export const EXP_PER_HEAL = 50 * TESTING_EXP_MULTIPLIER;
 export const EXP_TO_LEVEL = 100;
 
 /**
