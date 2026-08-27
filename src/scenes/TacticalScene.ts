@@ -61,9 +61,9 @@ const TERRAIN_COLOR: Record<string, number> = {
  * Loaded under the `<basename>-bg` texture key.
  */
 const CHAPTERS_WITH_BACKGROUND_ART: Record<string, string> = {
-  'test-map1': 'test-map1',
-  'test-map1-detailed': 'test-map1',
-  'test-map2': 'test-map2',
+  'test-map1': 'test-map1.png',
+  'test-map1-detailed': 'test-map1.png',
+  'test-map2': 'river1.jpg',
 };
 
 const MOVE_HIGHLIGHT = 0x4a90d9;
@@ -169,9 +169,10 @@ export class TacticalScene extends Scene {
       const key = enemyClassTextureKey(className);
       if (!this.textures.exists(key)) this.load.image(key, `enemy/${enemyClassSpriteBasename(className)}.png`);
     }
-    for (const basename of new Set(Object.values(CHAPTERS_WITH_BACKGROUND_ART))) {
-      const key = `${basename}-bg`;
-      if (!this.textures.exists(key)) this.load.image(key, `maps/${basename}.png`);
+    for (const filename of new Set(Object.values(CHAPTERS_WITH_BACKGROUND_ART))) {
+      const key = `${filename}-bg`;
+      const imgPath = filename.includes('.') ? `maps/${filename}` : `maps/${filename}.png`;
+      if (!this.textures.exists(key)) this.load.image(key, imgPath);
     }
   }
 
@@ -231,9 +232,9 @@ export class TacticalScene extends Scene {
 
   private drawBoard(): void {
     const { G } = this.client.getState()!;
-    const bgBasename = CHAPTERS_WITH_BACKGROUND_ART[G.chapterId];
-    const hasBackgroundArt = bgBasename !== undefined;
-    const bgKey = `${bgBasename}-bg`;
+    const bgFile = CHAPTERS_WITH_BACKGROUND_ART[G.chapterId];
+    const hasBackgroundArt = bgFile !== undefined;
+    const bgKey = `${bgFile}-bg`;
 
     if (hasBackgroundArt && this.textures.exists(bgKey)) {
       const boardWidth = G.width * this.tileSize;
