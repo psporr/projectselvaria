@@ -17,7 +17,7 @@ import {
 } from './combat';
 import { BLESSINGS, drawBlessings } from './blessings';
 import { spawnWave } from './waves';
-import { EXP_PER_ATTACK, EXP_PER_HEAL, EXP_PER_KILL, grantExp as grantExpToUnit } from './classes';
+import { canPromote, EXP_PER_ATTACK, EXP_PER_HEAL, EXP_PER_KILL, grantExp as grantExpToUnit, promoteUnit } from './classes';
 import { effectiveStats, equippedKillHeal, ITEMS, rollDrop, type DropRandomAPI } from './equipment';
 import {
   CURSE_DEBUFF_DEF,
@@ -560,14 +560,34 @@ export const unequipItem = ({ G, ctx }: { G: GameState; ctx: Ctx }, unitId: stri
 };
 
 /**
- * Applies the chosen blessing, resets the squad to their start tiles, and
- * spawns the next wave. Only valid right after a wave is cleared, and only
- * for one of the 3 ids actually offered this pause (drawn in
- * checkWaveCleared) — not just any id in the full 20-strong pool.
+ * Advances the wave counter and spawns the next wave — the shared tail of
+ * the wave-clear pause once every step (blessing, and promotion if anyone
+ * was eligible) has resolved. If the last enemy fell during the enemy's own
+ * turn (e.g. a counterattack), also force-ends that turn so the fresh
+ * wave's enemies don't get immediately auto-played by the CPU before the
+ * player has a turn.
+ */
+function finishWaveTransition(G: GameState, ctx: Ctx, events: EndTurnAPI, random: ShuffleAPI): void {
+  G.wave += 1;
+  spawnWave(G, G.wave, random);
+  pushLog(G, `— Wave ${G.wave} —`);
+
+  if (teamOf(ctx.currentPlayer) !== 'player') {
+    events.endTurn?.();
+  }
+}
+
+/**
+ * Applies the chosen blessing and resets the squad to their start tiles.
+ * Only valid right after a wave is cleared, and only for one of the 3 ids
+ * actually offered this pause (drawn in checkWaveCleared) — not just any id
+ * in the full 20-strong pool.
  *
- * If the last enemy fell during the enemy's own turn (e.g. a counterattack),
- * this also force-ends that turn so the fresh wave's enemies don't get
- * immediately auto-played by the CPU before the player has a turn.
+ * Doesn't spawn the next wave directly — if any player unit is now eligible
+ * to promote (classes.ts's canPromote), it pauses on `awaitingPromotion`
+ * instead so the player can act on that first; resolvePromotions carries on
+ * from there via the shared finishWaveTransition tail. If nobody's
+ * eligible, this calls it directly, same as before promotion existed.
  */
 export const chooseBlessing = (
   { G, ctx, events, random }: { G: GameState; ctx: Ctx; events: EndTurnAPI; random: ShuffleAPI },
@@ -595,15 +615,44 @@ export const chooseBlessing = (
   }
 
   G.modifiers.guardianAngelCharges = G.modifiers.guardianAngelMax;
-  G.wave += 1;
-  spawnWave(G, G.wave, random);
   G.awaitingBlessing = false;
   G.offeredBlessingIds = [];
-  pushLog(G, `— Wave ${G.wave} —`);
 
-  if (teamOf(ctx.currentPlayer) !== 'player') {
-    events.endTurn?.();
+  const eligible = unitsOf(G, 'player').filter(canPromote);
+  if (eligible.length > 0) {
+    G.awaitingPromotion = true;
+    G.promotionEligibleUnitIds = eligible.map((unit) => unit.id);
+    return;
   }
+
+  finishWaveTransition(G, ctx, events, random);
+};
+
+/**
+ * Resolves the post-blessing promotion pause: promotes every unit id passed
+ * (each checked against promotionEligibleUnitIds, so a stale or forged id is
+ * silently ignored rather than crashing), then always continues to the next
+ * wave via finishWaveTransition — passing an empty array is a valid
+ * "promote nobody, continue" skip. Only valid while awaitingPromotion.
+ */
+export const resolvePromotions = (
+  { G, ctx, events, random }: { G: GameState; ctx: Ctx; events: EndTurnAPI; random: ShuffleAPI },
+  unitIds: string[],
+) => {
+  if (!G.awaitingPromotion) return INVALID_MOVE;
+
+  for (const id of unitIds) {
+    if (!G.promotionEligibleUnitIds.includes(id)) continue;
+    const unit = G.units[id];
+    if (!unit) continue;
+    const fromClass = unit.className;
+    promoteUnit(unit);
+    pushLog(G, `${unit.name} is promoted: ${fromClass} -> ${unit.className}!`);
+  }
+
+  G.awaitingPromotion = false;
+  G.promotionEligibleUnitIds = [];
+  finishWaveTransition(G, ctx, events, random);
 };
 
 const moves: MoveMap<GameState> = {
@@ -612,6 +661,7 @@ const moves: MoveMap<GameState> = {
   waitUnit,
   useSkill,
   chooseBlessing,
+  resolvePromotions,
   equipItem,
   unequipItem,
 };

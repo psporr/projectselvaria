@@ -141,3 +141,51 @@ export function grantExp(unit: Unit, amount: number, onLevelUp?: (unit: Unit) =>
     onLevelUp?.(unit);
   }
 }
+
+/** A unit must reach this level (in its current class) before it's eligible to promote. */
+export const PROMOTION_LEVEL = 10;
+
+/**
+ * Base -> advanced class pairs (2026-08-27). Deliberately empty — the
+ * pairing itself is a separate design decision not yet made; every function
+ * below already works correctly against an empty table (nothing is ever
+ * eligible, so the feature ships dormant). Filling in a pair here is the
+ * entire integration step once pairing is decided, same "just add data"
+ * pattern as heroArt.ts's named-hero lookup.
+ */
+export const PROMOTES_TO: Partial<Record<ClassName, ClassName>> = {};
+
+/** Whether `unit` can promote right now — player-only, level-gated, and only if its class has an advanced form. */
+export function canPromote(unit: Unit): boolean {
+  return unit.team === 'player' && unit.level >= PROMOTION_LEVEL && PROMOTES_TO[unit.className] !== undefined;
+}
+
+/**
+ * Promotes `unit` in place: swaps its class to `PROMOTES_TO`'s pair, resets
+ * to level 1 on the new class's curve, and fully heals — matching classic
+ * FE promotion feel (a real jump, not a continuation of the old curve).
+ * `SKILLS[unit.className]` (skills.ts) is already keyed by class, so the
+ * unit's active skill swaps automatically with no separate step. Resets
+ * skillCooldown/debuffDef/debuffTurns too, so a promoted unit starts its
+ * new loadout fresh rather than carrying over old-class leftovers.
+ * Caller's responsibility to have checked `canPromote` first.
+ */
+export function promoteUnit(unit: Unit): void {
+  const nextClass = PROMOTES_TO[unit.className];
+  if (!nextClass) return;
+  unit.className = nextClass;
+  unit.level = 1;
+  unit.exp = 0;
+  const stats = statsAtLevel(nextClass, 1);
+  unit.maxHp = stats.maxHp;
+  unit.atk = stats.atk;
+  unit.def = stats.def;
+  unit.move = stats.move;
+  unit.range = stats.range;
+  unit.hit = stats.hit;
+  unit.crit = stats.crit;
+  unit.hp = stats.maxHp;
+  unit.skillCooldown = 0;
+  unit.debuffDef = 0;
+  unit.debuffTurns = 0;
+}

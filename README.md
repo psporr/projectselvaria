@@ -139,6 +139,39 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-27 Claude: Class promotion, part 1 of 2 (roguelike wave-end).
+  Reworked the class system toward base -> advanced pairs: promoting
+  swaps a unit's class entirely (stats reset to the new class's level 1,
+  full heal, its one active skill swaps automatically since `SKILLS` is
+  already keyed by class — `classes.ts`'s new `promoteUnit`). Gated at
+  level 10 (`PROMOTION_LEVEL`) and only for a class with an entry in
+  `PROMOTES_TO` — that table ships **empty on purpose**; which classes
+  pair into which is a separate decision not made yet, so the feature is
+  fully wired but dormant until it's filled in (a one-line data edit,
+  same pattern as `heroArt.ts`'s named-hero lookup).
+  The prompt appears after a wave clears, following the blessing pick —
+  `chooseBlessing` (`game.ts`) now pauses on a new `awaitingPromotion`
+  flag instead of spawning the next wave directly, if anyone's eligible;
+  a new `resolvePromotions` move (mirrors `chooseBlessing`'s structure)
+  promotes whichever units the player selects — all eligible units at
+  once, not one-at-a-time — then continues, via a `finishWaveTransition`
+  helper both moves now share. New `PromotionPicker` UI (`src/ui/`)
+  mirrors `BlessingPicker`'s container/show/hide pattern but as a
+  multi-select checklist instead of pick-one.
+  Verified two ways: `npm run typecheck`/`build`/`sim -- --batch
+  30`/`validate-maps` all clean and identical to the pre-change baseline
+  (expected — an empty `PROMOTES_TO` means no unit is ever eligible, so
+  `chooseBlessing` takes the exact same code path as before). Then, with
+  a throwaway temporary seed (`PROMOTION_LEVEL = 5`, one temp pairing)
+  and a small headless script driving the real `Client`/moves
+  end-to-end (not part of the repo, deleted after), confirmed the whole
+  pipeline for real: eligibility detection, the pause, `resolvePromotions`
+  correctly promoting multiple units in one call with correct new
+  stats/skill/full-heal, and the wave correctly advancing afterward.
+  Campaign mode's end-of-chapter promotion (the other locked-in trigger
+  point) is a separate, larger piece — campaign mode has no live
+  chapter-to-chapter flow at all yet (see the entry below) — tracked
+  separately, not done here.
 - 2026-08-26 Claude: Jill's portrait was replaced with a proper 150×250
   portrait-shaped crop (supplied directly, not Claude's earlier square
   crop). `UnitStatusBar`'s portrait slot was forcing every portrait/sprite

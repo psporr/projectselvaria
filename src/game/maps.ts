@@ -224,6 +224,8 @@ export function buildGameState(
     },
     fallenUnits: [],
     offeredBlessingIds: [],
+    awaitingPromotion: false,
+    promotionEligibleUnitIds: [],
   };
 }
 

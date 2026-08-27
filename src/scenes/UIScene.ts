@@ -13,6 +13,7 @@ import { EquipScreen } from '../ui/EquipScreen';
 import { ForecastPanel } from '../ui/ForecastPanel';
 import { LogPanel } from '../ui/LogPanel';
 import { PhaseBanner } from '../ui/PhaseBanner';
+import { PromotionPicker, type PromotionCandidate } from '../ui/PromotionPicker';
 import { SystemMenu, type SystemMenuChoice, type SystemMenuOption } from '../ui/SystemMenu';
 import { UnitStatusBar } from '../ui/UnitStatusBar';
 import { Button, COLORS, FONT_FAMILY } from '../ui/kit';
@@ -49,6 +50,7 @@ export class UIScene extends Scene {
   actionMenu!: ActionMenu;
   forecastPanel!: ForecastPanel;
   blessingPicker!: BlessingPicker;
+  promotionPicker!: PromotionPicker;
   equipScreen!: EquipScreen;
   systemMenu!: SystemMenu;
   phaseBanner!: PhaseBanner;
@@ -160,6 +162,7 @@ export class UIScene extends Scene {
     this.forecastPanel = new ForecastPanel(this);
     this.actionMenu = new ActionMenu(this);
     this.blessingPicker = new BlessingPicker(this);
+    this.promotionPicker = new PromotionPicker(this);
     this.equipScreen = new EquipScreen(this, this.client);
     this.systemMenu = new SystemMenu(this);
     this.phaseBanner = new PhaseBanner(this);
@@ -266,6 +269,10 @@ export class UIScene extends Scene {
 
   showBlessingPicker(blessings: Blessing[], onPick: (id: string) => void): void {
     this.blessingPicker.show(blessings, onPick);
+  }
+
+  showPromotionPicker(candidates: PromotionCandidate[], onConfirm: (unitIds: string[]) => void): void {
+    this.promotionPicker.show(candidates, onConfirm);
   }
 
   showLogPanel(log: string[]): void {

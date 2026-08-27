@@ -66,19 +66,13 @@ was used to confirm the roguelike loop survives 7+ waves.
 
 ### Classes
 
-Seven classes. A unit's class fully determines its base stats — player and
-enemy units of the same class share identical numbers, so balance lives in one
-table.
-
-| Class | HP | Atk | Def | Move | Range |
-| --- | --- | --- | --- | --- | --- |
-| Swordsman | 24 | 9 | 5 | 3 | 1 |
-| Archer | 18 | 8 | 3 | 3 | 2 |
-| Lancer | 22 | 8 | 6 | 3 | 1 |
-| Mage | 16 | 9 | 2 | 3 | 2 |
-| Barbarian | 27 | 11 | 3 | 3 | 1 |
-| Cleric | 18 | 6 | 4 | 3 | 1 |
-| Dancer | 16 | 6 | 2 | 4 | 1 |
+A unit's class fully determines its base stats — player and enemy units of
+the same class share identical numbers, so balance lives in one table.
+**This section is stale on the exact roster** (written when there were 7;
+`src/game/classes.ts`'s `CLASS_STATS` is the source of truth — 12 as of
+2026-08-26, five more added alongside anonymous enemy-class art, see
+README's "Recent changes"). The shape below (one class = one skill = one
+stat line) still holds for all of them.
 
 ### Levelling
 
@@ -91,6 +85,32 @@ table.
 - Player squad starts at **level 5**; a fresh wave-1 enemy is level 1.
 - In campaign Chapter Select, a directly-picked chapter starts the squad at
   `5 + chapterIndex` so jumping to a later chapter isn't under-levelled.
+
+### Promotion (2026-08-27)
+
+Base -> advanced class pairs. `classes.ts`'s `PROMOTES_TO` maps a class to
+what it promotes into — **ships empty**, since which of the 12 classes pair
+into which is a separate design decision from the mechanism itself; filling
+it in is a one-line data edit (same "just add data" pattern as `heroArt.ts`'s
+named-hero art lookup). A unit is eligible once it's player-controlled,
+level 10+ (`PROMOTION_LEVEL`), and its class has a `PROMOTES_TO` entry.
+Promoting (`promoteUnit`) swaps its class outright — level resets to 1 on
+the new class's curve, a full heal, and its one active skill changes with
+it (`SKILLS` is keyed by class, so this needs no separate skill-swap step).
+No additive skills, no partial carry-over of the old class — this is a
+clean class change, not a stat bonus layered on top.
+
+Two trigger points, both level-gated the same way:
+- **End of wave** (roguelike) — live and working. `chooseBlessing` pauses
+  on `G.awaitingPromotion` after the blessing's picked, if anyone's
+  eligible, instead of spawning the next wave directly; `resolvePromotions`
+  (a new move) promotes whichever units the player selects — every
+  eligible unit can be promoted in the same pass, not one-at-a-time — then
+  spawns the next wave. `PromotionPicker` (`src/ui/`) is the checklist UI,
+  built off `BlessingPicker`'s same container/show/hide pattern.
+- **End of chapter** (campaign) — not built yet. Needs campaign mode's
+  chapter-to-chapter pipeline first (§4 below describes what that's
+  missing) — tracked as a separate, larger piece of work.
 
 ### Combat
 

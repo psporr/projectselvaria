@@ -2,6 +2,7 @@ import { GameObjects, Scene, Time, Tweens } from 'phaser';
 
 import { BLESSINGS, type Blessing } from '../game/blessings';
 import { decideAction } from '../game/ai';
+import { PROMOTES_TO } from '../game/classes';
 import { forecastCombat } from '../game/combat';
 import { computeReachable, computeThreatTiles, quickAttackPositions, targetsFrom, terrainAt, tileKey, unitsOf } from '../game/grid';
 import { ITEMS } from '../game/equipment';
@@ -13,6 +14,7 @@ import { applyDprZoom, DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import type { ActionMenuChoice, ActionMenuOption } from '../ui/ActionMenu';
 import { formatAttackForecast } from '../ui/ForecastPanel';
 import type { SystemMenuChoice, SystemMenuOption } from '../ui/SystemMenu';
+import type { PromotionCandidate } from '../ui/PromotionPicker';
 import {
   heroSpriteBasename,
   heroTextureKey,
@@ -138,6 +140,8 @@ export class TacticalScene extends Scene {
   private pendingDestination: { x: number; y: number } | null = null;
   /** Guards against re-opening the blessing picker on every state change while it's already up. */
   private blessingPickerOpen = false;
+  /** Same guard as blessingPickerOpen, for the promotion checklist that can follow it. */
+  private promotionPickerOpen = false;
   /** Set by UIScene while a screen not driven by `mode` (the equip screen) is open, so a board tap underneath does nothing. */
   private inputSuspended = false;
   /**
@@ -198,6 +202,7 @@ export class TacticalScene extends Scene {
     this.selectedUnitId = null;
     this.pendingDestination = null;
     this.blessingPickerOpen = false;
+    this.promotionPickerOpen = false;
     this.inputSuspended = false;
     this.enemyPhaseIntroDone = null;
 
@@ -920,6 +925,27 @@ export class TacticalScene extends Scene {
         this.ui.showBlessingPicker(offered, (id) => {
           this.blessingPickerOpen = false;
           this.client.moves.chooseBlessing(id);
+        });
+      });
+      return;
+    }
+
+    if (G.awaitingPromotion) {
+      if (this.promotionPickerOpen) return;
+      this.promotionPickerOpen = true;
+      this.time.delayedCall(BLESSING_DELAY_MS, () => {
+        const fresh = this.client.getState();
+        if (!fresh || !fresh.G.awaitingPromotion) {
+          this.promotionPickerOpen = false;
+          return;
+        }
+        const candidates: PromotionCandidate[] = fresh.G.promotionEligibleUnitIds
+          .map((id) => fresh.G.units[id])
+          .filter((unit): unit is Unit => unit !== undefined)
+          .map((unit) => ({ unitId: unit.id, name: unit.name, fromClass: unit.className, toClass: PROMOTES_TO[unit.className]! }));
+        this.ui.showPromotionPicker(candidates, (unitIds) => {
+          this.promotionPickerOpen = false;
+          this.client.moves.resolvePromotions(unitIds);
         });
       });
       return;

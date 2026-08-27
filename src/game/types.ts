@@ -157,6 +157,10 @@ export interface GameState {
   fallenUnits: Unit[];
   /** The 3 blessing ids drawn for the current wave-clear pause; empty until the first one. */
   offeredBlessingIds: string[];
+  /** True after a blessing's been picked, while any level-10+ unit still has an unresolved promotion offer for this wave-clear pause. */
+  awaitingPromotion: boolean;
+  /** Player unit ids offered promotion this wave-clear pause; empty unless awaitingPromotion. */
+  promotionEligibleUnitIds: string[];
 }
 
 /** boardgame.io player IDs mapped onto the two sides of a battle. */
