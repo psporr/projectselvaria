@@ -130,14 +130,6 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 *(Add a line here when you start something. Format: `- [Name] what, since when`.)*
 
-- [Claude] Class tree rework, since 2026-08-27 — 3 sequenced parts (user
-  confirmed): Part 1 (multi-skill infra) and Part 2 (branching promotion
-  infra) shipped, see "Recent changes". Next is Part 3 (new class content:
-  a Fighter base class plus 9 new advanced classes, full `PROMOTES_TO`
-  tree lit up with real branches, Jill reclassed Barbarian -> Fighter).
-  Plan at the time of writing lives in this session's plan-mode history if
-  needed, but each part is independently verified and shipped, so treat
-  the code + this log as the source of truth over any stale plan text.
 - [Claude] Graphical art pass — blocked on custom art being commissioned
   (unit sprites first, terrain tileset held to ship together with them,
   portraits after that). See `ART_BRIEF.md` for the spec handed to the
@@ -150,8 +142,63 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-27 Claude: New class content (class tree rework, Part 3 of 3 —
+  the rework is now complete). Added a **Fighter** base class plus 9 new
+  advanced classes (Swordmaster, Sniper, Lancemaster, Sorcerer, Sage,
+  Priest, Hero, Berserker, Axe Master — `classes.ts`'s `CLASS_STATS`, 22
+  classes total now) and wired the full promotion tree (`PROMOTES_TO`):
+  Swordsman->[Swordmaster], Archer->[Sniper], Lancer->[Lancemaster,
+  General], Mage->[Sorcerer, Sage], Cleric->[Priest], Mercenary->[Hero],
+  Thief->[Assassin] (unchanged), Fighter->[Berserker, Axe Master] — Lancer
+  and Mage are the first real branch points, proving Part 2's mechanism on
+  actual content. Jill reclasses Barbarian -> Fighter (all 6 chapters,
+  `maps.ts`) so she has a promotion path — Barbarian is now enemy-only.
+  Each new class got a new skill (`skills.ts`): Heavy Swing, Triple Strike,
+  Deadeye, Armor Pierce, Meteor, Sanctuary, Vital Strike, Bloodlust, True
+  Strike, plus **Sage's two independent skills** (Arcane Bolt + Arcane
+  Ward) — the first class to actually use Part 1's multi-skill capacity.
+  Arcane Ward is also the game's first **buff** mechanic: `Unit.buffAtk`/
+  `buffTurns`, folded into `effectiveStats()` and decremented in
+  `turn.onBegin`, mirroring Curse's existing debuff shape but positive-sign
+  and self-targeted. `CLASS_LETTER` (`classIcons.ts`) got the 10 new
+  letters; no enemy art is wired for any of them yet, so they render with
+  the existing circle+letter placeholder, same as every class that's
+  launched before its art existed.
+  **Found and fixed a real bug while verifying, not part of the plan**:
+  `npm run sim`'s headless AI harness never handled `G.awaitingPromotion`
+  (only `G.awaitingBlessing`) — harmless while only Thief->Assassin
+  existed (rarely reachable within a sim's short window), but now that
+  *every* starting class can promote, a run reliably stalls forever the
+  moment any unit dings level 10, since the paused wave-clear never
+  resolves. Fixed by having the sim decline every promotion offered
+  (`resolvePromotions([])`, a fully valid "skip" already built into the
+  move) rather than auto-accepting one — auto-accepting was tried first
+  and made 87% of runs *wipe*, because promoting resets a unit to level 1
+  (a locked design decision from earlier this session, "matching classic
+  FE promotion feel") and the advanced classes' level-1 base stats don't
+  come close to covering what a level-10 unit in the old class had grown
+  — a real, working-as-designed trade a player would need to time
+  carefully, but not one a dumb "always promote" heuristic should be
+  exercising when the point of this batch is measuring baseline survival.
+  Verified: `typecheck`/`build`/`validate-maps` clean; `sim -- --batch 30`
+  matches the historical baseline exactly (30/30 wave cap, wave 7 min/
+  median/mean/max) with promotions declined, confirming the new content
+  doesn't silently reshape roguelike difficulty on its own. A temporary
+  script (deleted after, not committed) exercised the real new content
+  directly: Jill spawns as Fighter with the documented stats; the full
+  branch tree is live (Lancer/Mage/Fighter each show 2 options, Barbarian/
+  Dancer/Dark Mage still show none); promoting a Mage to each of Sorcerer
+  and Sage independently produces the right resulting class and level-1
+  stats; Sage's two skills are on independent cooldowns (using one leaves
+  the other's cooldown untouched); and `effectiveStats()` correctly folds
+  in Arcane Ward's buffAtk. Playwright (temporary source edits, reverted
+  after — a real hero briefly set to Sage, a debug call to pop the
+  branch-picker with real Mage options) confirmed the picker renders a
+  real 2-branch class correctly and that the status bar's 2-skill layout
+  (built generically back in Part 1, never previously exercised by a real
+  2-skill class) actually renders both rows without overlap.
 - 2026-08-27 Claude: Branching promotion infrastructure (class tree
-  rework, Part 2 of 3 — see "In progress"). `PROMOTES_TO`
+  rework, Part 2 of 3 — Part 3 below finishes the rework). `PROMOTES_TO`
   (`src/game/classes.ts`) changed from `Partial<Record<ClassName,
   ClassName>>` to `Partial<Record<ClassName, ClassName[]>>` — a base class
   can now offer more than one advanced option (nothing does yet; today's

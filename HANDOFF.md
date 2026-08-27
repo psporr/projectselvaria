@@ -69,8 +69,9 @@ was used to confirm the roguelike loop survives 7+ waves.
 A unit's class fully determines its base stats — player and enemy units of
 the same class share identical numbers, so balance lives in one table.
 **This section is stale on the exact roster** (written when there were 7;
-`src/game/classes.ts`'s `CLASS_STATS` is the source of truth — 12 as of
-2026-08-26, five more added alongside anonymous enemy-class art, see
+`src/game/classes.ts`'s `CLASS_STATS` is the source of truth — 22 as of
+2026-08-27, when the class-tree rework's Part 3 added a Fighter base class
+plus 9 new advanced classes reached only through `PROMOTES_TO`, see
 README's "Recent changes"). The shape below (one class = one skill = one
 stat line) still holds for all 12 of them, but is no longer a hard rule of
 the engine — `SKILLS` (`src/game/skills.ts`) is keyed to an *array* of
@@ -94,17 +95,19 @@ carry more than one active skill with no further infrastructure work.
 
 Base -> advanced class **options** — `classes.ts`'s `PROMOTES_TO` maps a
 class to an *array* of classes it can promote into (branching as of
-2026-08-27's class-tree rework; was a single fixed class before that).
-**Thief -> [Assassin] is the first, and so far only, live entry**, wired
-2026-08-27; the rest of the 12-class roster is still unpaired, a separate
-design decision from the mechanism itself, filled in one entry at a time
-(same "just add data" pattern as `heroArt.ts`'s named-hero art lookup) —
-when a base class gets more than one option (e.g. a future Lancer ->
-Lancemaster/General split), the mechanism already supports it with no
-further code changes, just a longer array. Marisa joined the 6-hero
-starting lineup as a Thief specifically so this pair is reachable in a
-real playthrough (see maps.ts's roster doc comment and README's "Recent
-changes"). A unit is eligible once it's player-controlled, level 10+
+2026-08-27's class-tree rework; was a single fixed class before that). As
+of Part 3 (2026-08-27) the full tree is live: Swordsman -> [Swordmaster],
+Archer -> [Sniper], Lancer -> [Lancemaster, General], Mage -> [Sorcerer,
+Sage], Cleric -> [Priest], Mercenary -> [Hero], Thief -> [Assassin],
+Fighter -> [Berserker, Axe Master]. Barbarian, Dancer, and Dark Mage have
+no entry (no promotion) — Barbarian and Dark Mage are reserved for enemy
+use going forward, matching Jill's move off Barbarian onto the new Fighter
+base class specifically so she'd have a promotion path (maps.ts's roster
+doc comment). Lancer and Mage are the first real branch points, proving
+the multi-option mechanism on real content, not just a throwaway test
+pairing. Marisa is Thief specifically so Thief -> Assassin (the original,
+2026-08-27, single-option pair) is reachable by leveling a real roster
+member. A unit is eligible once it's player-controlled, level 10+
 (`PROMOTION_LEVEL`), and its class has at least one `PROMOTES_TO` option.
 Promoting (`promoteUnit(unit, toClass)`) swaps its class outright to the
 player's chosen branch (`toClass` must be one of `PROMOTES_TO[unit
@@ -121,6 +124,19 @@ branching existed), a unit with multiple options renders them side by
 side, mutually exclusive within that unit's row (tapping a branch again
 deselects it) — selection is `Map<unitId, ClassName>`, confirmed as
 `{unitId, toClass}[]` to `resolvePromotions`.
+
+**Worth knowing**: because `LEVEL_GROWTH` is flat and identical for every
+class (+1 Atk, +1 Def, +2 max HP/level), a unit promoted right at level 10
+takes a real *drop* in raw stats — a level-10 base class's grown stats
+regularly beat an advanced class's level-1 base outright (e.g. a level-10
+Thief's grown Def is 11; Assassin's level-1 base Def is 2). This is
+working as designed (the locked "level resets to 1... matching classic FE
+promotion feel" decision), not a bug, but it means promoting isn't a free
+power spike the instant it's available — timing it (e.g. right before a
+blessing pause, not mid-fight) matters. `npm run sim`'s AI harness
+deliberately declines every promotion offered for exactly this reason —
+see README's "Recent changes" for how discovering this shaped that
+harness fix.
 
 Two trigger points, both level-gated the same way:
 - **End of wave** (roguelike) — live and working. `chooseBlessing` pauses
@@ -224,12 +240,17 @@ build time, keeping ASCII as the authoring format.
 
 ### Skills
 
-One signature active skill per class, usable from level 1, **3-turn cooldown**
-(as of 2026-08-27, `SKILLS: Record<ClassName, SkillDef[]>` — every class
-still has exactly one entry, but a class *can* carry more than one, each
-tracked on its own cooldown via `Unit.skillCooldowns[skillId]`; the action
-menu lists one option per skill automatically).
-Designed so each breaks a *different* rule rather than being a stat tweak:
+One (or, since Part 3 of the class-tree rework, occasionally more) signature
+active skill per class, usable from level 1, **3-turn cooldown**
+(`SKILLS: Record<ClassName, SkillDef[]>` — a class with more than one entry
+tracks each on its own cooldown via `Unit.skillCooldowns[skillId]`; the
+action menu lists one option per skill automatically). **Sage is the first
+2-skill class**, proving that infrastructure on real content rather than
+just a test case.
+Designed so each breaks a *different* rule rather than being a stat tweak.
+**This table is stale/incomplete on the exact roster** (`src/game/skills.ts`'s
+`SKILLS` is the source of truth, 13 classes/14 skills as of 2026-08-27) —
+the base-class skills from the original 7-class design:
 
 | Class | Skill | Effect |
 | --- | --- | --- |
@@ -240,6 +261,18 @@ Designed so each breaks a *different* rule rather than being a stat tweak:
 | Archer | Snipe | +1 range, +4 damage, target cannot counter |
 | Mage | Nova | Plus-shaped 5-tile blast, ×0.6 damage each |
 | Barbarian | Rampage | Normal attack; **a kill refunds the turn** |
+
+...plus the 10 classes added in Part 3 (2026-08-27) — Fighter's Heavy Swing
+(bonus damage, reduced Hit), Swordmaster's Triple Strike (Sword Dance's
+loop, 3 hits), Sniper's Deadeye (Snipe + bonus crit), Lancemaster's Armor
+Pierce (ignores flat real Def, not just terrain), Sorcerer's Meteor (Nova's
+blast, harder), Sage's **two** skills Arcane Bolt (Snipe-shaped) + Arcane
+Ward (self +Atk buff — the first buff mechanic, mirrors Curse's debuff
+shape via `Unit.buffAtk`/`buffTurns`), Priest's Sanctuary (Nova's blast
+geometry, heals instead of hits), Hero's Vital Strike (attack + self-heal),
+Berserker's Bloodlust (bonus damage scaling with its *own* missing HP — the
+mirror of Execute, which reads the target's), and Axe Master's True Strike
+(Hit forced to 100). General's Shield Slam is unchanged.
 
 ### Equipment
 

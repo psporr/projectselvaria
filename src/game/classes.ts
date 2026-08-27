@@ -17,7 +17,20 @@ export type ClassName =
   | 'Thief'
   | 'Assassin'
   | 'Mercenary'
-  | 'Dark Mage';
+  | 'Dark Mage'
+  // Class-tree rework Part 3 (2026-08-27) — a new base class (Fighter) plus
+  // 9 new advanced classes, see PROMOTES_TO below for which base each
+  // branches from.
+  | 'Fighter'
+  | 'Swordmaster'
+  | 'Sniper'
+  | 'Lancemaster'
+  | 'Sorcerer'
+  | 'Sage'
+  | 'Priest'
+  | 'Hero'
+  | 'Berserker'
+  | 'Axe Master';
 
 export interface ClassStats {
   maxHp: number;
@@ -66,8 +79,41 @@ export const CLASS_STATS: Record<ClassName, ClassStats> = {
   Assassin: { maxHp: 14, atk: 10, def: 2, move: 4, range: 1, hit: 75, crit: 35 },
   Mercenary: { maxHp: 20, atk: 8, def: 4, move: 3, range: 1, hit: 90, crit: 12 },
   'Dark Mage': { maxHp: 16, atk: 8, def: 3, move: 3, range: 2, hit: 85, crit: 5 },
+  // Class-tree rework Part 3 (2026-08-27) — Fighter is a new axe-wielding
+  // base class; the other 9 are advanced classes reached only through
+  // PROMOTES_TO (below) — see ALL_CLASSES's doc comment for why they're
+  // deliberately excluded from the random-enemy pool. See skills.ts's
+  // SKILLS for each one's active skill.
+  Fighter: { maxHp: 26, atk: 10, def: 4, move: 3, range: 1, hit: 75, crit: 15 },
+  Swordmaster: { maxHp: 28, atk: 11, def: 6, move: 4, range: 1, hit: 90, crit: 25 },
+  Sniper: { maxHp: 20, atk: 11, def: 4, move: 3, range: 2, hit: 95, crit: 20 },
+  Lancemaster: { maxHp: 25, atk: 11, def: 7, move: 4, range: 1, hit: 82, crit: 12 },
+  Sorcerer: { maxHp: 19, atk: 12, def: 3, move: 3, range: 2, hit: 85, crit: 8 },
+  Sage: { maxHp: 20, atk: 10, def: 4, move: 3, range: 2, hit: 85, crit: 5 },
+  Priest: { maxHp: 22, atk: 8, def: 6, move: 3, range: 1, hit: 85, crit: 5 },
+  Hero: { maxHp: 25, atk: 10, def: 6, move: 3, range: 1, hit: 92, crit: 14 },
+  Berserker: { maxHp: 30, atk: 13, def: 3, move: 3, range: 1, hit: 60, crit: 30 },
+  'Axe Master': { maxHp: 29, atk: 11, def: 6, move: 3, range: 1, hit: 88, crit: 18 },
 };
 
+/**
+ * The pool `spawnWave` (waves.ts) and `buildGameState`'s `randomClass: true`
+ * units (maps.ts) draw from for a fresh enemy — every class here can appear
+ * as a random, unpromoted, wave-1-strength mob.
+ *
+ * Deliberately **not** every `ClassName`: the 9 advanced classes added in
+ * the class-tree rework's Part 3 (2026-08-27) run noticeably stronger than
+ * the base 12 on average (they're tuned as a *promotion's* payoff, roughly
+ * a tier up) — confirmed the hard way, `npm run sim -- --batch 30` went
+ * from the established 0% wipe / 100% wave-cap baseline to a 100% wipe
+ * rate the one time all 9 were included here (see README's "Recent
+ * changes" for the full before/after). They stay reachable only through
+ * `PROMOTES_TO`, never as a random spawn — Assassin/Mercenary already being
+ * in this pool isn't a counter-precedent, they're only 2 of 12 there, not
+ * 9 of 22 here. Fighter is the one Part-3 addition that DOES belong in this
+ * pool — it's a base class, stat-of-a-piece with the original 12, not a
+ * promotion payoff.
+ */
 export const ALL_CLASSES: ClassName[] = [
   'Swordsman',
   'Archer',
@@ -81,6 +127,7 @@ export const ALL_CLASSES: ClassName[] = [
   'Assassin',
   'Mercenary',
   'Dark Mage',
+  'Fighter',
 ];
 
 /**
@@ -156,7 +203,17 @@ export const PROMOTION_LEVEL = 10;
  * pattern as heroArt.ts's named-hero lookup.
  */
 export const PROMOTES_TO: Partial<Record<ClassName, ClassName[]>> = {
+  Swordsman: ['Swordmaster'],
+  Archer: ['Sniper'],
+  Lancer: ['Lancemaster', 'General'],
+  Mage: ['Sorcerer', 'Sage'],
+  Cleric: ['Priest'],
+  Mercenary: ['Hero'],
   Thief: ['Assassin'],
+  Fighter: ['Berserker', 'Axe Master'],
+  // Barbarian, Dancer, and Dark Mage have no promotion — Barbarian and Dark
+  // Mage are reserved for enemy use going forward, Dancer's utility kit
+  // doesn't have an obvious advanced form yet.
 };
 
 /** Whether `unit` can promote right now — player-only, level-gated, and only if its class has at least one advanced option. */
@@ -172,8 +229,9 @@ export function canPromote(unit: Unit): boolean {
  * promotion feel (a real jump, not a continuation of the old curve).
  * `SKILLS[unit.className]` (skills.ts) is already keyed by class, so the
  * unit's active skill(s) swap automatically with no separate step. Resets
- * skillCooldowns/debuffDef/debuffTurns too, so a promoted unit starts its
- * new loadout fresh rather than carrying over old-class leftovers.
+ * skillCooldowns/debuffDef/debuffTurns/buffAtk/buffTurns too, so a promoted
+ * unit starts its new loadout fresh rather than carrying over old-class
+ * leftovers.
  * Caller's responsibility to have checked `canPromote` first.
  */
 export function promoteUnit(unit: Unit, toClass: ClassName): void {
@@ -195,4 +253,6 @@ export function promoteUnit(unit: Unit, toClass: ClassName): void {
   unit.skillCooldowns = {};
   unit.debuffDef = 0;
   unit.debuffTurns = 0;
+  unit.buffAtk = 0;
+  unit.buffTurns = 0;
 }

@@ -53,11 +53,17 @@ interface UnitPlacement {
 }
 
 /**
- * Player roster (2026-08-27, reshuffled): Jill (Barbarian), Marisa (Thief),
+ * Player roster (2026-08-27, reshuffled): Jill (Fighter), Marisa (Thief),
  * Ephraim (Lancer), Lyn (Archer), Solen (Mage), Natasha (Cleric) — 6 named
  * heroes with real map art (`heroArt.ts`), repeated with per-chapter spawn
  * coordinates across every chapter below. One hero per class again, no
  * duplicates.
+ *
+ * Jill moved from Barbarian to the new Fighter base class (2026-08-27,
+ * class-tree rework Part 3) — Barbarian has no promotion and was reserved
+ * for enemy use going forward (`classes.ts`'s `PROMOTES_TO`), so Jill needed
+ * a promotable base class to be eligible for the new Berserker/Axe Master
+ * branch like the rest of the roster is eligible for their own.
  *
  * Marisa is Thief specifically so `classes.ts`'s first wired promotion pair
  * (Thief -> Assassin) is actually reachable by leveling a real roster
@@ -199,6 +205,8 @@ export function buildGameState(
       skillCooldowns: {},
       debuffDef: 0,
       debuffTurns: 0,
+      buffAtk: 0,
+      buffTurns: 0,
     };
   }
 
@@ -271,7 +279,7 @@ export const CHAPTER_1: ChapterDef = {
     { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Archer', x: 0, y: 6 },
     { id: 'solen', name: 'Solen', team: 'player', className: 'Mage', x: 6, y: 6 },
     { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 0, y: 7 },
-    { id: 'jill', name: 'Jill', team: 'player', className: 'Barbarian', x: 5, y: 7 },
+    { id: 'jill', name: 'Jill', team: 'player', className: 'Fighter', x: 5, y: 7 },
     { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 6, y: 7 },
     { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 1, y: 0 },
     { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 4, y: 0 },
@@ -329,7 +337,7 @@ export const CAMPAIGN_CHAPTER_1: ChapterDef = {
     { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Archer', x: 0, y: 6 },
     { id: 'solen', name: 'Solen', team: 'player', className: 'Mage', x: 6, y: 6 },
     { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 0, y: 7 },
-    { id: 'jill', name: 'Jill', team: 'player', className: 'Barbarian', x: 2, y: 7 },
+    { id: 'jill', name: 'Jill', team: 'player', className: 'Fighter', x: 2, y: 7 },
     { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 5, y: 7 },
     { id: 'gate-chief', name: 'Gate Chief', team: 'enemy', className: 'Barbarian', x: 3, y: 1 },
     { id: 'gate-bow-1', name: 'Gate Archer', team: 'enemy', className: 'Archer', x: 0, y: 1 },
@@ -418,7 +426,7 @@ export const CAMPAIGN_CHAPTER_2: ChapterDef = {
     { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Archer', x: 1, y: 13 },
     { id: 'solen', name: 'Solen', team: 'player', className: 'Mage', x: 7, y: 13 },
     { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 8, y: 13 },
-    { id: 'jill', name: 'Jill', team: 'player', className: 'Barbarian', x: 9, y: 13 },
+    { id: 'jill', name: 'Jill', team: 'player', className: 'Fighter', x: 9, y: 13 },
     { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 10, y: 13 },
     { id: 'march-captain', name: 'Vale Captain', team: 'enemy', className: 'Barbarian', x: 5, y: 0 },
     { id: 'march-bow-1', name: 'Vale Archer', team: 'enemy', className: 'Archer', x: 1, y: 1 },
@@ -491,7 +499,7 @@ export const TEST_MAP_1: ChapterDef = {
     { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Archer', x: 2, y: 7 },
     { id: 'solen', name: 'Solen', team: 'player', className: 'Mage', x: 3, y: 7 },
     { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 0, y: 7 },
-    { id: 'jill', name: 'Jill', team: 'player', className: 'Barbarian', x: 5, y: 7 },
+    { id: 'jill', name: 'Jill', team: 'player', className: 'Fighter', x: 5, y: 7 },
     { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 2, y: 5 },
     { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 0, y: 0 },
     { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 4, y: 0 },
@@ -526,7 +534,7 @@ export const TEST_MAP_1_DETAILED: ChapterDef = {
     { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Archer', x: 0, y: 10 },
     { id: 'solen', name: 'Solen', team: 'player', className: 'Mage', x: 1, y: 10 },
     { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 4, y: 10 },
-    { id: 'jill', name: 'Jill', team: 'player', className: 'Barbarian', x: 6, y: 10 },
+    { id: 'jill', name: 'Jill', team: 'player', className: 'Fighter', x: 6, y: 10 },
     { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 7, y: 10 },
     { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 1, y: 0 },
     { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 7, y: 0 },
@@ -565,7 +573,7 @@ export const TEST_MAP_2: ChapterDef = {
     { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Archer', x: 6, y: 6 },
     { id: 'solen', name: 'Solen', team: 'player', className: 'Mage', x: 0, y: 7 },
     { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 2, y: 7 },
-    { id: 'jill', name: 'Jill', team: 'player', className: 'Barbarian', x: 3, y: 7 },
+    { id: 'jill', name: 'Jill', team: 'player', className: 'Fighter', x: 3, y: 7 },
     { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 6, y: 7 },
     { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 0, y: 0 },
     { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 4, y: 0 },

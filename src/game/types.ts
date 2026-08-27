@@ -119,6 +119,10 @@ export interface Unit {
   debuffDef: number;
   /** Turns left on the Curse debuff above; decremented in turn.onBegin the same way skillCooldowns are. */
   debuffTurns: number;
+  /** Flat Atk bonus from Sage's Arcane Ward, applied in effectiveStats() while buffTurns > 0 — the buff mirror of debuffDef above. */
+  buffAtk: number;
+  /** Turns left on the Arcane Ward buff above; decremented in turn.onBegin the same way debuffTurns is. */
+  buffTurns: number;
 }
 
 export interface GameState {

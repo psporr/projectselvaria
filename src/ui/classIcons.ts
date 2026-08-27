@@ -25,4 +25,15 @@ export const CLASS_LETTER: Record<ClassName, string> = {
   Assassin: 'K',
   Mercenary: 'R',
   'Dark Mage': 'X',
+  // Class-tree rework Part 3 (2026-08-27).
+  Fighter: 'F',
+  Swordmaster: 'W',
+  Sniper: 'N',
+  Lancemaster: 'V',
+  Sorcerer: 'O',
+  Sage: 'E',
+  Priest: 'P',
+  Hero: 'H',
+  Berserker: 'Z',
+  'Axe Master': 'U',
 };

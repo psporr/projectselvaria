@@ -21,16 +21,28 @@ import { spawnWave } from './waves';
 import { canPromote, EXP_PER_ATTACK, EXP_PER_HEAL, EXP_PER_KILL, grantExp as grantExpToUnit, PROMOTES_TO, promoteUnit } from './classes';
 import { effectiveStats, equippedKillHeal, ITEMS, rollDrop, type DropRandomAPI } from './equipment';
 import {
+  ARCANE_BOLT_BONUS,
+  ARCANE_WARD_BUFF_ATK,
+  ARCANE_WARD_BUFF_TURNS,
+  ARMOR_PIERCE_DEF_IGNORE,
+  BLOODLUST_MAX_BONUS,
   CURSE_DEBUFF_DEF,
   CURSE_DEBUFF_TURNS,
+  DEADEYE_BONUS_DAMAGE,
+  DEADEYE_CRIT_BONUS,
   EXECUTE_BONUS,
   FOCUSED_STRIKE_CRIT_BONUS,
   FOCUSED_STRIKE_HIT_BONUS,
   HEAL_BONUS,
+  HEAVY_SWING_BONUS,
+  HEAVY_SWING_HIT_PENALTY,
+  METEOR_DAMAGE_MULTIPLIER,
   NOVA_DAMAGE_MULTIPLIER,
   SKILLS,
   SNIPE_BONUS,
+  VITAL_STRIKE_SELF_HEAL,
   novaBlastTargets,
+  sanctuaryBlastTargets,
   skillTargets,
 } from './skills';
 import { pushLog } from './log';
@@ -524,12 +536,259 @@ export const useSkill = (
       break;
     }
 
+    case 'heavy-swing': {
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      const base = computeAttackChances(G, unit, target);
+      const normalDamage = base.normalDamage + HEAVY_SWING_BONUS;
+      const chances: AttackChances = {
+        hitChance: Math.max(5, base.hitChance - HEAVY_SWING_HIT_PENALTY),
+        critChance: base.critChance,
+        normalDamage,
+        critDamage: normalDamage * 2,
+      };
+      const roll = rollAttack(chances, random);
+      if (!roll.hit) {
+        pushLog(G, `${unit.name}'s heavy swing misses ${target.name}!`);
+      } else {
+        target.hp = Math.max(0, target.hp - roll.damage);
+        pushLog(G, `${unit.name} swings hard into ${target.name} for ${roll.damage}${roll.crit ? ' (Critical!)' : ''}.`);
+        if (target.hp <= 0) {
+          killUnit(G, target, random, unit);
+          killedTarget = true;
+        } else if (!resolveSkillCounter(G, unit, target, random)) {
+          return;
+        }
+      }
+      break;
+    }
+
+    case 'triple-strike': {
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      let dealt = 0;
+      let landed = 0;
+      let crits = 0;
+      for (let i = 0; i < 3 && target.hp > 0; i++) {
+        const roll = rollAttack(computeAttackChances(G, unit, target), random);
+        if (!roll.hit) continue;
+        landed++;
+        if (roll.crit) crits++;
+        target.hp = Math.max(0, target.hp - roll.damage);
+        dealt += roll.damage;
+      }
+      pushLog(
+        G,
+        `${unit.name} strikes ${target.name} (${landed}/3 landed) for ${dealt}${crits > 0 ? ` (${crits} critical)` : ''}.`,
+      );
+      if (target.hp <= 0) {
+        killUnit(G, target, random, unit);
+        killedTarget = true;
+      } else if (!resolveSkillCounter(G, unit, target, random)) {
+        return;
+      }
+      break;
+    }
+
+    case 'deadeye': {
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      const base = computeAttackChances(G, unit, target);
+      const normalDamage = base.normalDamage + DEADEYE_BONUS_DAMAGE;
+      const chances: AttackChances = { ...base, normalDamage, critDamage: normalDamage * 2, critChance: Math.min(100, base.critChance + DEADEYE_CRIT_BONUS) };
+      const roll = rollAttack(chances, random);
+      if (!roll.hit) {
+        pushLog(G, `${unit.name}'s deadeye misses ${target.name}!`);
+      } else {
+        target.hp = Math.max(0, target.hp - roll.damage);
+        pushLog(
+          G,
+          `${unit.name} deadeyes ${target.name} for ${roll.damage}${roll.crit ? ' (Critical!)' : ''}. No counter possible.`,
+        );
+        if (target.hp <= 0) {
+          killUnit(G, target, random, unit);
+          killedTarget = true;
+        }
+      }
+      break;
+    }
+
+    case 'armor-pierce': {
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      // Ignores a flat chunk of the target's real Def (not just terrain, the
+      // way Guard Break does) — stronger against a heavily-armored target.
+      const normalDamage = Math.max(1, effectiveStats(unit).atk - Math.max(0, effectiveStats(target).def - ARMOR_PIERCE_DEF_IGNORE));
+      const chances: AttackChances = {
+        hitChance: computeHitChance(G, unit, target),
+        critChance: computeCritChance(unit),
+        normalDamage,
+        critDamage: normalDamage * 2,
+      };
+      const roll = rollAttack(chances, random);
+      if (!roll.hit) {
+        pushLog(G, `${unit.name}'s armor pierce misses ${target.name}!`);
+      } else {
+        target.hp = Math.max(0, target.hp - roll.damage);
+        pushLog(G, `${unit.name} pierces ${target.name}'s armor for ${roll.damage}${roll.crit ? ' (Critical!)' : ''}.`);
+        if (target.hp <= 0) {
+          killUnit(G, target, random, unit);
+          killedTarget = true;
+        } else if (!resolveSkillCounter(G, unit, target, random)) {
+          return;
+        }
+      }
+      break;
+    }
+
+    case 'meteor': {
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      const hits = novaBlastTargets(G, unit, target);
+      let totalDealt = 0;
+      let connected = 0;
+      for (const hitTarget of hits) {
+        const normalDamage = Math.max(1, Math.round(computeDamage(G, unit, hitTarget) * METEOR_DAMAGE_MULTIPLIER));
+        const chances: AttackChances = {
+          hitChance: computeHitChance(G, unit, hitTarget),
+          critChance: computeCritChance(unit),
+          normalDamage,
+          critDamage: normalDamage * 2,
+        };
+        const roll = rollAttack(chances, random);
+        if (!roll.hit) continue;
+        connected++;
+        hitTarget.hp = Math.max(0, hitTarget.hp - roll.damage);
+        totalDealt += roll.damage;
+        if (hitTarget.hp <= 0) {
+          killUnit(G, hitTarget, random, unit);
+          killedTarget = true;
+        }
+      }
+      pushLog(
+        G,
+        `${unit.name} casts Meteor on ${target.name}, hitting ${connected}/${hits.length} enem${hits.length === 1 ? 'y' : 'ies'} for ${totalDealt} total.`,
+      );
+      break;
+    }
+
+    case 'arcane-bolt': {
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      const base = computeAttackChances(G, unit, target);
+      const normalDamage = base.normalDamage + ARCANE_BOLT_BONUS;
+      const chances: AttackChances = { ...base, normalDamage, critDamage: normalDamage * 2 };
+      const roll = rollAttack(chances, random);
+      if (!roll.hit) {
+        pushLog(G, `${unit.name}'s arcane bolt misses ${target.name}!`);
+      } else {
+        target.hp = Math.max(0, target.hp - roll.damage);
+        pushLog(
+          G,
+          `${unit.name} strikes ${target.name} with an arcane bolt for ${roll.damage}${roll.crit ? ' (Critical!)' : ''}. No counter possible.`,
+        );
+        if (target.hp <= 0) {
+          killUnit(G, target, random, unit);
+          killedTarget = true;
+        }
+      }
+      break;
+    }
+
+    case 'arcane-ward': {
+      // Self-only (skills.ts's skillTargets returns [unit] for this id) — no
+      // roll, no counter, just applies the buff, mirroring Curse's debuff
+      // shape (buffAtk/buffTurns folded into effectiveStats(), decremented in
+      // turn.onBegin) but positive-sign and self-targeted.
+      unit.buffAtk = ARCANE_WARD_BUFF_ATK;
+      unit.buffTurns = ARCANE_WARD_BUFF_TURNS;
+      pushLog(G, `${unit.name} raises an arcane ward, gaining +${ARCANE_WARD_BUFF_ATK} Atk for ${ARCANE_WARD_BUFF_TURNS} turns.`);
+      break;
+    }
+
+    case 'sanctuary': {
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      const hits = sanctuaryBlastTargets(G, unit, target);
+      let totalHealed = 0;
+      for (const hitTarget of hits) {
+        const healAmount = Math.min(hitTarget.maxHp - hitTarget.hp, unit.atk + HEAL_BONUS);
+        hitTarget.hp += healAmount;
+        totalHealed += healAmount;
+      }
+      pushLog(
+        G,
+        `${unit.name} calls a Sanctuary on ${target.name}, healing ${hits.length} all${hits.length === 1 ? 'y' : 'ies'} for ${totalHealed} total.`,
+      );
+      break;
+    }
+
+    case 'vital-strike': {
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      const roll = rollAttack(computeAttackChances(G, unit, target), random);
+      if (!roll.hit) {
+        pushLog(G, `${unit.name}'s vital strike misses ${target.name}!`);
+      } else {
+        target.hp = Math.max(0, target.hp - roll.damage);
+        unit.hp = Math.min(unit.maxHp, unit.hp + VITAL_STRIKE_SELF_HEAL);
+        pushLog(G, `${unit.name} strikes ${target.name} for ${roll.damage}${roll.crit ? ' (Critical!)' : ''}, healing ${VITAL_STRIKE_SELF_HEAL}.`);
+        if (target.hp <= 0) {
+          killUnit(G, target, random, unit);
+          killedTarget = true;
+        } else if (!resolveSkillCounter(G, unit, target, random)) {
+          return;
+        }
+      }
+      break;
+    }
+
+    case 'bloodlust': {
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      const base = computeAttackChances(G, unit, target);
+      // Scales with the Berserker's OWN missing HP fraction — the mirror of
+      // Execute, which reads the target's HP fraction instead.
+      const bonus = Math.round(BLOODLUST_MAX_BONUS * (1 - unit.hp / unit.maxHp));
+      const normalDamage = base.normalDamage + bonus;
+      const chances: AttackChances = { ...base, normalDamage, critDamage: normalDamage * 2 };
+      const roll = rollAttack(chances, random);
+      if (!roll.hit) {
+        pushLog(G, `${unit.name}'s bloodlust misses ${target.name}!`);
+      } else {
+        target.hp = Math.max(0, target.hp - roll.damage);
+        pushLog(G, `${unit.name} strikes ${target.name} for ${roll.damage}${roll.crit ? ' (Critical!)' : ''}${bonus > 0 ? ` (+${bonus} bloodlust)` : ''}.`);
+        if (target.hp <= 0) {
+          killUnit(G, target, random, unit);
+          killedTarget = true;
+        } else if (!resolveSkillCounter(G, unit, target, random)) {
+          return;
+        }
+      }
+      break;
+    }
+
+    case 'true-strike': {
+      if (!target || !skillTargets(G, unit, skill).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      const base = computeAttackChances(G, unit, target);
+      // Hit forced to 100 — reliability is the whole point of this skill;
+      // rollAttack's hit-check is still run for structural symmetry with
+      // every other case (and to consume the seeded random consistently),
+      // but can never actually miss at 100.
+      const chances: AttackChances = { ...base, hitChance: 100 };
+      const roll = rollAttack(chances, random);
+      if (!roll.hit) {
+        pushLog(G, `${unit.name}'s true strike misses ${target.name}!`);
+      } else {
+        target.hp = Math.max(0, target.hp - roll.damage);
+        pushLog(G, `${unit.name} strikes true into ${target.name} for ${roll.damage}${roll.crit ? ' (Critical!)' : ''}.`);
+        if (target.hp <= 0) {
+          killUnit(G, target, random, unit);
+          killedTarget = true;
+        } else if (!resolveSkillCounter(G, unit, target, random)) {
+          return;
+        }
+      }
+      break;
+    }
+
     default:
       return INVALID_MOVE;
   }
 
   unit.skillCooldowns[skillId] = Math.max(1, skill.cooldown - G.modifiers.cooldownReduction);
-  grantExp(G, unit, skill.id === 'heal' ? EXP_PER_HEAL : killedTarget ? EXP_PER_KILL : EXP_PER_ATTACK);
+  grantExp(G, unit, skill.id === 'heal' || skill.id === 'sanctuary' ? EXP_PER_HEAL : killedTarget ? EXP_PER_KILL : EXP_PER_ATTACK);
   unit.hasMoved = true;
   unit.hasActed = true;
 };
@@ -717,6 +976,7 @@ const SelvariaGameBase: Game<GameState> = {
           if (unit.skillCooldowns[skillId] > 0) unit.skillCooldowns[skillId] -= 1;
         }
         if (unit.debuffTurns > 0) unit.debuffTurns -= 1;
+        if (unit.buffTurns > 0) unit.buffTurns -= 1;
       }
       if (team === 'player' && G.modifiers.healPerTurn > 0) {
         for (const unit of unitsOf(G, 'player')) {

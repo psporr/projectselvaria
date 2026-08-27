@@ -60,6 +60,27 @@ function runOnce(seed: string | number): RunResult {
       continue;
     }
 
+    if (G.awaitingPromotion) {
+      // Declines every promotion offered ("promote nobody, continue" — a
+      // fully valid, intended skip, same as passing [] to the real move).
+      // Without SOME response here the run stalls forever: awaitingPromotion
+      // pauses wave advancement (game.ts's chooseBlessing/resolvePromotions)
+      // the same way awaitingBlessing does, but a stale enemy-side turn with
+      // no enemies left (the new wave hasn't spawned yet) never naturally
+      // ends on its own. Declining rather than auto-promoting is deliberate:
+      // promoting resets level to 1 (classes.ts's promoteUnit, a locked
+      // design decision — "matching classic FE promotion feel"), which is a
+      // real stat *drop* against a unit's pre-promotion level — a dumb
+      // always-promote heuristic isn't a fair proxy for a player's actual
+      // judgment about when that trade is worth it, and skews this batch's
+      // survival numbers into territory that doesn't reflect this class
+      // tree's real balance. Declining keeps the roguelike-survival
+      // baseline this batch measures comparable across every part of the
+      // class-tree rework.
+      client.moves.resolvePromotions([]);
+      continue;
+    }
+
     const action = decideAction(G, teamOf(ctx.currentPlayer));
     if (!action) {
       client.events.endTurn?.();
@@ -111,6 +132,13 @@ function runVerboseOnce(): void {
       client.moves.chooseBlessing(blessing.id);
       const waveAfter = client.getState()?.G.wave ?? G.wave;
       if (waveAfter > WAVE_CAP) break;
+      continue;
+    }
+
+    if (G.awaitingPromotion) {
+      // Declines every promotion offered — see runOnce's matching branch for why.
+      console.log(`  declining ${G.promotionEligibleUnitIds.length} promotion offer(s)`);
+      client.moves.resolvePromotions([]);
       continue;
     }
 

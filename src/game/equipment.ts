@@ -108,8 +108,9 @@ for (const item of Object.values(ITEMS)) ITEM_IDS_BY_SLOT[item.slot].push(item.i
 
 /**
  * A unit's stats with every equipped item's bonuses folded in, plus Dark
- * Mage's Curse debuff (skills.ts) if it's currently active. hit/crit pass
- * through unmodified — no item touches them yet (see ITEMS comment).
+ * Mage's Curse debuff and Sage's Arcane Ward buff (skills.ts) if either is
+ * currently active. hit/crit pass through unmodified — no item touches them
+ * yet (see ITEMS comment).
  */
 export function effectiveStats(unit: Unit): ClassStats {
   let atk = unit.atk;
@@ -127,6 +128,7 @@ export function effectiveStats(unit: Unit): ClassStats {
   }
 
   if (unit.debuffTurns > 0) def -= unit.debuffDef;
+  if (unit.buffTurns > 0) atk += unit.buffAtk;
 
   return { maxHp: unit.maxHp, atk, def, move: Math.max(1, move), range: Math.max(1, range), hit: unit.hit, crit: unit.crit };
 }

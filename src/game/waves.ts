@@ -73,6 +73,8 @@ export function spawnWave(G: GameState, wave: number, random: ShuffleAPI): void 
       skillCooldowns: {},
       debuffDef: 0,
       debuffTurns: 0,
+      buffAtk: 0,
+      buffTurns: 0,
     };
 
     G.units[id] = unit;

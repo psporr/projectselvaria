@@ -18,6 +18,25 @@ export const FOCUSED_STRIKE_CRIT_BONUS = 15;
 /** Flat Def penalty, and how many of the target's own turns it lasts, from Curse. */
 export const CURSE_DEBUFF_DEF = 3;
 export const CURSE_DEBUFF_TURNS = 2;
+/** Flat bonus damage Heavy Swing deals, traded for reduced Hit — the inverse tradeoff of Focused Strike. */
+export const HEAVY_SWING_BONUS = 6;
+export const HEAVY_SWING_HIT_PENALTY = 15;
+/** Bonus damage and crit Deadeye adds on top of Snipe's shape. */
+export const DEADEYE_BONUS_DAMAGE = 4;
+export const DEADEYE_CRIT_BONUS = 20;
+/** Flat Def ignored by Armor Pierce — a stronger, non-terrain version of Guard Break. */
+export const ARMOR_PIERCE_DEF_IGNORE = 4;
+/** Meteor's per-target damage multiplier — Nova's blast, hit harder. */
+export const METEOR_DAMAGE_MULTIPLIER = 0.8;
+/** Flat bonus damage Arcane Bolt deals, Snipe-shaped. */
+export const ARCANE_BOLT_BONUS = 4;
+/** Arcane Ward's self Atk buff, and how many of the Sage's own turns it lasts. */
+export const ARCANE_WARD_BUFF_ATK = 4;
+export const ARCANE_WARD_BUFF_TURNS = 3;
+/** Flat self-heal Vital Strike grants on top of its attack. */
+export const VITAL_STRIKE_SELF_HEAL = 5;
+/** Bloodlust's bonus damage at 0 HP, scaled down linearly by the Berserker's own current HP fraction. */
+export const BLOODLUST_MAX_BONUS = 8;
 
 export type SkillTargetType = 'ally' | 'enemy';
 
@@ -194,6 +213,130 @@ export const SKILLS: Record<ClassName, SkillDef[]> = {
       rangeBonus: 0,
     },
   ],
+  // Class-tree rework Part 3 (2026-08-27) — Fighter is a new base class;
+  // the rest are advanced classes reached through classes.ts's PROMOTES_TO.
+  Fighter: [
+    {
+      id: 'heavy-swing',
+      name: 'Heavy Swing',
+      description: `Bonus damage, but reduced Hit — the inverse tradeoff of Focused Strike.`,
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 0,
+    },
+  ],
+  Swordmaster: [
+    {
+      id: 'triple-strike',
+      name: 'Triple Strike',
+      description: 'Strike the same target three times in one action.',
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 0,
+    },
+  ],
+  Sniper: [
+    {
+      id: 'deadeye',
+      name: 'Deadeye',
+      description: 'Bonus damage and crit from +1 range; the target cannot counter.',
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 1,
+    },
+  ],
+  Lancemaster: [
+    {
+      id: 'armor-pierce',
+      name: 'Armor Pierce',
+      description: `Attack ignoring ${ARMOR_PIERCE_DEF_IGNORE} of the target's real Def.`,
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 0,
+    },
+  ],
+  Sorcerer: [
+    {
+      id: 'meteor',
+      name: 'Meteor',
+      description: 'A plus-shaped blast centered on the target, for heavy damage each.',
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 0,
+    },
+  ],
+  // Sage is the first class with 2 independent skills, each on its own
+  // cooldown (Unit.skillCooldowns, keyed by id) — proving the multi-skill
+  // infrastructure (class-tree rework Part 1) on real content.
+  Sage: [
+    {
+      id: 'arcane-bolt',
+      name: 'Arcane Bolt',
+      description: 'Bonus damage from +1 range; the target cannot counter.',
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 1,
+    },
+    {
+      id: 'arcane-ward',
+      name: 'Arcane Ward',
+      description: `Boosts the Sage's own Atk by ${ARCANE_WARD_BUFF_ATK} for ${ARCANE_WARD_BUFF_TURNS} turns.`,
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'ally',
+      category: 'utility',
+      rangeBonus: 0,
+    },
+  ],
+  Priest: [
+    {
+      id: 'sanctuary',
+      name: 'Sanctuary',
+      description: 'A plus-shaped blast centered on an ally, healing everyone caught in it.',
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'ally',
+      category: 'heal',
+      rangeBonus: 0,
+    },
+  ],
+  Hero: [
+    {
+      id: 'vital-strike',
+      name: 'Vital Strike',
+      description: `Attack that also heals the Hero for ${VITAL_STRIKE_SELF_HEAL}.`,
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 0,
+    },
+  ],
+  Berserker: [
+    {
+      id: 'bloodlust',
+      name: 'Bloodlust',
+      description: "Bonus damage that grows the more wounded the Berserker is.",
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 0,
+    },
+  ],
+  'Axe Master': [
+    {
+      id: 'true-strike',
+      name: 'True Strike',
+      description: 'This attack cannot miss.',
+      cooldown: SKILL_COOLDOWN,
+      targetType: 'enemy',
+      category: 'attack',
+      rangeBonus: 0,
+    },
+  ],
 };
 
 /** The reach a unit's skill can target from its current tile. */
@@ -206,10 +349,14 @@ export function skillTargets(G: GameState, unit: Unit, skill: SkillDef): Unit[] 
   const range = skillRange(unit, skill);
 
   if (skill.targetType === 'ally') {
+    // Arcane Ward is self-only — no range to check, and unit itself is
+    // deliberately excluded from `allies` below, so this returns before that.
+    if (skill.id === 'arcane-ward') return [unit];
+
     const allies = unitsOf(G, unit.team).filter(
       (ally) => ally.id !== unit.id && manhattan(unit, ally) <= range,
     );
-    if (skill.id === 'heal') return allies.filter((ally) => ally.hp < ally.maxHp);
+    if (skill.id === 'heal' || skill.id === 'sanctuary') return allies.filter((ally) => ally.hp < ally.maxHp);
     if (skill.id === 'dance') return allies.filter((ally) => ally.hasActed);
     return allies;
   }
@@ -230,11 +377,19 @@ export function novaBlastCoords(target: Coord): Coord[] {
   ];
 }
 
-/** Enemies of `unit` caught in Nova's plus-shaped blast around `target`. */
+/** Enemies of `unit` caught in Nova's (or Meteor's) plus-shaped blast around `target`. */
 export function novaBlastTargets(G: GameState, unit: Unit, target: Coord): Unit[] {
   const coords = novaBlastCoords(target);
   return Object.values(G.units).filter(
     (other) => other.team !== unit.team && coords.some((c) => c.x === other.x && c.y === other.y),
+  );
+}
+
+/** Allies of `unit` (itself included) caught in Sanctuary's plus-shaped blast around `target` — the heal-side mirror of novaBlastTargets. */
+export function sanctuaryBlastTargets(G: GameState, unit: Unit, target: Coord): Unit[] {
+  const coords = novaBlastCoords(target);
+  return Object.values(G.units).filter(
+    (other) => other.team === unit.team && coords.some((c) => c.x === other.x && c.y === other.y),
   );
 }
 
@@ -316,6 +471,66 @@ export function describeSkillEffect(G: GameState, unit: Unit, target: Unit | nul
       if (!target) return '';
       const chances = computeAttackChances(G, unit, target);
       return `${chances.normalDamage} damage (${chances.hitChance}% hit, ${chances.critChance}% crit). Lowers Def by ${CURSE_DEBUFF_DEF} for ${CURSE_DEBUFF_TURNS} turns.`;
+    }
+    case 'heavy-swing': {
+      if (!target) return '';
+      const base = computeAttackChances(G, unit, target);
+      const normalDamage = base.normalDamage + HEAVY_SWING_BONUS;
+      const hitChance = Math.max(5, base.hitChance - HEAVY_SWING_HIT_PENALTY);
+      return `${normalDamage} damage (${hitChance}% hit, ${base.critChance}% crit).`;
+    }
+    case 'triple-strike': {
+      if (!target) return '';
+      const chances = computeAttackChances(G, unit, target);
+      return `Three hits for ${chances.normalDamage} each (${chances.hitChance}% hit, ${chances.critChance}% crit).`;
+    }
+    case 'deadeye': {
+      if (!target) return '';
+      const chances = computeAttackChances(G, unit, target);
+      const dmg = chances.normalDamage + DEADEYE_BONUS_DAMAGE;
+      const critChance = Math.min(100, chances.critChance + DEADEYE_CRIT_BONUS);
+      return `${dmg} damage (${chances.hitChance}% hit, ${critChance}% crit). Target cannot counter.`;
+    }
+    case 'armor-pierce': {
+      if (!target) return '';
+      const dmg = Math.max(1, effectiveStats(unit).atk - Math.max(0, effectiveStats(target).def - ARMOR_PIERCE_DEF_IGNORE));
+      const hitChance = computeAttackChances(G, unit, target).hitChance;
+      return `${dmg} damage, ignoring ${ARMOR_PIERCE_DEF_IGNORE} Def (${hitChance}% hit).`;
+    }
+    case 'meteor': {
+      if (!target) return '';
+      const hits = novaBlastTargets(G, unit, target);
+      return `Hits ${hits.length} enem${hits.length === 1 ? 'y' : 'ies'} in a plus-shaped blast, for heavy damage each.`;
+    }
+    case 'arcane-bolt': {
+      if (!target) return '';
+      const chances = computeAttackChances(G, unit, target);
+      const dmg = chances.normalDamage + ARCANE_BOLT_BONUS;
+      return `${dmg} damage (${chances.hitChance}% hit, ${chances.critChance}% crit). Target cannot counter.`;
+    }
+    case 'arcane-ward':
+      return `${unit.name} gains +${ARCANE_WARD_BUFF_ATK} Atk for ${ARCANE_WARD_BUFF_TURNS} turns.`;
+    case 'sanctuary': {
+      if (!target) return '';
+      const hits = sanctuaryBlastTargets(G, unit, target);
+      return `Heals ${hits.length} all${hits.length === 1 ? 'y' : 'ies'} in a plus-shaped blast.`;
+    }
+    case 'vital-strike': {
+      if (!target) return '';
+      const chances = computeAttackChances(G, unit, target);
+      return `${chances.normalDamage} damage (${chances.hitChance}% hit, ${chances.critChance}% crit). Heals the Hero for ${VITAL_STRIKE_SELF_HEAL}.`;
+    }
+    case 'bloodlust': {
+      if (!target) return '';
+      const chances = computeAttackChances(G, unit, target);
+      const missingFraction = 1 - unit.hp / unit.maxHp;
+      const bonus = Math.round(BLOODLUST_MAX_BONUS * missingFraction);
+      return `${chances.normalDamage + bonus} damage (${chances.hitChance}% hit, ${chances.critChance}% crit)${bonus > 0 ? `, +${bonus} from own wounds` : ''}.`;
+    }
+    case 'true-strike': {
+      if (!target) return '';
+      const chances = computeAttackChances(G, unit, target);
+      return `${chances.normalDamage} damage (100% hit, ${chances.critChance}% crit). Cannot miss.`;
     }
     default:
       return '';
