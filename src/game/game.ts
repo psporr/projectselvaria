@@ -2,6 +2,7 @@ import type { Ctx, Game, MoveMap } from 'boardgame.io';
 import { INVALID_MOVE } from 'boardgame.io/core';
 
 import type { CampaignCarryOver, ChapterDef } from './maps';
+import type { ClassName } from './classes';
 import type { GameMode, GameState, ItemSlot, Team, Unit } from './types';
 import { PLAYER_ID, teamOf } from './types';
 import { buildGameState, CAMPAIGN_CHAPTER_1, CHAPTER_1, TEST_MAP_2, type ShuffleAPI } from './maps';
@@ -17,7 +18,7 @@ import {
 } from './combat';
 import { BLESSINGS, drawBlessings } from './blessings';
 import { spawnWave } from './waves';
-import { canPromote, EXP_PER_ATTACK, EXP_PER_HEAL, EXP_PER_KILL, grantExp as grantExpToUnit, promoteUnit } from './classes';
+import { canPromote, EXP_PER_ATTACK, EXP_PER_HEAL, EXP_PER_KILL, grantExp as grantExpToUnit, PROMOTES_TO, promoteUnit } from './classes';
 import { effectiveStats, equippedKillHeal, ITEMS, rollDrop, type DropRandomAPI } from './equipment';
 import {
   CURSE_DEBUFF_DEF,
@@ -634,24 +635,27 @@ export const chooseBlessing = (
 };
 
 /**
- * Resolves the post-blessing promotion pause: promotes every unit id passed
- * (each checked against promotionEligibleUnitIds, so a stale or forged id is
- * silently ignored rather than crashing), then always continues to the next
- * wave via finishWaveTransition — passing an empty array is a valid
- * "promote nobody, continue" skip. Only valid while awaitingPromotion.
+ * Resolves the post-blessing promotion pause: promotes every {unitId,
+ * toClass} selection passed (each checked against promotionEligibleUnitIds
+ * *and* revalidated against PROMOTES_TO — a stale or forged unitId/toClass
+ * pair is silently ignored rather than crashing or promoting into an
+ * illegal class), then always continues to the next wave via
+ * finishWaveTransition — an empty array is a valid "promote nobody,
+ * continue" skip. Only valid while awaitingPromotion.
  */
 export const resolvePromotions = (
   { G, ctx, events, random }: { G: GameState; ctx: Ctx; events: EndTurnAPI; random: ShuffleAPI },
-  unitIds: string[],
+  selections: { unitId: string; toClass: ClassName }[],
 ) => {
   if (!G.awaitingPromotion) return INVALID_MOVE;
 
-  for (const id of unitIds) {
-    if (!G.promotionEligibleUnitIds.includes(id)) continue;
-    const unit = G.units[id];
+  for (const { unitId, toClass } of selections) {
+    if (!G.promotionEligibleUnitIds.includes(unitId)) continue;
+    const unit = G.units[unitId];
     if (!unit) continue;
+    if (!PROMOTES_TO[unit.className]?.includes(toClass)) continue;
     const fromClass = unit.className;
-    promoteUnit(unit);
+    promoteUnit(unit, toClass);
     pushLog(G, `${unit.name} is promoted: ${fromClass} -> ${unit.className}!`);
   }
 

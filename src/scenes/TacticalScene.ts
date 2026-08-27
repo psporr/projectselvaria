@@ -945,14 +945,13 @@ export class TacticalScene extends Scene {
       unitId: unit.id,
       name: unit.name,
       fromClass: unit.className,
-      toClass: PROMOTES_TO[unit.className]!,
+      toClassOptions: PROMOTES_TO[unit.className] ?? [],
     }));
-    this.ui.showPromotionPicker(candidates, (unitIds) => {
-      for (const id of unitIds) {
-        const unit = G.units[id];
-        const nextClass = unit && PROMOTES_TO[unit.className];
-        if (!unit || !nextClass) continue;
-        carryOver.units[id] = { level: 1, exp: 0, equipment: unit.equipment, className: nextClass };
+    this.ui.showPromotionPicker(candidates, (selections) => {
+      for (const { unitId, toClass } of selections) {
+        const unit = G.units[unitId];
+        if (!unit || !PROMOTES_TO[unit.className]?.includes(toClass)) continue;
+        carryOver.units[unitId] = { level: 1, exp: 0, equipment: unit.equipment, className: toClass };
       }
       this.finishCampaignContinue(G.chapterId, carryOver);
     });
@@ -1049,10 +1048,10 @@ export class TacticalScene extends Scene {
         const candidates: PromotionCandidate[] = fresh.G.promotionEligibleUnitIds
           .map((id) => fresh.G.units[id])
           .filter((unit): unit is Unit => unit !== undefined)
-          .map((unit) => ({ unitId: unit.id, name: unit.name, fromClass: unit.className, toClass: PROMOTES_TO[unit.className]! }));
-        this.ui.showPromotionPicker(candidates, (unitIds) => {
+          .map((unit) => ({ unitId: unit.id, name: unit.name, fromClass: unit.className, toClassOptions: PROMOTES_TO[unit.className] ?? [] }));
+        this.ui.showPromotionPicker(candidates, (selections) => {
           this.promotionPickerOpen = false;
-          this.client.moves.resolvePromotions(unitIds);
+          this.client.moves.resolvePromotions(selections);
         });
       });
       return;

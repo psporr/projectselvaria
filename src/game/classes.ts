@@ -146,35 +146,40 @@ export function grantExp(unit: Unit, amount: number, onLevelUp?: (unit: Unit) =>
 export const PROMOTION_LEVEL = 10;
 
 /**
- * Base -> advanced class pairs (2026-08-27). Thief -> Assassin (2026-08-27)
- * is the first pair, wired in to prove the promotion mechanism end-to-end;
- * the rest of the roster is still unpaired — every function below already
- * works correctly with a partial table, so adding another pair here is the
- * entire integration step, same "just add data" pattern as heroArt.ts's
- * named-hero lookup.
+ * Base -> advanced class options (2026-08-27, branching as of the class-tree
+ * rework — a base class can list more than one advanced option, e.g. Lancer
+ * -> Lancemaster or General; the player picks the branch in PromotionPicker).
+ * Thief -> [Assassin] is the first pair, wired in to prove the promotion
+ * mechanism end-to-end; the rest of the roster is still unpaired — every
+ * function below already works correctly with a partial table, so adding
+ * another entry here is the entire integration step, same "just add data"
+ * pattern as heroArt.ts's named-hero lookup.
  */
-export const PROMOTES_TO: Partial<Record<ClassName, ClassName>> = {
-  Thief: 'Assassin',
+export const PROMOTES_TO: Partial<Record<ClassName, ClassName[]>> = {
+  Thief: ['Assassin'],
 };
 
-/** Whether `unit` can promote right now — player-only, level-gated, and only if its class has an advanced form. */
+/** Whether `unit` can promote right now — player-only, level-gated, and only if its class has at least one advanced option. */
 export function canPromote(unit: Unit): boolean {
-  return unit.team === 'player' && unit.level >= PROMOTION_LEVEL && PROMOTES_TO[unit.className] !== undefined;
+  return unit.team === 'player' && unit.level >= PROMOTION_LEVEL && (PROMOTES_TO[unit.className]?.length ?? 0) > 0;
 }
 
 /**
- * Promotes `unit` in place: swaps its class to `PROMOTES_TO`'s pair, resets
- * to level 1 on the new class's curve, and fully heals — matching classic
- * FE promotion feel (a real jump, not a continuation of the old curve).
+ * Promotes `unit` in place to `toClass` (must be one of `PROMOTES_TO`'s
+ * options for the unit's current class — a no-op if not, so a stale or
+ * forged choice can't smuggle in an illegal class change): resets to level
+ * 1 on the new class's curve, and fully heals — matching classic FE
+ * promotion feel (a real jump, not a continuation of the old curve).
  * `SKILLS[unit.className]` (skills.ts) is already keyed by class, so the
  * unit's active skill(s) swap automatically with no separate step. Resets
  * skillCooldowns/debuffDef/debuffTurns too, so a promoted unit starts its
  * new loadout fresh rather than carrying over old-class leftovers.
  * Caller's responsibility to have checked `canPromote` first.
  */
-export function promoteUnit(unit: Unit): void {
-  const nextClass = PROMOTES_TO[unit.className];
-  if (!nextClass) return;
+export function promoteUnit(unit: Unit, toClass: ClassName): void {
+  const options = PROMOTES_TO[unit.className];
+  if (!options?.includes(toClass)) return;
+  const nextClass = toClass;
   unit.className = nextClass;
   unit.level = 1;
   unit.exp = 0;

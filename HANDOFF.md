@@ -92,22 +92,35 @@ carry more than one active skill with no further infrastructure work.
 
 ### Promotion (2026-08-27)
 
-Base -> advanced class pairs. `classes.ts`'s `PROMOTES_TO` maps a class to
-what it promotes into — **Thief -> Assassin is the first pair, wired
-2026-08-27**; the rest of the 12-class roster is still unpaired, a
-separate design decision from the mechanism itself, filled in one pair at
-a time (same "just add data" pattern as `heroArt.ts`'s named-hero art
-lookup). Marisa joined the 6-hero starting lineup as a Thief specifically
-so this pair is reachable in a real playthrough (see maps.ts's roster doc
-comment and README's "Recent changes"). A unit is eligible once it's
-player-controlled, level 10+ (`PROMOTION_LEVEL`), and its class has a
-`PROMOTES_TO` entry.
-Promoting (`promoteUnit`) swaps its class outright — level resets to 1 on
-the new class's curve, a full heal, and its active skill(s) change with it
-(`SKILLS` is keyed by class to an array, so this needs no separate
-skill-swap step regardless of how many skills either class has).
+Base -> advanced class **options** — `classes.ts`'s `PROMOTES_TO` maps a
+class to an *array* of classes it can promote into (branching as of
+2026-08-27's class-tree rework; was a single fixed class before that).
+**Thief -> [Assassin] is the first, and so far only, live entry**, wired
+2026-08-27; the rest of the 12-class roster is still unpaired, a separate
+design decision from the mechanism itself, filled in one entry at a time
+(same "just add data" pattern as `heroArt.ts`'s named-hero art lookup) —
+when a base class gets more than one option (e.g. a future Lancer ->
+Lancemaster/General split), the mechanism already supports it with no
+further code changes, just a longer array. Marisa joined the 6-hero
+starting lineup as a Thief specifically so this pair is reachable in a
+real playthrough (see maps.ts's roster doc comment and README's "Recent
+changes"). A unit is eligible once it's player-controlled, level 10+
+(`PROMOTION_LEVEL`), and its class has at least one `PROMOTES_TO` option.
+Promoting (`promoteUnit(unit, toClass)`) swaps its class outright to the
+player's chosen branch (`toClass` must be one of `PROMOTES_TO[unit
+.className]`'s options — a mismatch is a silent no-op, not a crash, same
+defensive shape as a stale/forged move anywhere else in `game.ts`) — level
+resets to 1 on the new class's curve, a full heal, and its active skill(s)
+change with it (`SKILLS` is keyed by class to an array, so this needs no
+separate skill-swap step regardless of how many skills either class has).
 No additive skills, no partial carry-over of the old class — this is a
 clean class change, not a stat bonus layered on top.
+`PromotionPicker` (`src/ui/`) shows one row per eligible unit; a unit with
+a single option renders one full-width button (identical UX to before
+branching existed), a unit with multiple options renders them side by
+side, mutually exclusive within that unit's row (tapping a branch again
+deselects it) — selection is `Map<unitId, ClassName>`, confirmed as
+`{unitId, toClass}[]` to `resolvePromotions`.
 
 Two trigger points, both level-gated the same way:
 - **End of wave** (roguelike) — live and working. `chooseBlessing` pauses

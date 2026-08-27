@@ -131,11 +131,10 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 *(Add a line here when you start something. Format: `- [Name] what, since when`.)*
 
 - [Claude] Class tree rework, since 2026-08-27 — 3 sequenced parts (user
-  confirmed): Part 1 (multi-skill infra, this entry's "Recent changes")
-  shipped; next is Part 2 (branching promotion — a base class offering
-  multiple advanced options, e.g. Lancer -> Lancemaster **or** General),
-  then Part 3 (new class content: a Fighter base class plus 9 new advanced
-  classes, full `PROMOTES_TO` tree, Jill reclassed Barbarian -> Fighter).
+  confirmed): Part 1 (multi-skill infra) and Part 2 (branching promotion
+  infra) shipped, see "Recent changes". Next is Part 3 (new class content:
+  a Fighter base class plus 9 new advanced classes, full `PROMOTES_TO`
+  tree lit up with real branches, Jill reclassed Barbarian -> Fighter).
   Plan at the time of writing lives in this session's plan-mode history if
   needed, but each part is independently verified and shipped, so treat
   the code + this log as the source of truth over any stale plan text.
@@ -151,6 +150,45 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-27 Claude: Branching promotion infrastructure (class tree
+  rework, Part 2 of 3 — see "In progress"). `PROMOTES_TO`
+  (`src/game/classes.ts`) changed from `Partial<Record<ClassName,
+  ClassName>>` to `Partial<Record<ClassName, ClassName[]>>` — a base class
+  can now offer more than one advanced option (nothing does yet; today's
+  only live entry, `Thief: ['Assassin']`, still has exactly one, so this
+  ships as pure architecture with **zero player-visible change** against
+  current data). `promoteUnit` gained a required `toClass` param,
+  validated against the unit's own `PROMOTES_TO` options (a mismatch is a
+  silent no-op, not a crash — same defensive shape as any other
+  stale/forged move). `resolvePromotions` (`game.ts`) now takes
+  `{unitId, toClass}[]` instead of a bare `unitId[]`, revalidating each
+  pair before applying it. `PromotionPicker` (`src/ui/`) was redesigned
+  from one toggle-per-unit to one row per unit with a cluster of branch
+  buttons (a single-option unit still renders one full-width button,
+  identical to before) — mutually exclusive within a unit's own row,
+  selection tracked as `Map<unitId, ClassName>` instead of a `Set` of
+  unit ids. Both call sites in `TacticalScene.ts` (end-of-wave and
+  end-of-chapter promotion) updated to build `toClassOptions` from
+  `PROMOTES_TO` and thread the picker's `{unitId, toClass}[]` result
+  through instead of re-deriving the class from a fixed 1:1 mapping.
+  Verified: `typecheck`/`build`/`validate-maps` clean; `sim -- --batch 30`
+  produced the same 30/30-wave-cap result as the Part-1 baseline (the AI
+  never triggers a real promotion in that batch, same as before). A
+  temporary script (deleted after, not committed) temporarily seeded
+  `PROMOTES_TO.Thief` with a second option (`['Assassin', 'Mercenary']`)
+  to exercise the branching path for real: called `promoteUnit` with each
+  branch independently and confirmed the right resulting class/stats for
+  both, confirmed an illegal branch (not in the unit's own options) is a
+  no-op, and called the real `resolvePromotions` move directly with one
+  valid and one forged `{unitId, toClass}` pair, confirming the valid one
+  applied, the forged one was silently ignored, and the wave-transition
+  tail still ran — then the seed was reverted before shipping. Playwright
+  (via a temporary debug hook, also reverted) confirmed the picker itself:
+  a single-option unit renders one full-width button, a two-option unit
+  renders side-by-side buttons that highlight mutually exclusively
+  (tapping the second clears the first, doesn't add to it), multiple
+  units can be selected independently, and Continue's callback received
+  the exact expected `{unitId, toClass}[]`.
 - 2026-08-27 Claude: Multi-skill infrastructure (class tree rework, Part 1
   of 3 — see "In progress"). `SKILLS` (`src/game/skills.ts`) changed shape
   from `Record<ClassName, SkillDef>` to `Record<ClassName, SkillDef[]>`,

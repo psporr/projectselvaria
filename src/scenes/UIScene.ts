@@ -14,7 +14,7 @@ import { EquipScreen } from '../ui/EquipScreen';
 import { ForecastPanel } from '../ui/ForecastPanel';
 import { LogPanel } from '../ui/LogPanel';
 import { PhaseBanner } from '../ui/PhaseBanner';
-import { PromotionPicker, type PromotionCandidate } from '../ui/PromotionPicker';
+import { PromotionPicker, type PromotionCandidate, type PromotionSelection } from '../ui/PromotionPicker';
 import { SystemMenu, type SystemMenuChoice, type SystemMenuOption } from '../ui/SystemMenu';
 import { UnitStatusBar } from '../ui/UnitStatusBar';
 import { Button, COLORS, FONT_FAMILY } from '../ui/kit';
@@ -286,7 +286,7 @@ export class UIScene extends Scene {
     this.blessingPicker.show(blessings, onPick);
   }
 
-  showPromotionPicker(candidates: PromotionCandidate[], onConfirm: (unitIds: string[]) => void): void {
+  showPromotionPicker(candidates: PromotionCandidate[], onConfirm: (selections: PromotionSelection[]) => void): void {
     this.promotionPicker.show(candidates, onConfirm);
   }
 
