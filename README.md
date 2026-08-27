@@ -142,6 +142,28 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-27 Claude: Main menu redesign (`ChapterSelectScene`, plus a
+  matching touch-up to `BootScene`'s splash) — per the repo owner, it "look
+  weird in mobile and not beautiful." The old menu was a flat navy screen
+  with two bare text headings and buttons clustered at the top, leaving
+  most of a tall phone viewport empty. Now: a full-bleed background (the
+  same painted map art `TEST_MAP_2` already uses, `public/maps/river1.jpg`,
+  darkened with a scrim for legibility — no new asset), the real game logo
+  (`public/project selvaria icon.png`, previously unused anywhere but the
+  repo root) in place of plain "Project Selvaria" text, and both mode
+  sections consolidated into one `Card` panel (matching every other panel
+  in the game) with a divider between Roguelike/Campaign and the primary
+  action in each section (Start Run, Continue) accent-colored to stand out.
+  The whole logo+card block is computed and vertically centered as one
+  group, so the layout balances regardless of viewport aspect ratio instead
+  of pinning to the top. `BootScene`'s brief title beat now shows the same
+  logo instead of plain text too, for consistent first impression.
+  Verified: `typecheck`/`build` clean (no game-logic touched, so `sim`/
+  `validate-maps` don't apply here). Playwright confirmed the redesigned
+  menu at two phone viewports (390x844 and 428x926) balances well at both,
+  the splash screen, the 3-row "Continue" layout when a campaign save
+  exists, and that "Start Run" still actually boots the battle scene (no
+  functional regression from the layout rewrite).
 - 2026-08-27 Claude: New class content (class tree rework, Part 3 of 3 —
   the rework is now complete). Added a **Fighter** base class plus 9 new
   advanced classes (Swordmaster, Sniper, Lancemaster, Sorcerer, Sage,
