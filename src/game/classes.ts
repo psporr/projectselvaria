@@ -146,14 +146,16 @@ export function grantExp(unit: Unit, amount: number, onLevelUp?: (unit: Unit) =>
 export const PROMOTION_LEVEL = 10;
 
 /**
- * Base -> advanced class pairs (2026-08-27). Deliberately empty — the
- * pairing itself is a separate design decision not yet made; every function
- * below already works correctly against an empty table (nothing is ever
- * eligible, so the feature ships dormant). Filling in a pair here is the
- * entire integration step once pairing is decided, same "just add data"
- * pattern as heroArt.ts's named-hero lookup.
+ * Base -> advanced class pairs (2026-08-27). Thief -> Assassin (2026-08-27)
+ * is the first pair, wired in to prove the promotion mechanism end-to-end;
+ * the rest of the roster is still unpaired — every function below already
+ * works correctly with a partial table, so adding another pair here is the
+ * entire integration step, same "just add data" pattern as heroArt.ts's
+ * named-hero lookup.
  */
-export const PROMOTES_TO: Partial<Record<ClassName, ClassName>> = {};
+export const PROMOTES_TO: Partial<Record<ClassName, ClassName>> = {
+  Thief: 'Assassin',
+};
 
 /** Whether `unit` can promote right now — player-only, level-gated, and only if its class has an advanced form. */
 export function canPromote(unit: Unit): boolean {

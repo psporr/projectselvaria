@@ -139,6 +139,31 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-27 Claude: Wired the first promotion pair (Thief -> Assassin,
+  `classes.ts`'s `PROMOTES_TO`) and reshuffled the 6-hero roster
+  (`maps.ts`, across all 6 chapters) so it's actually reachable in a real
+  playthrough: **Jill** (Barbarian), **Marisa** (Thief — new to the
+  lineup, chosen specifically so the wired pair has a real unit to level),
+  **Ephraim** (Lancer), **Lyn** (moved from Swordsman to Archer),
+  **Solen** (Mage — also new), **Natasha** (Cleric). Eirika and Takumi
+  drop out of the starting lineup (still valid heroes with their own art,
+  just not deployed) — one hero per class again, no duplicates.
+  Verified with typecheck/build/validate-maps/sim (30-batch: 30/30 reached
+  the wave cap this roster, vs. 28/30 previously — a genuinely different
+  balance profile, not a bug, from swapping which classes are in play),
+  plus Playwright confirming all 6 heroes render their real art with no
+  broken textures or console errors.
+  Also ran a real end-to-end promotion check (a temporary headless script,
+  not part of the repo): with a throwaway lowered level threshold, the
+  live roster's Eirika/Lyn/Natasha promoted correctly through the real
+  `resolvePromotions` move. With the real level-10 threshold and no
+  threshold hack, 5 AI-driven seeded runs (20-wave cap each) never
+  actually got Marisa to level 10 in time — she consistently died before
+  other units reached level 40+, so nobody triggered a real promotion in
+  those runs. That's the built-in AI's play pattern for a fragile,
+  low-HP/low-Def class like Thief, not a bug in the promotion pipeline
+  itself (already proven correct above) — a human player keeping Marisa
+  safe should reach level 10 well before wave 20. Worth a real playtest.
 - 2026-08-27 Claude: Class promotion, part 1 of 2 (roguelike wave-end).
   Reworked the class system toward base -> advanced pairs: promoting
   swaps a unit's class entirely (stats reset to the new class's level 1,

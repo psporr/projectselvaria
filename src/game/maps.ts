@@ -45,30 +45,27 @@ interface UnitPlacement {
 }
 
 /**
- * Player roster (2026-08-25, trimmed same day): 6 named heroes with real
- * map art (`heroArt.ts`) — Eirika, Lyn, Takumi, Natasha, Jill, Ephraim —
- * repeated with per-chapter spawn coordinates across every chapter below.
- * The original 7 (Eirika, Byleth, Corrin, Selva, Ike, Lissa, Olivia) briefly
- * grew to 12 once art existed for the 5 new heroes (`ART_BRIEF.md`'s
- * 2026-08-25 update has that fuller story), then got cut back down to just
- * the art-having 6 — Byleth/Corrin/Selva/Ike/Lissa/Olivia are still valid
- * `ClassName`-having heroes in principle (their stats/skills all still
- * resolve fine) but aren't in any chapter's starting lineup for now, until
- * they have art too. Re-adding any of them back is just re-inserting their
- * old `UnitSpec` line with a free spawn tile — nothing else to undo.
+ * Player roster (2026-08-27, reshuffled): Jill (Barbarian), Marisa (Thief),
+ * Ephraim (Lancer), Lyn (Archer), Solen (Mage), Natasha (Cleric) — 6 named
+ * heroes with real map art (`heroArt.ts`), repeated with per-chapter spawn
+ * coordinates across every chapter below. One hero per class again, no
+ * duplicates.
  *
- * Two Swordsman-class heroes now coexist (Eirika, Lyn) — multiple heroes
- * can share a class, where the original roster was strictly one hero per
- * class.
+ * Marisa is Thief specifically so `classes.ts`'s first wired promotion pair
+ * (Thief -> Assassin) is actually reachable by leveling a real roster
+ * member, not just provable headlessly. Lyn moved from Swordsman to Archer
+ * in the same pass (Takumi, the previous Archer, and Eirika, the previous
+ * second Swordsman, both dropped from the lineup — still valid
+ * `ClassName`-having heroes with their own art in principle, just not in
+ * any chapter's starting lineup right now).
  *
- * `id: 'lyn'` is Eirika, not Lyn — a naming leftover from before this
- * character was renamed Eirika, kept as-is to avoid orphaning any local
- * save's carry-over data (`CampaignCarryOver.units` is keyed by id). Lyn
- * herself uses `id: 'lyn2'` to avoid the collision.
- *
- * The enemy-count-vs-squad-size balance note from the 7→12 growth mostly
- * resolves itself now that the squad is back down to 6 (roughly the
- * original size) — still worth a real playtest before calling it tuned.
+ * `id: 'lyn'` used to mean Eirika (a since-fixed naming leftover from
+ * before that character was renamed) — with Eirika dropped, that id is
+ * retired too; the real Lyn keeps her existing `id: 'lyn2'` rather than
+ * reclaiming `'lyn'`, so no local save's carry-over data silently orphans.
+ * Every hero not currently in the lineup (including Eirika/Takumi now) is
+ * re-addable by inserting their old `UnitSpec` line with a free spawn tile
+ * — nothing else to undo.
  */
 
 /** A unit whose class (and therefore stats) is fixed at authoring time. */
@@ -260,9 +257,9 @@ export const CHAPTER_1: ChapterDef = {
     '..##...',
   ],
   units: [
-    { id: 'lyn', name: 'Eirika', team: 'player', className: 'Swordsman', x: 1, y: 6 },
-    { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Swordsman', x: 0, y: 6 },
-    { id: 'takumi', name: 'Takumi', team: 'player', className: 'Archer', x: 6, y: 6 },
+    { id: 'marisa', name: 'Marisa', team: 'player', className: 'Thief', x: 1, y: 6 },
+    { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Archer', x: 0, y: 6 },
+    { id: 'solen', name: 'Solen', team: 'player', className: 'Mage', x: 6, y: 6 },
     { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 0, y: 7 },
     { id: 'jill', name: 'Jill', team: 'player', className: 'Barbarian', x: 5, y: 7 },
     { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 6, y: 7 },
@@ -318,9 +315,9 @@ export const CAMPAIGN_CHAPTER_1: ChapterDef = {
     '...#...',
   ],
   units: [
-    { id: 'lyn', name: 'Eirika', team: 'player', className: 'Swordsman', x: 1, y: 6 },
-    { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Swordsman', x: 0, y: 6 },
-    { id: 'takumi', name: 'Takumi', team: 'player', className: 'Archer', x: 6, y: 6 },
+    { id: 'marisa', name: 'Marisa', team: 'player', className: 'Thief', x: 1, y: 6 },
+    { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Archer', x: 0, y: 6 },
+    { id: 'solen', name: 'Solen', team: 'player', className: 'Mage', x: 6, y: 6 },
     { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 0, y: 7 },
     { id: 'jill', name: 'Jill', team: 'player', className: 'Barbarian', x: 2, y: 7 },
     { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 5, y: 7 },
@@ -407,9 +404,9 @@ export const CAMPAIGN_CHAPTER_2: ChapterDef = {
     '...........',
   ],
   units: [
-    { id: 'lyn', name: 'Eirika', team: 'player', className: 'Swordsman', x: 2, y: 13 },
-    { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Swordsman', x: 1, y: 13 },
-    { id: 'takumi', name: 'Takumi', team: 'player', className: 'Archer', x: 7, y: 13 },
+    { id: 'marisa', name: 'Marisa', team: 'player', className: 'Thief', x: 2, y: 13 },
+    { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Archer', x: 1, y: 13 },
+    { id: 'solen', name: 'Solen', team: 'player', className: 'Mage', x: 7, y: 13 },
     { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 8, y: 13 },
     { id: 'jill', name: 'Jill', team: 'player', className: 'Barbarian', x: 9, y: 13 },
     { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 10, y: 13 },
@@ -480,9 +477,9 @@ export const TEST_MAP_1: ChapterDef = {
     'f....f',
   ],
   units: [
-    { id: 'lyn', name: 'Eirika', team: 'player', className: 'Swordsman', x: 0, y: 6 },
-    { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Swordsman', x: 2, y: 7 },
-    { id: 'takumi', name: 'Takumi', team: 'player', className: 'Archer', x: 3, y: 7 },
+    { id: 'marisa', name: 'Marisa', team: 'player', className: 'Thief', x: 0, y: 6 },
+    { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Archer', x: 2, y: 7 },
+    { id: 'solen', name: 'Solen', team: 'player', className: 'Mage', x: 3, y: 7 },
     { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 0, y: 7 },
     { id: 'jill', name: 'Jill', team: 'player', className: 'Barbarian', x: 5, y: 7 },
     { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 2, y: 5 },
@@ -515,9 +512,9 @@ export const TEST_MAP_1_DETAILED: ChapterDef = {
     'f......ff',
   ],
   units: [
-    { id: 'lyn', name: 'Eirika', team: 'player', className: 'Swordsman', x: 3, y: 10 },
-    { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Swordsman', x: 0, y: 10 },
-    { id: 'takumi', name: 'Takumi', team: 'player', className: 'Archer', x: 1, y: 10 },
+    { id: 'marisa', name: 'Marisa', team: 'player', className: 'Thief', x: 3, y: 10 },
+    { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Archer', x: 0, y: 10 },
+    { id: 'solen', name: 'Solen', team: 'player', className: 'Mage', x: 1, y: 10 },
     { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 4, y: 10 },
     { id: 'jill', name: 'Jill', team: 'player', className: 'Barbarian', x: 6, y: 10 },
     { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 7, y: 10 },
@@ -554,9 +551,9 @@ export const TEST_MAP_2: ChapterDef = {
     '.....f.',
   ],
   units: [
-    { id: 'lyn', name: 'Eirika', team: 'player', className: 'Swordsman', x: 0, y: 6 },
-    { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Swordsman', x: 6, y: 6 },
-    { id: 'takumi', name: 'Takumi', team: 'player', className: 'Archer', x: 0, y: 7 },
+    { id: 'marisa', name: 'Marisa', team: 'player', className: 'Thief', x: 0, y: 6 },
+    { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Archer', x: 6, y: 6 },
+    { id: 'solen', name: 'Solen', team: 'player', className: 'Mage', x: 0, y: 7 },
     { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 2, y: 7 },
     { id: 'jill', name: 'Jill', team: 'player', className: 'Barbarian', x: 3, y: 7 },
     { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 6, y: 7 },

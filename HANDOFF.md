@@ -89,11 +89,15 @@ stat line) still holds for all of them.
 ### Promotion (2026-08-27)
 
 Base -> advanced class pairs. `classes.ts`'s `PROMOTES_TO` maps a class to
-what it promotes into — **ships empty**, since which of the 12 classes pair
-into which is a separate design decision from the mechanism itself; filling
-it in is a one-line data edit (same "just add data" pattern as `heroArt.ts`'s
-named-hero art lookup). A unit is eligible once it's player-controlled,
-level 10+ (`PROMOTION_LEVEL`), and its class has a `PROMOTES_TO` entry.
+what it promotes into — **Thief -> Assassin is the first pair, wired
+2026-08-27**; the rest of the 12-class roster is still unpaired, a
+separate design decision from the mechanism itself, filled in one pair at
+a time (same "just add data" pattern as `heroArt.ts`'s named-hero art
+lookup). Marisa joined the 6-hero starting lineup as a Thief specifically
+so this pair is reachable in a real playthrough (see maps.ts's roster doc
+comment and README's "Recent changes"). A unit is eligible once it's
+player-controlled, level 10+ (`PROMOTION_LEVEL`), and its class has a
+`PROMOTES_TO` entry.
 Promoting (`promoteUnit`) swaps its class outright — level resets to 1 on
 the new class's curve, a full heal, and its one active skill changes with
 it (`SKILLS` is keyed by class, so this needs no separate skill-swap step).
