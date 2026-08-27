@@ -530,7 +530,7 @@ export const TEST_MAP_1_DETAILED: ChapterDef = {
 
 /**
  * First map generated directly from `MAP_BRIEF.md`'s prompt (Gemini, 7x8,
- * `public/maps/test-map2.png`) rather than sourced from the user and
+ * `public/maps/river1.jpg`) rather than sourced from the user and
  * classified after the fact like `TEST_MAP_1`. Terrain read off the image
  * via per-cell color clustering (`src/game/maps.ts`'s classification notes
  * above `TEST_MAP_1` apply the same way here) — clean result, every
@@ -545,11 +545,11 @@ export const TEST_MAP_2: ChapterDef = {
   objectiveType: 'waves',
   rows: [
     '.#...ff',
-    '.....##',
+    '.....#.',
     'ww.....',
     '.ww.www',
-    '.......',
-    '.ff....',
+    '....f..',
+    '.f....f',
     '.#....f',
     '.....f.',
   ],
