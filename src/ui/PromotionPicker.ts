@@ -1,6 +1,7 @@
 import { GameObjects, Scene } from 'phaser';
 
-import type { ClassName } from '../game/classes';
+import { statsAtLevel, type ClassName, type ClassStats } from '../game/classes';
+import { SKILLS } from '../game/skills';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { Button, Card, COLORS, FONT_FAMILY } from './kit';
 
@@ -8,6 +9,8 @@ export interface PromotionCandidate {
   unitId: string;
   name: string;
   fromClass: ClassName;
+  /** The unit's current level — the "before" side of the detail screen's stat comparison reads its current-class stats at this level. */
+  level: number;
   /** Every advanced class this unit's current class can branch into — usually 1, sometimes more (e.g. Lancer -> Lancemaster or General). */
   toClassOptions: ClassName[];
 }
@@ -18,36 +21,61 @@ export interface PromotionSelection {
 }
 
 const CARD_WIDTH = 320;
-const NAME_HEIGHT = 18;
-const NAME_GAP = 4;
-const BRANCH_ROW_HEIGHT = 40;
-const BRANCH_GAP = 8;
-/** Height of one candidate's block: its name label plus its row of branch buttons. */
-const BLOCK_HEIGHT = NAME_HEIGHT + NAME_GAP + BRANCH_ROW_HEIGHT;
-const BLOCK_GAP = 14;
+const INNER_WIDTH = CARD_WIDTH - 32;
 const TOP_PADDING = 20;
-const BOTTOM_PADDING = 16;
-const CONTINUE_HEIGHT = 40;
-const CONTINUE_GAP = 14;
+const BOTTOM_PADDING = 18;
+/** Green used for a stat/HP increase — same value as kit.ts's successStroke, just as a text-color string (Phaser Text needs a CSS string, kit's COLORS keeps it numeric for fills). */
+const POSITIVE_COLOR = '#5ab56a';
+const NEGATIVE_COLOR = COLORS.dangerOnText;
+const NEUTRAL_COLOR = COLORS.textDisabled;
+
+const STAT_LABELS: { key: keyof ClassStats; label: string }[] = [
+  { key: 'atk', label: 'Atk' },
+  { key: 'def', label: 'Def' },
+  { key: 'hit', label: 'Hit' },
+  { key: 'crit', label: 'Crit' },
+  { key: 'move', label: 'Mov' },
+  { key: 'range', label: 'Rng' },
+];
+
+type Screen = { kind: 'list' } | { kind: 'detail'; unitId: string; branchIndex: number };
 
 /**
- * Wave-clear promotion checklist (`game.ts`'s `resolvePromotions`) — shown
- * after `BlessingPicker` resolves, only when at least one player unit is
- * eligible (`classes.ts`'s `canPromote`). Unlike `BlessingPicker`'s
- * pick-exactly-one, this is a multi-select across units: each eligible unit
- * gets its own row of branch buttons (one per advanced class it can promote
- * into — `PROMOTES_TO` is one-to-many, HANDOFF.md's Promotion section),
- * mutually exclusive within that row (tapping a branch again deselects it),
- * and Continue is always available, confirming whatever's currently
- * selected — including nothing, a valid "promote nobody, continue" skip.
+ * Wave-clear / chapter-clear promotion flow (`game.ts`'s `resolvePromotions`)
+ * — shown after `BlessingPicker` resolves (roguelike) or on a campaign
+ * chapter clear, only when at least one player unit is eligible
+ * (`classes.ts`'s `canPromote`).
+ *
+ * Two screens (2026-08-27, per the repo owner — was a single screen with
+ * inline branch buttons and no stat/skill detail):
+ * - **List**: one row per eligible unit, showing its current pick if it's
+ *   made one. Tapping a row opens that unit's detail screen; tapping an
+ *   already-decided row lets them reconsider. Continue is always
+ *   available and finishes with whatever's been picked so far — including
+ *   nothing, a valid "promote nobody" skip, same as before this redesign.
+ * - **Detail**: one unit at a time. A tab per branch option (skipped
+ *   entirely for a single-option class — identical UX to before branching
+ *   existed) switches which class's stats/skills are shown below: a
+ *   before/after comparison (this class's current level vs. the new
+ *   class's level 1, since promoting always resets to level 1 — HANDOFF.md's
+ *   Promotion section) and that class's active skill(s) with their
+ *   descriptions. "Promote to X" commits the pick and returns to the list;
+ *   "Back" returns without deciding.
+ *
+ * Every element is positioned via a running vertical cursor during build,
+ * then shifted into place once the total content height (and so the
+ * card's centered top edge) is known — the only way to lay out the detail
+ * screen's variable-length wrapped skill descriptions without either
+ * guessing a fixed height per skill or measuring in a first pass.
  */
 export class PromotionPicker extends GameObjects.Container {
   private readonly backdrop: GameObjects.Rectangle;
   private readonly card: Card;
-  private readonly title: GameObjects.Text;
   private readonly rows: GameObjects.GameObject[] = [];
-  /** unitId -> the branch class currently selected for it (absent = not promoting this unit). */
+  private candidates: PromotionCandidate[] = [];
+  /** unitId -> the branch class currently picked for it (absent = not promoting this unit). */
   private selected = new Map<string, ClassName>();
+  private screen: Screen = { kind: 'list' };
   private onConfirm: ((selections: PromotionSelection[]) => void) | null = null;
 
   constructor(scene: Scene) {
@@ -57,74 +85,20 @@ export class PromotionPicker extends GameObjects.Container {
 
     this.backdrop = scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7);
     this.card = new Card(scene, width / 2, height / 2, CARD_WIDTH, TOP_PADDING + BOTTOM_PADDING);
-    this.title = scene.add
-      .text(width / 2, height / 2, 'Promotions Available', {
-        fontFamily: FONT_FAMILY,
-        fontSize: '15px',
-        color: COLORS.textAccent,
-        fontStyle: 'bold',
-        resolution: DPR,
-      })
-      .setOrigin(0.5);
 
-    this.add([this.backdrop, this.card, this.title]);
+    this.add([this.backdrop, this.card]);
     this.setDepth(20);
     scene.add.existing(this);
     this.setVisible(false);
   }
 
   show(candidates: PromotionCandidate[], onConfirm: (selections: PromotionSelection[]) => void): void {
+    this.candidates = candidates;
     this.onConfirm = onConfirm;
     this.selected = new Map();
-    for (const row of this.rows.splice(0)) row.destroy();
-
-    const width = LOGICAL_WIDTH;
-    const height = LOGICAL_HEIGHT;
-    const titleHeight = 24;
-    const blocksHeight = candidates.length * BLOCK_HEIGHT + Math.max(0, candidates.length - 1) * BLOCK_GAP;
-    const cardHeight = TOP_PADDING + titleHeight + blocksHeight + CONTINUE_GAP + CONTINUE_HEIGHT + BOTTOM_PADDING;
-    this.card.resize(CARD_WIDTH, cardHeight);
-
-    const cardTop = height / 2 - cardHeight / 2;
-    this.title.setPosition(width / 2, cardTop + TOP_PADDING / 2 + 10);
-
-    const innerWidth = CARD_WIDTH - 32;
-    const startY = cardTop + TOP_PADDING + titleHeight;
-    candidates.forEach((candidate, index) => {
-      const blockTop = startY + index * (BLOCK_HEIGHT + BLOCK_GAP);
-      const nameLabel = this.scene.add
-        .text(width / 2, blockTop + NAME_HEIGHT / 2, `${candidate.name} — ${candidate.fromClass}`, {
-          fontFamily: FONT_FAMILY,
-          fontSize: '12px',
-          color: COLORS.textPrimary,
-          resolution: DPR,
-        })
-        .setOrigin(0.5);
-      this.add(nameLabel);
-      this.rows.push(nameLabel);
-
-      const branchY = blockTop + NAME_HEIGHT + NAME_GAP + BRANCH_ROW_HEIGHT / 2;
-      const branchButtons: { button: Button; toClass: ClassName }[] = [];
-      const n = candidate.toClassOptions.length;
-      const branchWidth = (innerWidth - BRANCH_GAP * (n - 1)) / n;
-      const leftEdge = width / 2 - innerWidth / 2;
-
-      candidate.toClassOptions.forEach((toClass, branchIndex) => {
-        const bx = leftEdge + branchWidth / 2 + branchIndex * (branchWidth + BRANCH_GAP);
-        const button = new Button(this.scene, bx, branchY, branchWidth, BRANCH_ROW_HEIGHT, toClass, () => {}, '11px');
-        button.setOnTap(() => this.toggle(candidate.unitId, toClass, branchButtons));
-        this.add(button);
-        this.rows.push(button);
-        branchButtons.push({ button, toClass });
-      });
-    });
-
-    const continueY = startY + blocksHeight + CONTINUE_GAP;
-    const continueButton = new Button(this.scene, width / 2, continueY, CARD_WIDTH - 32, CONTINUE_HEIGHT, 'Continue', () => this.confirm());
-    this.add(continueButton);
-    this.rows.push(continueButton);
-
+    this.screen = { kind: 'list' };
     this.setVisible(true);
+    this.render();
   }
 
   hide(): void {
@@ -132,15 +106,209 @@ export class PromotionPicker extends GameObjects.Container {
     this.onConfirm = null;
   }
 
-  /** Selecting a branch for a unit deselects any other branch already picked for that same unit — mutually exclusive within one unit's row, tapping the active one again clears it. */
-  private toggle(unitId: string, toClass: ClassName, rowButtons: { button: Button; toClass: ClassName }[]): void {
-    const wasSelected = this.selected.get(unitId) === toClass;
-    if (wasSelected) this.selected.delete(unitId);
-    else this.selected.set(unitId, toClass);
+  // --- layout ---------------------------------------------------------
 
-    for (const { button, toClass: candidateClass } of rowButtons) {
-      const active = !wasSelected && candidateClass === toClass;
-      button.setAccent(active ? COLORS.successFill : null, active ? COLORS.successStroke : null);
+  private render(): void {
+    for (const row of this.rows.splice(0)) row.destroy();
+
+    const cursor = { y: 0 };
+    if (this.screen.kind === 'list') this.renderList(cursor);
+    else this.renderDetail(cursor, this.screen.unitId, this.screen.branchIndex);
+
+    const cardHeight = TOP_PADDING + cursor.y + BOTTOM_PADDING;
+    this.card.resize(CARD_WIDTH, cardHeight);
+    const cardTop = LOGICAL_HEIGHT / 2 - cardHeight / 2;
+    const shift = cardTop + TOP_PADDING;
+    for (const row of this.rows) (row as unknown as { y: number }).y += shift;
+  }
+
+  /** Adds `obj` to the tracked rows at the current cursor, without moving the cursor — for elements placed alongside another (e.g. a stat pair's second column). */
+  private place(obj: GameObjects.GameObject): void {
+    this.add(obj);
+    this.rows.push(obj);
+  }
+
+  private addText(
+    cursor: { y: number },
+    text: string,
+    style: { fontSize: string; color: string; fontStyle?: string; align?: string; wordWrapWidth?: number },
+    height: number,
+    x = LOGICAL_WIDTH / 2,
+    originX = 0.5,
+  ): GameObjects.Text {
+    const t = this.scene.add
+      .text(x, cursor.y + height / 2, text, {
+        fontFamily: FONT_FAMILY,
+        fontSize: style.fontSize,
+        color: style.color,
+        fontStyle: style.fontStyle,
+        align: style.align ?? 'center',
+        resolution: DPR,
+        wordWrap: style.wordWrapWidth ? { width: style.wordWrapWidth } : undefined,
+      })
+      .setOrigin(originX, 0.5);
+    this.place(t);
+    cursor.y += height;
+    return t;
+  }
+
+  // --- list screen ------------------------------------------------------
+
+  private renderList(cursor: { y: number }): void {
+    this.addText(cursor, 'Promotions Available', { fontSize: '15px', color: COLORS.textAccent, fontStyle: 'bold' }, 24);
+
+    const rowHeight = 46;
+    const rowGap = 10;
+    this.candidates.forEach((candidate) => {
+      const picked = this.selected.get(candidate.unitId);
+      const label = picked ? `${candidate.name} — ${candidate.fromClass} → ${picked}` : `${candidate.name} — ${candidate.fromClass}`;
+      const button = new Button(this.scene, LOGICAL_WIDTH / 2, cursor.y + rowHeight / 2, INNER_WIDTH, rowHeight, label, null, '12px');
+      if (picked) button.setAccent(COLORS.successFill, COLORS.successStroke);
+      button.setOnTap(() => {
+        this.screen = { kind: 'detail', unitId: candidate.unitId, branchIndex: 0 };
+        this.render();
+      });
+      this.place(button);
+      cursor.y += rowHeight + rowGap;
+    });
+
+    cursor.y += 6;
+    const continueButton = new Button(this.scene, LOGICAL_WIDTH / 2, cursor.y + 21, INNER_WIDTH, 42, 'Continue', () => this.confirm());
+    this.place(continueButton);
+    cursor.y += 42;
+  }
+
+  // --- detail screen ------------------------------------------------------
+
+  private renderDetail(cursor: { y: number }, unitId: string, branchIndex: number): void {
+    const candidate = this.candidates.find((c) => c.unitId === unitId);
+    if (!candidate) {
+      this.screen = { kind: 'list' };
+      this.renderList(cursor);
+      return;
+    }
+    const toClass = candidate.toClassOptions[branchIndex] ?? candidate.toClassOptions[0];
+
+    this.addText(cursor, candidate.name, { fontSize: '16px', color: COLORS.textPrimary, fontStyle: 'bold' }, 22);
+    this.addText(cursor, `Lv.${candidate.level} ${candidate.fromClass}`, { fontSize: '11px', color: COLORS.textDisabled }, 16);
+    cursor.y += 10;
+
+    if (candidate.toClassOptions.length > 1) {
+      const tabHeight = 34;
+      const gap = 8;
+      const n = candidate.toClassOptions.length;
+      const tabWidth = (INNER_WIDTH - gap * (n - 1)) / n;
+      const leftEdge = LOGICAL_WIDTH / 2 - INNER_WIDTH / 2;
+      candidate.toClassOptions.forEach((option, index) => {
+        const tx = leftEdge + tabWidth / 2 + index * (tabWidth + gap);
+        const tab = new Button(this.scene, tx, cursor.y + tabHeight / 2, tabWidth, tabHeight, option, null, '11px');
+        if (index === branchIndex) tab.setAccent(COLORS.successFill, COLORS.successStroke);
+        tab.setOnTap(() => {
+          this.screen = { kind: 'detail', unitId, branchIndex: index };
+          this.render();
+        });
+        this.place(tab);
+      });
+      cursor.y += tabHeight + 14;
+    }
+
+    this.addText(cursor, `-> ${toClass}`, { fontSize: '16px', color: COLORS.textAccent, fontStyle: 'bold' }, 24);
+    cursor.y += 4;
+
+    this.renderStatChanges(cursor, candidate, toClass);
+    cursor.y += 8;
+    this.renderSkills(cursor, toClass);
+    cursor.y += 10;
+
+    const promoteButton = new Button(this.scene, LOGICAL_WIDTH / 2, cursor.y + 21, INNER_WIDTH, 42, `Promote to ${toClass}`, () => {
+      this.selected.set(unitId, toClass);
+      this.screen = { kind: 'list' };
+      this.render();
+    });
+    promoteButton.setAccent(COLORS.successFill, COLORS.successStroke);
+    this.place(promoteButton);
+    cursor.y += 42 + 8;
+
+    const backButton = new Button(this.scene, LOGICAL_WIDTH / 2, cursor.y + 17, INNER_WIDTH, 34, 'Back', () => {
+      this.screen = { kind: 'list' };
+      this.render();
+    });
+    this.place(backButton);
+    cursor.y += 34;
+
+    if (this.selected.has(unitId)) {
+      cursor.y += 10;
+      const skipButton = new Button(this.scene, LOGICAL_WIDTH / 2, cursor.y + 9, INNER_WIDTH, 18, "Don't promote this unit", () => {
+        this.selected.delete(unitId);
+        this.screen = { kind: 'list' };
+        this.render();
+      }, '10px');
+      skipButton.setAccent(null, null, COLORS.textDisabled);
+      this.place(skipButton);
+      cursor.y += 18;
+    }
+  }
+
+  private renderStatChanges(cursor: { y: number }, candidate: PromotionCandidate, toClass: ClassName): void {
+    const before = statsAtLevel(candidate.fromClass, candidate.level);
+    const after = statsAtLevel(toClass, 1);
+    this.addText(cursor, `STAT CHANGES (Lv.${candidate.level} -> new class Lv.1)`, { fontSize: '10px', color: COLORS.textDisabled, wordWrapWidth: INNER_WIDTH }, 14);
+
+    const leftEdge = LOGICAL_WIDTH / 2 - INNER_WIDTH / 2;
+    this.renderStatRow(cursor, 'HP', before.maxHp, after.maxHp, leftEdge, INNER_WIDTH);
+
+    const colWidth = INNER_WIDTH / 2 - 4;
+    for (let i = 0; i < STAT_LABELS.length; i += 2) {
+      const rowY = cursor.y;
+      const left = STAT_LABELS[i];
+      this.renderStatRow({ y: rowY }, left.label, before[left.key], after[left.key], leftEdge, colWidth, false);
+      const right = STAT_LABELS[i + 1];
+      if (right) this.renderStatRow({ y: rowY }, right.label, before[right.key], after[right.key], leftEdge + colWidth + 8, colWidth, false);
+      cursor.y += 17;
+    }
+  }
+
+  private renderStatRow(cursor: { y: number }, label: string, before: number, after: number, x: number, width: number, advanceCursor = true): void {
+    const delta = after - before;
+    const color = delta > 0 ? POSITIVE_COLOR : delta < 0 ? NEGATIVE_COLOR : NEUTRAL_COLOR;
+    const sign = delta > 0 ? '+' : '';
+    const text = `${label} ${before} -> ${after} (${sign}${delta})`;
+    const t = this.scene.add
+      .text(x, cursor.y + 17 / 2, text, { fontFamily: FONT_FAMILY, fontSize: '11px', color, resolution: DPR, wordWrap: { width } })
+      .setOrigin(0, 0.5);
+    this.place(t);
+    if (advanceCursor) cursor.y += 17;
+  }
+
+  private renderSkills(cursor: { y: number }, toClass: ClassName): void {
+    const skills = SKILLS[toClass];
+    this.addText(cursor, skills.length > 1 ? 'NEW SKILLS' : 'NEW SKILL', { fontSize: '10px', color: COLORS.textDisabled }, 14);
+
+    const leftEdge = LOGICAL_WIDTH / 2 - INNER_WIDTH / 2;
+    for (const skill of skills) {
+      const name = this.scene.add
+        .text(leftEdge, cursor.y + 7, `${skill.name} (CD ${skill.cooldown})`, {
+          fontFamily: FONT_FAMILY,
+          fontSize: '12px',
+          fontStyle: 'bold',
+          color: COLORS.textAccent,
+          resolution: DPR,
+        })
+        .setOrigin(0, 0.5);
+      this.place(name);
+      cursor.y += 16;
+
+      const desc = this.scene.add
+        .text(leftEdge, cursor.y, skill.description, {
+          fontFamily: FONT_FAMILY,
+          fontSize: '11px',
+          color: COLORS.textPrimary,
+          resolution: DPR,
+          wordWrap: { width: INNER_WIDTH },
+        })
+        .setOrigin(0, 0);
+      this.place(desc);
+      cursor.y += desc.height + 8;
     }
   }
 

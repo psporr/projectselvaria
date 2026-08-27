@@ -347,7 +347,14 @@ export class UnitStatusBar extends GameObjects.Container {
     const ratio = clamp01(unit.hp / unit.maxHp);
     this.hpText.setText(`${unit.hp} / ${unit.maxHp}`);
     this.hpBarFill.width = this.hpBarWidth * ratio;
-    this.hpBarFill.setFillStyle(hpColor(ratio));
+    // Enemy HP bars are always red with their own border — same "reads as
+    // enemy before HP amount" reasoning as UnitSprite's on-board bar, kept
+    // consistent between the two since a player taps between them freely.
+    if (unit.team === 'enemy') {
+      this.hpBarFill.setFillStyle(0xd9534f).setStrokeStyle(1, 0x5a0d0d, 1);
+    } else {
+      this.hpBarFill.setFillStyle(hpColor(ratio)).setStrokeStyle(0);
+    }
 
     const hasTerrainBonus = terrain.defBonus > 0 || terrain.avoid > 0;
     this.terrainIcon.setFillStyle(hasTerrainBonus ? 0x2d5a3d : 0x5a6070);

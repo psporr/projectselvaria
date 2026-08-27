@@ -949,6 +949,7 @@ export class TacticalScene extends Scene {
       unitId: unit.id,
       name: unit.name,
       fromClass: unit.className,
+      level: unit.level,
       toClassOptions: PROMOTES_TO[unit.className] ?? [],
     }));
     this.ui.showPromotionPicker(candidates, (selections) => {
@@ -1059,7 +1060,7 @@ export class TacticalScene extends Scene {
         const candidates: PromotionCandidate[] = fresh.G.promotionEligibleUnitIds
           .map((id) => fresh.G.units[id])
           .filter((unit): unit is Unit => unit !== undefined)
-          .map((unit) => ({ unitId: unit.id, name: unit.name, fromClass: unit.className, toClassOptions: PROMOTES_TO[unit.className] ?? [] }));
+          .map((unit) => ({ unitId: unit.id, name: unit.name, fromClass: unit.className, level: unit.level, toClassOptions: PROMOTES_TO[unit.className] ?? [] }));
         this.ui.showPromotionPicker(candidates, (selections) => {
           this.promotionPickerOpen = false;
           this.client.moves.resolvePromotions(selections);

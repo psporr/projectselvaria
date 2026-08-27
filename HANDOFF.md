@@ -118,12 +118,19 @@ change with it (`SKILLS` is keyed by class to an array, so this needs no
 separate skill-swap step regardless of how many skills either class has).
 No additive skills, no partial carry-over of the old class — this is a
 clean class change, not a stat bonus layered on top.
-`PromotionPicker` (`src/ui/`) shows one row per eligible unit; a unit with
-a single option renders one full-width button (identical UX to before
-branching existed), a unit with multiple options renders them side by
-side, mutually exclusive within that unit's row (tapping a branch again
-deselects it) — selection is `Map<unitId, ClassName>`, confirmed as
-`{unitId, toClass}[]` to `resolvePromotions`.
+`PromotionPicker` (`src/ui/`) is a two-screen flow (2026-08-27, per the
+repo owner — was one screen with inline branch buttons and no stat/skill
+detail before this): a **list** of eligible units (tap one to open its
+detail screen; Continue always available, finalizing whatever's been
+picked so far — including nothing); then a per-unit **detail** screen —
+a tab per branch option (skipped for a single-option class, identical UX
+to before branching existed) showing that class's stat changes (current
+level vs. the new class's level 1, color-coded green/red per stat — see
+"Worth knowing" below on why that's often red) and its active skill(s)
+with descriptions, plus "Promote to X" / "Back". Internally tracked as
+`Map<unitId, ClassName>`, confirmed as `{unitId, toClass}[]` to
+`resolvePromotions` exactly as before — the UI rework didn't touch the
+move/data layer.
 
 **Worth knowing**: because `LEVEL_GROWTH` is flat and identical for every
 class (+1 Atk, +1 Def, +2 max HP/level), a unit promoted right at level 10
@@ -146,9 +153,11 @@ Two trigger points, both level-gated the same way:
   eligible unit can be promoted in the same pass, not one-at-a-time — then
   spawns the next wave. `PromotionPicker` (`src/ui/`) is the checklist UI,
   built off `BlessingPicker`'s same container/show/hide pattern.
-- **End of chapter** (campaign) — not built yet. Needs campaign mode's
-  chapter-to-chapter pipeline first (§4 below describes what that's
-  missing) — tracked as a separate, larger piece of work.
+- **End of chapter** (campaign) — live and working too (shipped 2026-08-27,
+  see README's "Recent changes"). Reuses the same `PromotionPicker`, but
+  post-`gameover` and outside the move system — promoting there writes
+  directly into the `CampaignCarryOver` entry being built for the next
+  chapter (`TacticalScene.continueCampaign()`), not into a live `Unit`.
 
 ### Combat
 

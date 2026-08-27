@@ -112,6 +112,12 @@ export class UnitSprite extends GameObjects.Container {
     // an outline a near-full-HP bar could nearly vanish into a green tile.
     const hpBarBg = scene.add.rectangle(0, -radius - 8, this.hpBarWidth, 5, 0x000000, 0.6).setStrokeStyle(1, 0x000000, 0.9);
     this.hpBar = scene.add.rectangle(0, -radius - 8, this.hpBarWidth, 5, 0x5cb85c);
+    // Enemy HP bars get their own border, on top of hpBarBg's — a fixed red
+    // fill (see sync()) reads as "this is an enemy" at a glance even before
+    // the eye gets to HP amount, and the extra outline keeps that fill
+    // visibly separated from hpBarBg's own dark backing at a full/near-full
+    // bar, the same legibility reasoning as hpBarBg's own stroke above.
+    if (unit.team === 'enemy') this.hpBar.setStrokeStyle(1, 0x5a0d0d, 1);
 
     this.add([...visuals, hpBarBg, this.hpBar]);
     scene.add.existing(this);
@@ -132,7 +138,10 @@ export class UnitSprite extends GameObjects.Container {
   sync(unit: Unit, dimmed: boolean): void {
     const ratio = clamp01(unit.hp / unit.maxHp);
     this.hpBar.width = this.hpBarWidth * ratio;
-    this.hpBar.fillColor = ratio > 0.5 ? 0x5cb85c : ratio > 0.25 ? 0xf0ad4e : 0xd9534f;
+    // Enemy HP bars are always red (team-colored, not HP-ratio-colored) —
+    // a player unit's bar still traffic-lights green/orange/red by HP so a
+    // wounded ally stands out, but an enemy's bar reads as "enemy" first.
+    this.hpBar.fillColor = unit.team === 'enemy' ? 0xd9534f : ratio > 0.5 ? 0x5cb85c : ratio > 0.25 ? 0xf0ad4e : 0xd9534f;
 
     if (this.portrait) {
       // Toggles the live grayscale filter rather than fading alpha — see

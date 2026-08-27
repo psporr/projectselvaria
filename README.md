@@ -146,6 +146,40 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-27 Claude: Two more fixes/features, per the repo owner:
+  1. **Enemy HP bars are now always red with a border** (`UnitSprite.ts`'s
+     on-board bar and `UnitStatusBar.ts`'s panel bar), instead of the same
+     HP-ratio traffic-light coloring player units use — reads as "this is
+     an enemy" before the eye even gets to the HP amount. Player bars are
+     unchanged.
+  2. **Promotion is now a two-screen flow** (`PromotionPicker.ts` rewrite)
+     instead of one screen with inline branch buttons and no detail: a
+     **list** of eligible units (tap one to open it, Continue always
+     available to finish with whatever's picked so far); then a per-unit
+     **detail** screen with a tab per branch option (skipped for a
+     single-option class), a full stat-change comparison (current level
+     vs. the new class's level 1, colored green/red per stat — makes the
+     "promotion resets to level 1" stat dip [see HANDOFF.md's Promotion
+     section, "Worth knowing"] fully visible before committing, instead of
+     a surprise), and the new class's active skill(s) with descriptions.
+     `resolvePromotions`/`game.ts` untouched — this is purely
+     `PromotionPicker`'s own internal layout, still confirming the same
+     `{unitId, toClass}[]` shape it always did. Every element position is
+     computed via a running layout cursor, then shifted into place once
+     the total content height is known — the only way to lay out the
+     detail screen's variable-length wrapped skill descriptions without
+     guessing a fixed height per skill.
+  Verified: `typecheck`/`build`/`validate-maps` clean (this doesn't touch
+  `game.ts`/`classes.ts`, so `sim` doesn't apply — headless sim never
+  renders Phaser/UI at all). Playwright (temporary debug hook, reverted)
+  drove the full new flow end to end: opened a single-branch unit's detail
+  screen (no tabs, matching old UX), promoted it, confirmed the list
+  reflected the pick; opened a two-branch unit, switched tabs and watched
+  the stat/skill detail update live, promoted the other branch; hit
+  Continue and confirmed the callback received exactly the expected
+  `{unitId, toClass}[]` for both units. Also incidentally confirmed the
+  enemy HP bar fix and the trimmed random-enemy pool (v0.16.2) are both
+  rendering correctly in the same screenshots.
 - 2026-08-27 Claude: Three small fixes from the repo owner's own testing
   pass on today's class-tree rework:
   1. **Status bar bug**: selecting a unit (showing its walkable tiles),
