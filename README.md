@@ -139,6 +139,36 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-26 Claude: 5 new classes — General, Thief, Assassin, Mercenary,
+  Dark Mage — plus anonymous enemy-class art for 7 of the game's 12 classes
+  (see CREDITS.md). Design discussion first (`tactical-rpg-design` skill's
+  "overlap is fine, redundancy isn't" rule): of the 9 enemy-art class names
+  that shipped in the 2026-08-26 art commit, Fighter and Spearfighter had no
+  identity distinct from Swordsman/Lancer, so their art became those two
+  classes' enemy skin instead of new classes; the other 7 (2 existing —
+  Archer, Barbarian — plus the 5 new ones) got real anonymous enemy art
+  (`heroArt.ts`'s new `ENEMY_ART_CLASSES`/`enemyClassTextureKey`,
+  `UnitSprite`/`UnitStatusBar` fall back to it for any enemy with no named-
+  hero art). `b_eirika128.png` wasn't touched — reads as a boss/named unit,
+  not a class skin.
+  New class stats/skills (`classes.ts`, `skills.ts`): General (HP32/Def10/
+  Mov2, Shield Slam ignores terrain avoid) is the tank niche nothing else
+  filled; Thief (Mov5, Snatch heals the Thief for damage dealt) and
+  Assassin (Crit35, Execute bonus damage vs. a wounded target) are two
+  independent standalone classes, not a promotion pair — the game has no
+  promotion system yet, so that was staying in scope; Mercenary (Hit90,
+  Focused Strike adds flat Hit/Crit to one swing) is a reliable duelist,
+  distinct from Barbarian's crit-gambling brawler. Dark Mage's Curse is the
+  first debuff in the game — a small new mechanic (`Unit.debuffDef`/
+  `debuffTurns`, decremented in `turn.onBegin` the same way skillCooldown
+  is, folded into `effectiveStats()`'s Def so every damage/hit calculation
+  picks it up for free) rather than a Mage reskin, so it has a real
+  identity: Curse lowers a target's Def for 2 turns.
+  Verified with typecheck/build/validate-maps/a 30-batch sim (all classes
+  get exercised through `ALL_CLASSES`-driven roguelike waves), and
+  confirmed live in Playwright — a wave spawned a "Dark Mage Shadow" with
+  the right stats, skill, and real enemy art on both the board sprite and
+  the status panel, with no page errors.
 - 2026-08-26 Claude: Fixed the hero art the 2026-08-26 art commit broke, and
   wired in the first bust portrait. That commit renamed every hero map
   sprite to add a `128` suffix (`eirika.png` -> `eirika128.png`) and two

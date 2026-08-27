@@ -10,6 +10,14 @@ export const HEAL_BONUS = 4;
 export const SNIPE_BONUS = 4;
 /** Nova's per-target damage multiplier — a blast hits several tiles, so each hit is softened. */
 export const NOVA_DAMAGE_MULTIPLIER = 0.6;
+/** Flat bonus damage Execute deals against a target at or below half HP. */
+export const EXECUTE_BONUS = 6;
+/** Flat Hit/Crit bonus Focused Strike adds to its one attack. */
+export const FOCUSED_STRIKE_HIT_BONUS = 15;
+export const FOCUSED_STRIKE_CRIT_BONUS = 15;
+/** Flat Def penalty, and how many of the target's own turns it lasts, from Curse. */
+export const CURSE_DEBUFF_DEF = 3;
+export const CURSE_DEBUFF_TURNS = 2;
 
 export type SkillTargetType = 'ally' | 'enemy';
 
@@ -112,6 +120,51 @@ export const SKILLS: Record<ClassName, SkillDef> = {
     category: 'attack',
     rangeBonus: 0,
   },
+  General: {
+    id: 'shield-slam',
+    name: 'Shield Slam',
+    description: "Attack ignoring the target's terrain avoid bonus.",
+    cooldown: SKILL_COOLDOWN,
+    targetType: 'enemy',
+    category: 'attack',
+    rangeBonus: 0,
+  },
+  Thief: {
+    id: 'snatch',
+    name: 'Snatch',
+    description: 'Attack that heals the Thief for the damage dealt.',
+    cooldown: SKILL_COOLDOWN,
+    targetType: 'enemy',
+    category: 'attack',
+    rangeBonus: 0,
+  },
+  Assassin: {
+    id: 'execute',
+    name: 'Execute',
+    description: 'Bonus damage against a target at or below half HP.',
+    cooldown: SKILL_COOLDOWN,
+    targetType: 'enemy',
+    category: 'attack',
+    rangeBonus: 0,
+  },
+  Mercenary: {
+    id: 'focused-strike',
+    name: 'Focused Strike',
+    description: 'A precise attack with bonus Hit and Crit.',
+    cooldown: SKILL_COOLDOWN,
+    targetType: 'enemy',
+    category: 'attack',
+    rangeBonus: 0,
+  },
+  'Dark Mage': {
+    id: 'curse',
+    name: 'Curse',
+    description: `Attack that also lowers the target's Def by ${CURSE_DEBUFF_DEF} for ${CURSE_DEBUFF_TURNS} turns.`,
+    cooldown: SKILL_COOLDOWN,
+    targetType: 'enemy',
+    category: 'attack',
+    rangeBonus: 0,
+  },
 };
 
 /** The reach a unit's skill can target from its current tile. */
@@ -209,6 +262,34 @@ export function describeSkillEffect(G: GameState, unit: Unit, target: Unit | nul
       if (!target) return '';
       const chances = computeAttackChances(G, unit, target);
       return `${chances.normalDamage} damage (${chances.hitChance}% hit, ${chances.critChance}% crit). Acts again immediately if this kills.`;
+    }
+    case 'shield-slam': {
+      if (!target) return '';
+      const chances = computeAttackChances(G, unit, target);
+      return `${chances.normalDamage} damage, ignoring terrain avoid (${chances.critChance}% crit).`;
+    }
+    case 'snatch': {
+      if (!target) return '';
+      const chances = computeAttackChances(G, unit, target);
+      return `${chances.normalDamage} damage (${chances.hitChance}% hit, ${chances.critChance}% crit). Heals the Thief for the damage dealt.`;
+    }
+    case 'execute': {
+      if (!target) return '';
+      const chances = computeAttackChances(G, unit, target);
+      const bonus = target.hp <= target.maxHp / 2 ? EXECUTE_BONUS : 0;
+      return `${chances.normalDamage + bonus} damage (${chances.hitChance}% hit, ${chances.critChance}% crit)${bonus > 0 ? `, +${EXECUTE_BONUS} vs a wounded target` : ''}.`;
+    }
+    case 'focused-strike': {
+      if (!target) return '';
+      const chances = computeAttackChances(G, unit, target);
+      const hitChance = Math.min(100, chances.hitChance + FOCUSED_STRIKE_HIT_BONUS);
+      const critChance = Math.min(100, chances.critChance + FOCUSED_STRIKE_CRIT_BONUS);
+      return `${chances.normalDamage} damage (${hitChance}% hit, ${critChance}% crit).`;
+    }
+    case 'curse': {
+      if (!target) return '';
+      const chances = computeAttackChances(G, unit, target);
+      return `${chances.normalDamage} damage (${chances.hitChance}% hit, ${chances.critChance}% crit). Lowers Def by ${CURSE_DEBUFF_DEF} for ${CURSE_DEBUFF_TURNS} turns.`;
     }
     default:
       return '';

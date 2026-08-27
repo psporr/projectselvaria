@@ -43,6 +43,33 @@ characters nearly edge-to-edge, others in a much smaller centered box) —
 worth aiming for a consistent scale across characters so they read as the
 same "camera distance" once several sit on the board together.
 
+## Status (2026-08-26)
+
+Two things line 33-34 above no longer describes:
+
+- **18 more named-hero map sprites landed** (Amelia, Claude, Dmitri,
+  Edelgard, Eliwood, Forde, Hector, Ike, Joshua, L'Arachel, Lissa, Lute,
+  Lyon, Marisa, Mikoto, Sakura, Solen, Velouria — 24 total now,
+  `heroArt.ts`'s `HERO_SPRITE_NAMES`), but none are in any chapter's
+  starting roster yet — that's a separate decision from having the art.
+- **Enemies now have real art.** A same-day batch of anonymous enemy-class
+  sprites (`public/enemy/*.png`) shipped alongside the hero batch, plus 5
+  new classes to go with them (General, Thief, Assassin, Mercenary, Dark
+  Mage — a 2026-08-26 class-roster design pass; see `classes.ts`/
+  `skills.ts`). An enemy with no name match now falls back to its class's
+  enemy art if it has one (`heroArt.ts`'s `ENEMY_ART_CLASSES`) before
+  falling back further to the circle+letter placeholder — no longer "stays
+  the flat-circle placeholder" unconditionally. Two of the original 7
+  classes' enemy art came from sprites that didn't become classes
+  themselves (Fighter's art -> Swordsman's enemy skin, Spearfighter's art
+  -> Lancer's) since neither had a tactical identity distinct from an
+  existing class.
+- **Portraits arrived too**, ahead of the "later" this doc's Sequencing
+  section below still describes: `public/portrait/jill.png`, a 1024×1024
+  bust cropped/keyed down for `UnitStatusBar`'s portrait slot
+  (`heroArt.ts`'s `HERO_PORTRAIT_NAMES`). Same "add a name, it just
+  resolves" pattern as the map sprites.
+
 ## Why this exists
 
 The game currently renders every unit as a flat-colored circle with a

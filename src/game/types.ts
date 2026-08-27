@@ -115,6 +115,10 @@ export interface Unit {
   equipment: EquipmentSlots;
   /** Turns until this unit's class skill is usable again. 0 = ready. */
   skillCooldown: number;
+  /** Flat Def penalty from Dark Mage's Curse, applied in effectiveStats() while debuffTurns > 0. */
+  debuffDef: number;
+  /** Turns left on the Curse debuff above; decremented in turn.onBegin the same way skillCooldown is. */
+  debuffTurns: number;
 }
 
 export interface GameState {

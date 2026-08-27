@@ -12,7 +12,12 @@ export type ClassName =
   | 'Mage'
   | 'Barbarian'
   | 'Cleric'
-  | 'Dancer';
+  | 'Dancer'
+  | 'General'
+  | 'Thief'
+  | 'Assassin'
+  | 'Mercenary'
+  | 'Dark Mage';
 
 export interface ClassStats {
   maxHp: number;
@@ -52,6 +57,15 @@ export const CLASS_STATS: Record<ClassName, ClassStats> = {
   Barbarian: { maxHp: 27, atk: 11, def: 3, move: 3, range: 1, hit: 65, crit: 25 },
   Cleric: { maxHp: 18, atk: 6, def: 4, move: 3, range: 1, hit: 80, crit: 5 },
   Dancer: { maxHp: 16, atk: 6, def: 2, move: 4, range: 1, hit: 85, crit: 5 },
+  // Added 2026-08-26 alongside the enemy-class art commit — see skills.ts's
+  // SKILLS for each one's signature ability and heroArt.ts for which classes
+  // got real enemy art (Fighter/Spearfighter didn't become classes; their art
+  // became alt skins for Swordsman/Lancer instead — see that file's comment).
+  General: { maxHp: 32, atk: 8, def: 10, move: 2, range: 1, hit: 80, crit: 5 },
+  Thief: { maxHp: 16, atk: 6, def: 2, move: 5, range: 1, hit: 90, crit: 10 },
+  Assassin: { maxHp: 14, atk: 10, def: 2, move: 4, range: 1, hit: 75, crit: 35 },
+  Mercenary: { maxHp: 20, atk: 8, def: 4, move: 3, range: 1, hit: 90, crit: 12 },
+  'Dark Mage': { maxHp: 16, atk: 8, def: 3, move: 3, range: 2, hit: 85, crit: 5 },
 };
 
 export const ALL_CLASSES: ClassName[] = [
@@ -62,6 +76,11 @@ export const ALL_CLASSES: ClassName[] = [
   'Barbarian',
   'Cleric',
   'Dancer',
+  'General',
+  'Thief',
+  'Assassin',
+  'Mercenary',
+  'Dark Mage',
 ];
 
 /**

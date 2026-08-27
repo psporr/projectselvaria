@@ -28,10 +28,16 @@ this project by a friend of the developer. No external license involved.
 18 more named-hero map sprites (Amelia, Claude, Dmitri, Edelgard, Eliwood,
 Forde, Hector, Ike, Joshua, L'Arachel, Lissa, Lute, Lyon, Marisa, Mikoto,
 Sakura, Solen, Velouria) and 15 anonymous enemy-class sprites
-(`public/enemy/*.png`) were added 2026-08-26, same source as above. None
-are wired into the game yet — the new heroes aren't in any chapter's
-roster, and the enemy sprites are pending a class-roster design pass before
-they're mapped to any class.
+(`public/enemy/*.png`) were added 2026-08-26, same source as above. The new
+heroes aren't in any chapter's roster yet, but their art resolves correctly
+the moment they are. The enemy sprites are wired in as anonymous enemy art (`heroArt.ts`'s
+`ENEMY_ART_CLASSES`): 7 mapped to their same-named class — 2 existing
+(Archer, Barbarian), 5 new ones added the same day (General, Thief,
+Assassin, Mercenary, Dark Mage — a 2026-08-26 class-roster expansion, see
+README) — and 2 more (Fighter, Spearfighter) folded in as the enemy skin
+for Swordsman/Lancer since they didn't earn distinct classes of their own.
+`b_eirika128.png` isn't wired in — it reads as a specific boss/named enemy
+unit, not a class skin, so it's unused pending a story decision.
 
 `public/portrait/jill.png` (added 2026-08-26, same source) is a bust
 portrait — the first of a separate, higher-detail art category from the

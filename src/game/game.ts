@@ -19,7 +19,19 @@ import { BLESSINGS, drawBlessings } from './blessings';
 import { spawnWave } from './waves';
 import { EXP_PER_ATTACK, EXP_PER_HEAL, EXP_PER_KILL, grantExp as grantExpToUnit } from './classes';
 import { effectiveStats, equippedKillHeal, ITEMS, rollDrop, type DropRandomAPI } from './equipment';
-import { HEAL_BONUS, NOVA_DAMAGE_MULTIPLIER, SKILLS, SNIPE_BONUS, novaBlastTargets, skillTargets } from './skills';
+import {
+  CURSE_DEBUFF_DEF,
+  CURSE_DEBUFF_TURNS,
+  EXECUTE_BONUS,
+  FOCUSED_STRIKE_CRIT_BONUS,
+  FOCUSED_STRIKE_HIT_BONUS,
+  HEAL_BONUS,
+  NOVA_DAMAGE_MULTIPLIER,
+  SKILLS,
+  SNIPE_BONUS,
+  novaBlastTargets,
+  skillTargets,
+} from './skills';
 import { pushLog } from './log';
 
 /**
@@ -395,6 +407,117 @@ export const useSkill = (
       break;
     }
 
+    case 'shield-slam': {
+      if (!target || !skillTargets(G, unit).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      // Ignores the target's terrain *avoid*, not its terrain *defence* —
+      // the mirror image of Guard Break, which breaks guard but not footing.
+      const chances: AttackChances = {
+        hitChance: Math.max(5, Math.min(100, effectiveStats(unit).hit)),
+        critChance: computeCritChance(unit),
+        normalDamage: computeDamage(G, unit, target),
+        critDamage: computeDamage(G, unit, target) * 2,
+      };
+      const roll = rollAttack(chances, random);
+      if (!roll.hit) {
+        pushLog(G, `${unit.name}'s shield slam misses ${target.name}!`);
+      } else {
+        target.hp = Math.max(0, target.hp - roll.damage);
+        pushLog(G, `${unit.name} slams ${target.name} for ${roll.damage}${roll.crit ? ' (Critical!)' : ''}, ignoring cover.`);
+        if (target.hp <= 0) {
+          killUnit(G, target, random, unit);
+          killedTarget = true;
+        } else if (!resolveSkillCounter(G, unit, target, random)) {
+          return;
+        }
+      }
+      break;
+    }
+
+    case 'snatch': {
+      if (!target || !skillTargets(G, unit).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      const roll = rollAttack(computeAttackChances(G, unit, target), random);
+      if (!roll.hit) {
+        pushLog(G, `${unit.name}'s snatch misses ${target.name}!`);
+      } else {
+        target.hp = Math.max(0, target.hp - roll.damage);
+        unit.hp = Math.min(unit.maxHp, unit.hp + roll.damage);
+        pushLog(G, `${unit.name} snatches ${roll.damage} HP from ${target.name}${roll.crit ? ' (Critical!)' : ''}.`);
+        if (target.hp <= 0) {
+          killUnit(G, target, random, unit);
+          killedTarget = true;
+        } else if (!resolveSkillCounter(G, unit, target, random)) {
+          return;
+        }
+      }
+      break;
+    }
+
+    case 'execute': {
+      if (!target || !skillTargets(G, unit).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      const base = computeAttackChances(G, unit, target);
+      const bonus = target.hp <= target.maxHp / 2 ? EXECUTE_BONUS : 0;
+      const normalDamage = base.normalDamage + bonus;
+      const chances: AttackChances = { ...base, normalDamage, critDamage: normalDamage * 2 };
+      const roll = rollAttack(chances, random);
+      if (!roll.hit) {
+        pushLog(G, `${unit.name}'s execute misses ${target.name}!`);
+      } else {
+        target.hp = Math.max(0, target.hp - roll.damage);
+        pushLog(G, `${unit.name} strikes ${target.name} for ${roll.damage}${roll.crit ? ' (Critical!)' : ''}.`);
+        if (target.hp <= 0) {
+          killUnit(G, target, random, unit);
+          killedTarget = true;
+        } else if (!resolveSkillCounter(G, unit, target, random)) {
+          return;
+        }
+      }
+      break;
+    }
+
+    case 'focused-strike': {
+      if (!target || !skillTargets(G, unit).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      const base = computeAttackChances(G, unit, target);
+      const chances: AttackChances = {
+        ...base,
+        hitChance: Math.min(100, base.hitChance + FOCUSED_STRIKE_HIT_BONUS),
+        critChance: Math.min(100, base.critChance + FOCUSED_STRIKE_CRIT_BONUS),
+      };
+      const roll = rollAttack(chances, random);
+      if (!roll.hit) {
+        pushLog(G, `${unit.name}'s focused strike misses ${target.name}!`);
+      } else {
+        target.hp = Math.max(0, target.hp - roll.damage);
+        pushLog(G, `${unit.name} strikes ${target.name} for ${roll.damage}${roll.crit ? ' (Critical!)' : ''}.`);
+        if (target.hp <= 0) {
+          killUnit(G, target, random, unit);
+          killedTarget = true;
+        } else if (!resolveSkillCounter(G, unit, target, random)) {
+          return;
+        }
+      }
+      break;
+    }
+
+    case 'curse': {
+      if (!target || !skillTargets(G, unit).some((candidate) => candidate.id === target.id)) return INVALID_MOVE;
+      const roll = rollAttack(computeAttackChances(G, unit, target), random);
+      if (!roll.hit) {
+        pushLog(G, `${unit.name}'s curse misses ${target.name}!`);
+      } else {
+        target.hp = Math.max(0, target.hp - roll.damage);
+        target.debuffDef = CURSE_DEBUFF_DEF;
+        target.debuffTurns = CURSE_DEBUFF_TURNS;
+        pushLog(G, `${unit.name} curses ${target.name} for ${roll.damage}${roll.crit ? ' (Critical!)' : ''}, lowering their Def.`);
+        if (target.hp <= 0) {
+          killUnit(G, target, random, unit);
+          killedTarget = true;
+        } else if (!resolveSkillCounter(G, unit, target, random)) {
+          return;
+        }
+      }
+      break;
+    }
+
     default:
       return INVALID_MOVE;
   }
@@ -532,6 +655,7 @@ const SelvariaGameBase: Game<GameState> = {
         unit.hasMoved = false;
         unit.hasActed = false;
         if (unit.skillCooldown > 0) unit.skillCooldown -= 1;
+        if (unit.debuffTurns > 0) unit.debuffTurns -= 1;
       }
       if (team === 'player' && G.modifiers.healPerTurn > 0) {
         for (const unit of unitsOf(G, 'player')) {

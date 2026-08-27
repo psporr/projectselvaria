@@ -2,7 +2,7 @@ import { Filters, GameObjects, Scene, TintModes } from 'phaser';
 import type { Unit } from '../game/types';
 import { DPR } from '../systems/viewport';
 import { CLASS_LETTER } from '../ui/classIcons';
-import { heroTextureKey } from '../ui/heroArt';
+import { enemyClassTextureKey, heroTextureKey } from '../ui/heroArt';
 import { FONT_FAMILY } from '../ui/kit';
 
 const TEAM_COLOR: Record<string, number> = { player: 0x4a90d9, enemy: 0xd9534f };
@@ -37,9 +37,11 @@ function blendToward(color: number, target: number, amount: number): number {
  *
  * Two render modes, chosen once at construction (a unit's name/art doesn't
  * change mid-match): a named hero with real art (`heroArt.ts`'s
- * `HERO_SPRITE_NAMES`) gets that PNG; everyone else — every enemy (always
- * anonymous, see `game/maps.ts`), and any hero not yet drawn — keeps the
- * original colored-circle-plus-class-letter placeholder. The two modes
+ * `HERO_SPRITE_NAMES`) gets that PNG; an enemy with no name match falls
+ * back to anonymous class art (`heroArt.ts`'s `ENEMY_ART_CLASSES`) if its
+ * class has any (2026-08-26); everyone else — a player unit with no hero
+ * art, or an enemy whose class has none — keeps the original
+ * colored-circle-plus-class-letter placeholder. The two modes
  * share the HP bar but render "acted" differently: the circle blends its
  * flat fill toward gray, while the art mode toggles a live GPU grayscale
  * filter (`Image.enableFilters()` + `filters.internal.addColorMatrix()`,
@@ -73,7 +75,12 @@ export class UnitSprite extends GameObjects.Container {
     this.currentFill = this.baseColor;
 
     const radius = tileSize * 0.32;
-    const textureKey = heroTextureKey(unit.name);
+    const heroKey = heroTextureKey(unit.name);
+    // Class-fallback art is enemy-only — a player unit with no hero art of
+    // its own stays the circle+letter placeholder rather than borrowing the
+    // anonymous enemy skin for its class.
+    const enemyKey = unit.team === 'enemy' ? enemyClassTextureKey(unit.className) : heroKey;
+    const textureKey = scene.textures.exists(heroKey) ? heroKey : enemyKey;
     const hasArt = scene.textures.exists(textureKey);
 
     const visuals: GameObjects.GameObject[] = [];

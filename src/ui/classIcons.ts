@@ -17,4 +17,12 @@ export const CLASS_LETTER: Record<ClassName, string> = {
   Barbarian: 'B',
   Cleric: 'C',
   Dancer: 'D',
+  General: 'G',
+  Thief: 'T',
+  // Assassin and Mercenary can't use their own first letter (Archer, Mage
+  // already claim A/M); Dark Mage can't use D (Dancer). Picked for visual
+  // distinctness, not a mnemonic.
+  Assassin: 'K',
+  Mercenary: 'R',
+  'Dark Mage': 'X',
 };
