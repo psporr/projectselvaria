@@ -119,11 +119,6 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 ### Not built yet
 
 - `CombatOverlayScene` (HANDOFF.md §7 phase 2 — GBA-style combat presentation)
-- Campaign chapter *dialogue* rendering — `ChapterDef.intro`/`.outro` and
-  `MapEvent` triggers (`src/game/story.ts`) still have no scene reading
-  them, so campaign chapters play without their story beats. Chapter
-  select and the chapter-to-chapter pipeline itself shipped 2026-08-27
-  (see "Recent changes") — that was the other half of this line.
 - Multiplayer, mobile app wrap (both explicitly deferred, HANDOFF.md §9/§10)
 
 ### In progress
@@ -146,6 +141,60 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-27 Claude: Campaign dialogue rendering — the last "Not built yet"
+  item from campaign mode's launch now actually reads `ChapterDef.intro`/
+  `.outro` and `story.ts`'s mid-battle `MapEvent` triggers, instead of the
+  data sitting unread. New bottom-anchored `DialoguePanel` (`src/ui/`,
+  `Card`/`Button` kit, tap-to-advance, class-letter portrait tinted by
+  `DialogueLine.side`) wired into `TacticalScene` at three points: `create()`
+  suspends input and shows `chapter.intro` before the board goes live (a new
+  `lookupCampaignChapter()` helper replaces the one already inlined in
+  `finishCampaignContinue()`); a new `scheduleAutoAdvance()` branch tracks
+  per-team `turnCounts` (for `story.ts`'s `turnReached` trigger, nothing else
+  tracked this) and fires the first not-yet-fired `MapEvent` whose
+  `isTriggerMet()` is true, re-entering itself on completion so two events
+  that become true simultaneously both fire in sequence instead of only the
+  first; `continueCampaign()` shows the cleared chapter's `outro` (if any)
+  before the promotion picker / chapter-select handoff it already drove.
+  Also **rewrote both authored chapters' intro/outro/event dialogue to the
+  current 6-hero roster** (`maps.ts`, speaker/portraitClass only, line text
+  unchanged) — the existing content spoke through Eirika/Corrin/Lissa/Selva/
+  Ike, an older cast that predates this session's roster reshuffle and
+  doesn't match any current squad member; per the repo owner, reassigned
+  rather than left broken (Jill/Ephraim/Natasha/Solen/Marisa each pick up a
+  class-matched voice; Lyn doesn't get a line in either chapter — no
+  Archer-flavored line existed to reassign, flagged as a future-content gap
+  rather than invented).
+  **Found and fixed a real bug while verifying, not part of the plan**:
+  `TacticalScene.create()`'s new intro-dialogue call ran `this.ui
+  .showDialogue(...)` synchronously right after `this.scene.launch('UI', ...)`
+  — but launching a scene only queues its `create()`, it doesn't run it
+  inline, so `this.ui.dialoguePanel` didn't exist yet on that same call
+  stack. Any campaign chapter with an intro (both authored chapters have
+  one) would have thrown a `TypeError` immediately on boot. Fixed by
+  deferring the intro call to `this.ui.events.once('create', ...)` — Phaser's
+  own signal that the UI scene's `create()` has actually finished — instead
+  of assuming same-frame execution. Every other `this.ui.*` call in the file
+  stays untouched: those are all driven by later player input, by which
+  point both scenes have long since finished their first frame.
+  Verified: `typecheck`/`build`/`validate-maps` clean; `sim -- --batch 30`
+  matches the historical baseline exactly (the sim harness never boots a
+  campaign chapter or touches `story.ts`, so this is the expected no-op
+  result, not a false pass). A temp headless script cross-checked every
+  authored dialogue line's `portraitClass` against the real roster's actual
+  class (via `buildGameState`) and every real `MapEvent` trigger
+  (`gate-chief-falls`, `march-second-wave`, `march-breach-center`,
+  `march-garrison-thinning`, `march-captain-falls`) against `isTriggerMet`,
+  all passing. Playwright (temporary debug hooks — a `?debugChapter=` boot
+  skip and a `debugKillUnit` move for reaching a specific battle state
+  reliably, both fully reverted after) drove all three flows end to end on
+  Chapter 1: intro shown before the board went live, cycled through all 4
+  lines on tap, dismissed into normal play; `gate-chief-falls` killed via a
+  real move dispatch (not direct state mutation — `client.getState().G` is
+  Immer-frozen in dev, so a raw `delete` silently no-ops) correctly
+  interrupted play with its 2-line script and resumed after; `outro` shown
+  (3 lines) before the chapter-select handoff, confirming the promotion
+  picker is correctly skipped for a level-1 squad with nobody eligible yet.
 - 2026-08-27 Claude: Two more fixes/features, per the repo owner:
   1. **Enemy HP bars are now always red with a border** (`UnitSprite.ts`'s
      on-board bar and `UnitStatusBar.ts`'s panel bar), instead of the same

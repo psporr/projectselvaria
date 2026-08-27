@@ -9,7 +9,8 @@ import { ITEMS } from '../game/equipment';
 import { CAMPAIGN_CHAPTERS, TEST_MAP_2, type CampaignCarryOver, type ChapterDef } from '../game/maps';
 import { saveCampaign, clearCampaignSave } from '../game/save';
 import { canUseSkill, describeSkillEffect, novaBlastCoords, skillTargets, SKILLS, type SkillDef } from '../game/skills';
-import { TERRAIN, teamOf, type GameMode, type GameState, type Unit } from '../game/types';
+import { isTriggerMet, type MapEvent } from '../game/story';
+import { TERRAIN, teamOf, type GameMode, type GameState, type Team, type Unit } from '../game/types';
 import { UnitSprite } from '../entities/UnitSprite';
 import { createGameClient, type GameClient } from '../systems/gameClient';
 import { browserStorage } from '../systems/storage';
@@ -177,6 +178,14 @@ export class TacticalScene extends Scene {
   private enemyPhaseIntroDone: number | null = null;
   /** Set in init(), read in create() and re-passed by restartBattle() so a campaign battle restarts the same chapter/carryOver instead of falling back to the roguelike default. */
   private sceneData: TacticalSceneData = {};
+  /** How many times each team's phase has begun (1-indexed) — story.ts's `turnReached` trigger needs this and nothing else tracks it; derived from ctx.turn diffs the same way enemyPhaseIntroDone is. */
+  private turnCounts: Record<Team, number> = { player: 0, enemy: 0 };
+  /** ctx.turn already folded into turnCounts — dedupes the increment the same way enemyPhaseIntroDone dedupes against ctx.turn. */
+  private lastCountedTurn: number | null = null;
+  /** MapEvent ids whose dialogue has already been shown this battle — presentation-only bookkeeping, deliberately not in GameState (HANDOFF.md §9). */
+  private firedStoryEventIds = new Set<string>();
+  /** Guards against re-opening a story event's dialogue on every state change while it's already up — same pattern as blessingPickerOpen/promotionPickerOpen. */
+  private storyDialogueOpen = false;
 
   constructor() {
     super('Tactical');
@@ -233,6 +242,10 @@ export class TacticalScene extends Scene {
     this.promotionPickerOpen = false;
     this.inputSuspended = false;
     this.enemyPhaseIntroDone = null;
+    this.turnCounts = { player: 0, enemy: 0 };
+    this.lastCountedTurn = null;
+    this.firedStoryEventIds = new Set();
+    this.storyDialogueOpen = false;
 
     const mode: GameMode = this.sceneData.mode ?? 'roguelike';
     const chapter: ChapterDef =
@@ -257,7 +270,28 @@ export class TacticalScene extends Scene {
     const unsubscribe = this.client.subscribe(() => this.onStateChange());
     this.events.once('shutdown', unsubscribe);
 
-    this.scheduleAutoAdvance();
+    if (mode === 'campaign' && chapter.intro && chapter.intro.length > 0) {
+      const intro = chapter.intro;
+      this.inputSuspended = true;
+      // scene.launch() above queues UIScene's own create() rather than running it inline, so
+      // this.ui.dialoguePanel doesn't exist yet on this same call stack — wait for UIScene's
+      // 'create' event (Phaser's own lifecycle signal) before touching it. Every other this.ui.*
+      // use in this file is safe without this because it's driven by later input, by which point
+      // both scenes have long since finished their first frame.
+      this.ui.events.once('create', () => {
+        this.ui.showDialogue(intro, () => {
+          this.inputSuspended = false;
+          this.scheduleAutoAdvance();
+        });
+      });
+    } else {
+      this.scheduleAutoAdvance();
+    }
+  }
+
+  /** `CAMPAIGN_CHAPTERS.find` by id, shared by every campaign-only lookup (story events, the outro hook) instead of each inlining it — finishCampaignContinue() already did this once before this existed; kept as its own local const there rather than churning an unrelated call site. */
+  private lookupCampaignChapter(chapterId: string): ChapterDef | undefined {
+    return CAMPAIGN_CHAPTERS.find((candidate) => candidate.id === chapterId);
   }
 
   private tileCenter(x: number, y: number): { px: number; py: number } {
@@ -919,8 +953,9 @@ export class TacticalScene extends Scene {
 
   /**
    * Campaign chapter cleared (UIScene's game-over "Continue"/"Chapter
-   * Select" button, campaign-mode branch) — builds a CampaignCarryOver from
-   * the surviving squad, offers promotion to anyone eligible (reusing
+   * Select" button, campaign-mode branch) — shows the cleared chapter's
+   * outro dialogue first if it has one, then builds a CampaignCarryOver
+   * from the surviving squad, offers promotion to anyone eligible (reusing
    * PromotionPicker, but applied to the carry-over record being built
    * rather than a live Unit — the match is already over, no more moves to
    * dispatch), then hands off to finishCampaignContinue().
@@ -930,36 +965,45 @@ export class TacticalScene extends Scene {
     if (!state) return;
     const { G } = state;
 
-    const carryOver: CampaignCarryOver = {
-      units: {},
-      inventory: G.inventory,
-      nextItemInstance: G.nextItemInstance,
-    };
-    for (const unit of unitsOf(G, 'player')) {
-      carryOver.units[unit.id] = { level: unit.level, exp: unit.exp, equipment: unit.equipment };
-    }
-
-    const eligible = unitsOf(G, 'player').filter(canPromote);
-    if (eligible.length === 0) {
-      this.finishCampaignContinue(G.chapterId, carryOver);
-      return;
-    }
-
-    const candidates: PromotionCandidate[] = eligible.map((unit) => ({
-      unitId: unit.id,
-      name: unit.name,
-      fromClass: unit.className,
-      level: unit.level,
-      toClassOptions: PROMOTES_TO[unit.className] ?? [],
-    }));
-    this.ui.showPromotionPicker(candidates, (selections) => {
-      for (const { unitId, toClass } of selections) {
-        const unit = G.units[unitId];
-        if (!unit || !PROMOTES_TO[unit.className]?.includes(toClass)) continue;
-        carryOver.units[unitId] = { level: 1, exp: 0, equipment: unit.equipment, className: toClass };
+    const proceed = () => {
+      const carryOver: CampaignCarryOver = {
+        units: {},
+        inventory: G.inventory,
+        nextItemInstance: G.nextItemInstance,
+      };
+      for (const unit of unitsOf(G, 'player')) {
+        carryOver.units[unit.id] = { level: unit.level, exp: unit.exp, equipment: unit.equipment };
       }
-      this.finishCampaignContinue(G.chapterId, carryOver);
-    });
+
+      const eligible = unitsOf(G, 'player').filter(canPromote);
+      if (eligible.length === 0) {
+        this.finishCampaignContinue(G.chapterId, carryOver);
+        return;
+      }
+
+      const candidates: PromotionCandidate[] = eligible.map((unit) => ({
+        unitId: unit.id,
+        name: unit.name,
+        fromClass: unit.className,
+        level: unit.level,
+        toClassOptions: PROMOTES_TO[unit.className] ?? [],
+      }));
+      this.ui.showPromotionPicker(candidates, (selections) => {
+        for (const { unitId, toClass } of selections) {
+          const unit = G.units[unitId];
+          if (!unit || !PROMOTES_TO[unit.className]?.includes(toClass)) continue;
+          carryOver.units[unitId] = { level: 1, exp: 0, equipment: unit.equipment, className: toClass };
+        }
+        this.finishCampaignContinue(G.chapterId, carryOver);
+      });
+    };
+
+    const outro = this.lookupCampaignChapter(G.chapterId)?.outro;
+    if (outro && outro.length > 0) {
+      this.ui.showDialogue(outro, proceed);
+    } else {
+      proceed();
+    }
   }
 
   /** Saves progress (or clears it, if that was the last chapter) and returns to Chapter Select — its own save-detection offers Continue from there, so there's no separate "resume" path to build. */
@@ -1028,6 +1072,14 @@ export class TacticalScene extends Scene {
     if (!state || state.ctx.gameover) return;
     const { G, ctx } = state;
 
+    // turnCounts bookkeeping (story.ts's turnReached trigger) — runs every
+    // call, deduped against ctx.turn the same way enemyPhaseIntroDone is,
+    // so it stays fresh regardless of which branch below returns early.
+    if (this.lastCountedTurn !== ctx.turn) {
+      this.lastCountedTurn = ctx.turn;
+      this.turnCounts[teamOf(ctx.currentPlayer)] += 1;
+    }
+
     if (G.awaitingBlessing) {
       if (this.blessingPickerOpen) return;
       this.blessingPickerOpen = true;
@@ -1069,6 +1121,26 @@ export class TacticalScene extends Scene {
       return;
     }
 
+    if (G.mode === 'campaign') {
+      const pending = this.nextPendingStoryEvent(G);
+      if (pending) {
+        if (this.storyDialogueOpen) return;
+        this.storyDialogueOpen = true;
+        this.firedStoryEventIds.add(pending.id);
+        this.inputSuspended = true;
+        this.ui.showDialogue(pending.script, () => {
+          this.storyDialogueOpen = false;
+          this.inputSuspended = false;
+          // Re-check immediately in case another event's trigger became
+          // true at the same moment this one's did — without this, a
+          // second simultaneously-true event would just sit unfired until
+          // some later, unrelated state change happened to occur.
+          this.scheduleAutoAdvance();
+        });
+        return;
+      }
+    }
+
     if (teamOf(ctx.currentPlayer) === 'enemy') {
       // The opening action of a fresh enemy phase is held until UIScene's
       // "Enemy Phase" banner actually finishes — not a guessed matching
@@ -1086,6 +1158,14 @@ export class TacticalScene extends Scene {
       }
       this.time.delayedCall(ENEMY_STEP_DELAY_MS, () => this.stepEnemyAi());
     }
+  }
+
+  /** The first not-yet-fired MapEvent (this.firedStoryEventIds) whose trigger is currently true, if any — story.ts's isTriggerMet is pure, so this is safe to call on every scheduleAutoAdvance() tick. */
+  private nextPendingStoryEvent(G: GameState): MapEvent | undefined {
+    const events = this.lookupCampaignChapter(G.chapterId)?.events;
+    return events?.find(
+      (event) => !this.firedStoryEventIds.has(event.id) && isTriggerMet(event.trigger, G, { turnCounts: this.turnCounts }),
+    );
   }
 
   /** UIScene calls this once its "Enemy Phase" banner has fully slid out — see scheduleAutoAdvance()'s isFreshPhase branch above. */

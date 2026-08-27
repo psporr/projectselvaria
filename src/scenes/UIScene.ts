@@ -4,12 +4,14 @@ import type { Blessing } from '../game/blessings';
 import type { GameOver } from '../game/game';
 import { terrainAt } from '../game/grid';
 import { CAMPAIGN_CHAPTERS } from '../game/maps';
+import type { DialogueScript } from '../game/story';
 import { teamOf } from '../game/types';
 import type { GameClient } from '../systems/gameClient';
 import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { GAME_VERSION } from '../version';
 import { ActionMenu, type ActionMenuChoice, type ActionMenuOption } from '../ui/ActionMenu';
 import { BlessingPicker } from '../ui/BlessingPicker';
+import { DialoguePanel } from '../ui/DialoguePanel';
 import { EquipScreen } from '../ui/EquipScreen';
 import { ForecastPanel } from '../ui/ForecastPanel';
 import { LogPanel } from '../ui/LogPanel';
@@ -57,6 +59,7 @@ export class UIScene extends Scene {
   phaseBanner!: PhaseBanner;
   unitStatusBar!: UnitStatusBar;
   logPanel!: LogPanel;
+  dialoguePanel!: DialoguePanel;
 
   /**
    * Last ctx.turn seen, used to fire the phase banner exactly once per real
@@ -179,6 +182,7 @@ export class UIScene extends Scene {
     this.phaseBanner = new PhaseBanner(this);
     this.unitStatusBar = new UnitStatusBar(this);
     this.logPanel = new LogPanel(this);
+    this.dialoguePanel = new DialoguePanel(this);
 
     this.refreshHud();
     const unsubscribe = this.client.subscribe(() => {
@@ -288,6 +292,10 @@ export class UIScene extends Scene {
 
   showPromotionPicker(candidates: PromotionCandidate[], onConfirm: (selections: PromotionSelection[]) => void): void {
     this.promotionPicker.show(candidates, onConfirm);
+  }
+
+  showDialogue(script: DialogueScript, onComplete: () => void): void {
+    this.dialoguePanel.show(script, onComplete);
   }
 
   showLogPanel(log: string[]): void {

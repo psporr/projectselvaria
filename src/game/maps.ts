@@ -302,15 +302,15 @@ export const CAMPAIGN_CHAPTER_1: ChapterDef = {
   objective: 'Defeat all enemies',
   objectiveType: 'rout',
   intro: [
-    { speaker: 'Eirika', portraitClass: 'Swordsman', text: 'That wall ahead is the Iron Gate. Whoever holds it controls the whole pass.' },
-    { speaker: 'Corrin', portraitClass: 'Lancer', text: "And right now that's a garrison that isn't expecting company." },
-    { speaker: 'Lissa', portraitClass: 'Cleric', text: "Then let's make sure they regret that. I'll keep everyone standing." },
-    { speaker: 'Eirika', portraitClass: 'Swordsman', text: 'Two chokepoints, archers on the walls. Watch your approach — we go together.' },
+    { speaker: 'Jill', portraitClass: 'Fighter', text: 'That wall ahead is the Iron Gate. Whoever holds it controls the whole pass.' },
+    { speaker: 'Ephraim', portraitClass: 'Lancer', text: "And right now that's a garrison that isn't expecting company." },
+    { speaker: 'Natasha', portraitClass: 'Cleric', text: "Then let's make sure they regret that. I'll keep everyone standing." },
+    { speaker: 'Jill', portraitClass: 'Fighter', text: 'Two chokepoints, archers on the walls. Watch your approach — we go together.' },
   ],
   outro: [
-    { speaker: 'Corrin', portraitClass: 'Lancer', text: 'Gate secured. Whatever they were guarding, it was ours today.' },
-    { speaker: 'Eirika', portraitClass: 'Swordsman', text: "This was only the first line. There's a longer road past this ridge — the Long March, the scouts call it." },
-    { speaker: 'Eirika', portraitClass: 'Swordsman', text: "Rest while you can. We move again soon." },
+    { speaker: 'Ephraim', portraitClass: 'Lancer', text: 'Gate secured. Whatever they were guarding, it was ours today.' },
+    { speaker: 'Jill', portraitClass: 'Fighter', text: "This was only the first line. There's a longer road past this ridge — the Long March, the scouts call it." },
+    { speaker: 'Jill', portraitClass: 'Fighter', text: "Rest while you can. We move again soon." },
   ],
   events: [
     {
@@ -318,7 +318,7 @@ export const CAMPAIGN_CHAPTER_1: ChapterDef = {
       trigger: { type: 'unitDefeated', unitId: 'gate-chief' },
       script: [
         { speaker: 'Gate Chief', portraitClass: 'Barbarian', side: 'right', text: "The gate... was never meant to hold..." },
-        { speaker: 'Eirika', portraitClass: 'Swordsman', text: "Their chief's down. Stay sharp — the rest will scatter or dig in." },
+        { speaker: 'Jill', portraitClass: 'Fighter', text: "Their chief's down. Stay sharp — the rest will scatter or dig in." },
       ],
     },
   ],
@@ -364,15 +364,15 @@ export const CAMPAIGN_CHAPTER_2: ChapterDef = {
   objective: 'Defeat all enemies',
   objectiveType: 'rout',
   intro: [
-    { speaker: 'Eirika', portraitClass: 'Swordsman', text: "This is the vale the scouts warned us about. Three bands of wall, garrison dug into all of them." },
-    { speaker: 'Selva', portraitClass: 'Mage', text: "I'm reading at least one adept among them. Save your charges for whoever's holding the center." },
-    { speaker: 'Ike', portraitClass: 'Swordsman', text: "Long march, they call it. Feels more like a long line of people about to have a bad day." },
-    { speaker: 'Eirika', portraitClass: 'Swordsman', text: "Stay together at the gaps. We push through band by band." },
+    { speaker: 'Jill', portraitClass: 'Fighter', text: "This is the vale the scouts warned us about. Three bands of wall, garrison dug into all of them." },
+    { speaker: 'Solen', portraitClass: 'Mage', text: "I'm reading at least one adept among them. Save your charges for whoever's holding the center." },
+    { speaker: 'Marisa', portraitClass: 'Thief', text: "Long march, they call it. Feels more like a long line of people about to have a bad day." },
+    { speaker: 'Jill', portraitClass: 'Fighter', text: "Stay together at the gaps. We push through band by band." },
   ],
   outro: [
-    { speaker: 'Eirika', portraitClass: 'Swordsman', text: "The vale's ours. Whatever they were massing here, it stops today." },
-    { speaker: 'Corrin', portraitClass: 'Lancer', text: "Two gates down. I'd like to say it gets easier from here." },
-    { speaker: 'Eirika', portraitClass: 'Swordsman', text: "It won't. But neither will we." },
+    { speaker: 'Jill', portraitClass: 'Fighter', text: "The vale's ours. Whatever they were massing here, it stops today." },
+    { speaker: 'Ephraim', portraitClass: 'Lancer', text: "Two gates down. I'd like to say it gets easier from here." },
+    { speaker: 'Jill', portraitClass: 'Fighter', text: "It won't. But neither will we." },
   ],
   events: [
     {
@@ -386,14 +386,14 @@ export const CAMPAIGN_CHAPTER_2: ChapterDef = {
       id: 'march-breach-center',
       trigger: { type: 'unitReachesTile', x: 5, y: 9, team: 'player' },
       script: [
-        { speaker: 'Corrin', portraitClass: 'Lancer', text: "We're through the center band. The vale opens up from here." },
+        { speaker: 'Ephraim', portraitClass: 'Lancer', text: "We're through the center band. The vale opens up from here." },
       ],
     },
     {
       id: 'march-garrison-thinning',
       trigger: { type: 'enemyCountAtMost', count: 4 },
       script: [
-        { speaker: 'Selva', portraitClass: 'Mage', text: "Their line's breaking. Just the captain and a handful left holding the far wall." },
+        { speaker: 'Solen', portraitClass: 'Mage', text: "Their line's breaking. Just the captain and a handful left holding the far wall." },
       ],
     },
     {
@@ -401,7 +401,7 @@ export const CAMPAIGN_CHAPTER_2: ChapterDef = {
       trigger: { type: 'unitDefeated', unitId: 'march-captain' },
       script: [
         { speaker: 'Vale Captain', portraitClass: 'Barbarian', side: 'right', text: "Impossible... the vale was supposed to hold..." },
-        { speaker: 'Eirika', portraitClass: 'Swordsman', text: "Captain's down. Finish this and let's get everyone home." },
+        { speaker: 'Jill', portraitClass: 'Fighter', text: "Captain's down. Finish this and let's get everyone home." },
       ],
     },
   ],

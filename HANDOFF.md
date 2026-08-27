@@ -371,16 +371,16 @@ and `systems/gameClient.ts`'s now-parameterized `createGameClient`.
 Chapters carry optional `intro` / `outro` dialogue scripts plus mid-battle
 **map events**, with four trigger types (`turnReached`, `unitDefeated`,
 `unitReachesTile`, `enemyCountAtMost`) and a pure `isTriggerMet` evaluator
-kept separate from the UI, all in `src/game/story.ts`. **Correction
-2026-08-27: this section previously said "all implemented and working" —
-that overstated it.** The pure trigger-evaluation logic and the chapter
-data (`intro`/`outro`/`events` on `CAMPAIGN_CHAPTER_1`/`_2`) do exist, but
-no scene renders `intro`/`outro` dialogue or evaluates `isTriggerMet`
-against live `G`/`ctx` yet — campaign chapters are now reachable and
-playable (chapter select, above) but currently play through without their
-story beats. Still true below: story data intentionally lives outside the
-synced game state, so wiring the rendering later doesn't touch
-determinism/multiplayer (§9) — there's just no renderer yet.
+kept separate from the UI, all in `src/game/story.ts`. **Rendering shipped
+2026-08-27**: `DialoguePanel` (`src/ui/`) renders one line at a time,
+tap-to-advance; `TacticalScene` shows `chapter.intro` before the board goes
+live in `create()`, evaluates `isTriggerMet` against live `G`/`ctx` on every
+`scheduleAutoAdvance()` tick to fire mid-battle events (tracking per-team
+`turnCounts` itself, since nothing else did), and shows `chapter.outro`
+before the promotion picker / chapter-select handoff in
+`continueCampaign()`. Story data still intentionally lives outside the
+synced game state (§9) — the renderer just watches `G`/`ctx` the same way
+any other UI panel does, nothing here touches determinism/multiplayer.
 
 ---
 
