@@ -82,34 +82,66 @@ export function heroPortraitTextureKey(unitName: string): string {
  * their own `ClassName`s (2026-08-26 class-roster discussion — no distinct
  * tactical identity from Swordsman/Lancer beyond flavor), so their art
  * became those two classes' enemy skin instead. Several classes have both a
- * `_f128`/`_m128` variant in the asset folder; `Unit` has no gender field to
- * pick between them, so this just fixes one per class for v1.
- * `b_eirika128.png` isn't wired here — it reads as a specific boss/named
- * enemy unit, not a class skin.
+ * `_f128`/`_m128` variant in the asset folder — rather than hardcoding one
+ * per class (as this file did through 2026-08-28), every available variant
+ * is listed and a specific unit/dialogue speaker picks between them
+ * deterministically (`enemyClassTextureKeyFor` below); `Unit` still has no
+ * gender field, this just means "which piece of art" instead of "which
+ * gender" (v1 approach the doc comment 2 lines up used to reference, now
+ * moot). `b_eirika128.png` isn't wired here — it reads as a specific
+ * boss/named enemy unit, not a class skin.
  */
-const ENEMY_CLASS_SPRITE_BASENAME: Partial<Record<string, string>> = {
-  Swordsman: 'fighter_m128',
-  Lancer: 'spearfighter_f128',
-  Archer: 'archer_f128',
-  Barbarian: 'barbarian_m128',
-  General: 'general_m128',
-  Thief: 'theif_f128', // typo baked into the source filename, not a repo typo
-  Assassin: 'assassin_f128',
-  Mercenary: 'mercenary_f128',
-  'Dark Mage': 'darkmage_f128',
+const ENEMY_CLASS_SPRITE_BASENAMES: Partial<Record<string, readonly string[]>> = {
+  Swordsman: ['fighter_m128'],
+  Lancer: ['spearfighter_f128', 'spearfighter_m128'],
+  Archer: ['archer_f128', 'archer_m128'],
+  Barbarian: ['barbarian_m128'],
+  General: ['general_m128'],
+  Thief: ['theif_f128'], // typo baked into the source filename, not a repo typo
+  Assassin: ['assassin_f128', 'assassin_m128'],
+  Mercenary: ['mercenary_f128', 'mercenary_m128'],
+  'Dark Mage': ['darkmage_f128', 'darkmage_m128'],
 };
 
-/** Classes with anonymous enemy art — TacticalScene.preload() loads exactly these. */
-export const ENEMY_ART_CLASSES = Object.keys(ENEMY_CLASS_SPRITE_BASENAME);
+/** Classes with anonymous enemy art — TacticalScene.preload() loads every basename listed for each of these. */
+export const ENEMY_ART_CLASSES = Object.keys(ENEMY_CLASS_SPRITE_BASENAMES);
 
-/** `public/enemy/` filename (no extension) a class's anonymous enemy art loads from, if it has any. */
-export function enemyClassSpriteBasename(className: string): string | undefined {
-  return ENEMY_CLASS_SPRITE_BASENAME[className];
+/** Every `public/enemy/` basename (no extension) available for a class's anonymous enemy art — usually one, sometimes an m/f pair. */
+export function enemyClassSpriteBasenames(className: string): readonly string[] {
+  return ENEMY_CLASS_SPRITE_BASENAMES[className] ?? [];
 }
 
-/** Phaser texture key a class's anonymous enemy art loads under, if it has any. */
-export function enemyClassTextureKey(className: string): string {
-  return `enemy-${className.toLowerCase().replace(/\s+/g, '-')}`;
+/** Phaser texture key one specific enemy-art basename loads under. */
+export function enemyBasenameTextureKey(basename: string): string {
+  return `enemy-${basename}`;
+}
+
+/**
+ * Fast, non-cryptographic string hash — only ever used below to turn a
+ * stable id into a stable array index, never anything security-sensitive.
+ */
+function stableIndex(seed: string, count: number): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  return Math.abs(hash) % count;
+}
+
+/**
+ * Which of a class's enemy-art variants to render for one specific unit or
+ * dialogue speaker — picked deterministically from `seed` (a unit's `id`,
+ * or a `DialogueLine.speaker` name) rather than re-rolled on every render.
+ * Has to be stable per seed, not random per call: the same enemy is drawn
+ * repeatedly across many frames and panels (`UnitSprite`, `UnitStatusBar`,
+ * `CombatForecastPanel`), and re-rolling independently in each would make
+ * one archer flicker between the `_f`/`_m` art depending on which panel
+ * last rendered it, or even frame to frame in the same one. A class with
+ * only one variant (most of them) always resolves to it; a class with none
+ * returns undefined the same way the old single-basename lookup did.
+ */
+export function enemyClassTextureKeyFor(className: string, seed: string): string | undefined {
+  const basenames = enemyClassSpriteBasenames(className);
+  if (basenames.length === 0) return undefined;
+  return enemyBasenameTextureKey(basenames[stableIndex(seed, basenames.length)]);
 }
 
 // A "grayed out, already acted" look for hero art doesn't need a second

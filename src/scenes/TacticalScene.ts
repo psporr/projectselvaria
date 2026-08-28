@@ -25,8 +25,8 @@ import {
   heroPortraitTextureKey,
   HERO_SPRITE_NAMES,
   ENEMY_ART_CLASSES,
-  enemyClassSpriteBasename,
-  enemyClassTextureKey,
+  enemyClassSpriteBasenames,
+  enemyBasenameTextureKey,
 } from '../ui/heroArt';
 import { FONT_FAMILY } from '../ui/kit';
 import type { UIScene } from './UIScene';
@@ -205,8 +205,10 @@ export class TacticalScene extends Scene {
       if (!this.textures.exists(key)) this.load.image(key, `portrait/${name}.png`);
     }
     for (const className of ENEMY_ART_CLASSES) {
-      const key = enemyClassTextureKey(className);
-      if (!this.textures.exists(key)) this.load.image(key, `enemy/${enemyClassSpriteBasename(className)}.png`);
+      for (const basename of enemyClassSpriteBasenames(className)) {
+        const key = enemyBasenameTextureKey(basename);
+        if (!this.textures.exists(key)) this.load.image(key, `enemy/${basename}.png`);
+      }
     }
     for (const filename of new Set(Object.values(CHAPTERS_WITH_BACKGROUND_ART))) {
       const key = `${filename}-bg`;

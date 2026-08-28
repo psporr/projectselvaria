@@ -102,7 +102,7 @@ export const CLASS_STATS: Record<ClassName, ClassStats> = {
  * as a random, unpromoted, wave-1-strength mob.
  *
  * Restricted (2026-08-27, per the repo owner) to classes with real anonymous
- * enemy art — `src/ui/heroArt.ts`'s `ENEMY_CLASS_SPRITE_BASENAME` is the
+ * enemy art — `src/ui/heroArt.ts`'s `ENEMY_CLASS_SPRITE_BASENAMES` is the
  * actual source of truth for which classes those are; this list must be
  * kept in sync with it by hand, since `game/` can't import from `ui/`
  * (HANDOFF.md §7 — pure logic never knows about rendering). A class with no

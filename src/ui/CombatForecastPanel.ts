@@ -6,7 +6,7 @@ import { terrainAt } from '../game/grid';
 import type { GameState, Unit } from '../game/types';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from './classIcons';
-import { enemyClassTextureKey, heroPortraitTextureKey, heroTextureKey } from './heroArt';
+import { enemyClassTextureKeyFor, heroPortraitTextureKey, heroTextureKey } from './heroArt';
 import { Button, Card, COLORS, FONT_FAMILY } from './kit';
 
 const CARD_WIDTH = 420;
@@ -49,8 +49,8 @@ function resolvePortraitTexture(scene: Scene, unit: Unit): string | undefined {
   const heroKey = heroTextureKey(unit.name);
   if (scene.textures.exists(heroKey)) return heroKey;
   if (unit.team === 'enemy') {
-    const enemyKey = enemyClassTextureKey(unit.className);
-    if (scene.textures.exists(enemyKey)) return enemyKey;
+    const enemyKey = enemyClassTextureKeyFor(unit.className, unit.id);
+    if (enemyKey && scene.textures.exists(enemyKey)) return enemyKey;
   }
   return undefined;
 }

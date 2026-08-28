@@ -2,7 +2,7 @@ import { Filters, GameObjects, Scene, TintModes } from 'phaser';
 import type { Unit } from '../game/types';
 import { DPR } from '../systems/viewport';
 import { CLASS_LETTER } from '../ui/classIcons';
-import { enemyClassTextureKey, heroTextureKey } from '../ui/heroArt';
+import { enemyClassTextureKeyFor, heroTextureKey } from '../ui/heroArt';
 import { FONT_FAMILY } from '../ui/kit';
 
 const TEAM_COLOR: Record<string, number> = { player: 0x4a90d9, enemy: 0xd9534f };
@@ -79,7 +79,7 @@ export class UnitSprite extends GameObjects.Container {
     // Class-fallback art is enemy-only — a player unit with no hero art of
     // its own stays the circle+letter placeholder rather than borrowing the
     // anonymous enemy skin for its class.
-    const enemyKey = unit.team === 'enemy' ? enemyClassTextureKey(unit.className) : heroKey;
+    const enemyKey = unit.team === 'enemy' ? (enemyClassTextureKeyFor(unit.className, unit.id) ?? heroKey) : heroKey;
     const textureKey = scene.textures.exists(heroKey) ? heroKey : enemyKey;
     const hasArt = scene.textures.exists(textureKey);
 

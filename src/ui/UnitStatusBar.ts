@@ -5,7 +5,7 @@ import { SKILLS } from '../game/skills';
 import type { Terrain, Unit } from '../game/types';
 import { DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from './classIcons';
-import { enemyClassTextureKey, heroPortraitTextureKey, heroTextureKey } from './heroArt';
+import { enemyClassTextureKeyFor, heroPortraitTextureKey, heroTextureKey } from './heroArt';
 import { Card, COLORS, FONT_FAMILY } from './kit';
 
 // Sits right below the board, at a fixed position — TacticalScene now
@@ -325,7 +325,7 @@ export class UnitStatusBar extends GameObjects.Container {
     // ENEMY_ART_CLASSES).
     const portraitKey = heroPortraitTextureKey(unit.name);
     const heroKey = heroTextureKey(unit.name);
-    const enemyKey = unit.team === 'enemy' ? enemyClassTextureKey(unit.className) : heroKey;
+    const enemyKey = unit.team === 'enemy' ? (enemyClassTextureKeyFor(unit.className, unit.id) ?? heroKey) : heroKey;
     const textureKey = this.scene.textures.exists(portraitKey)
       ? portraitKey
       : this.scene.textures.exists(heroKey)

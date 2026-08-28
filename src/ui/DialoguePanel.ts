@@ -3,7 +3,7 @@ import { GameObjects, Scene } from 'phaser';
 import type { DialogueLine, DialogueScript } from '../game/story';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from './classIcons';
-import { enemyClassTextureKey, heroTextureKey } from './heroArt';
+import { enemyClassTextureKeyFor, heroTextureKey } from './heroArt';
 import { Button, Card, COLORS, FONT_FAMILY } from './kit';
 
 const BOX_WIDTH = LOGICAL_WIDTH - 40;
@@ -33,8 +33,8 @@ function resolvePortraitTexture(scene: Scene, line: DialogueLine): string | unde
   const heroKey = heroTextureKey(line.speaker);
   if (scene.textures.exists(heroKey)) return heroKey;
   if (line.portraitClass) {
-    const enemyKey = enemyClassTextureKey(line.portraitClass);
-    if (scene.textures.exists(enemyKey)) return enemyKey;
+    const enemyKey = enemyClassTextureKeyFor(line.portraitClass, line.speaker);
+    if (enemyKey && scene.textures.exists(enemyKey)) return enemyKey;
   }
   return undefined;
 }

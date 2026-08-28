@@ -141,6 +141,32 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-28 Claude: Enemy classes with both an `_f128`/`_m128` art variant
+  now use both, per the repo owner (noticed for Archer specifically —
+  `public/enemy/archer_f128.png` and `archer_m128.png` both exist, but only
+  the `_f` one was ever wired in). `heroArt.ts`'s enemy-art table
+  (`ENEMY_CLASS_SPRITE_BASENAMES`, renamed from the old singular
+  `ENEMY_CLASS_SPRITE_BASENAME`) now lists every available basename per
+  class instead of hardcoding one — Archer, Lancer, Assassin, Mercenary,
+  and Dark Mage all had a second variant sitting unused in `public/enemy/`
+  and now use it too; classes with only one file (Swordsman, Barbarian,
+  General, Thief) are unaffected. Which variant a given enemy renders as is
+  picked once, deterministically, from a stable seed (a unit's own `id`, or
+  a `DialogueLine.speaker` name for campaign dialogue) via a new
+  `enemyClassTextureKeyFor()` — not re-rolled per render, which would make
+  the same archer flicker between the `_f`/`_m` art across
+  `UnitSprite`/`UnitStatusBar`/`CombatForecastPanel`/`DialoguePanel` or even
+  frame to frame in the same one. `TacticalScene.preload()` now loads every
+  listed basename per class instead of just one.
+  Verified: `typecheck`/`build`/`validate-maps` clean; `sim -- --batch 30`
+  matches the historical baseline exactly (art-only change, doesn't touch
+  `game.ts`/`classes.ts`'s actual rules). A temp headless script confirmed
+  `enemyClassTextureKeyFor` is stable per seed (same id always resolves to
+  the same key), that both Archer variants actually turn up across many
+  distinct unit ids (not always picking index 0), and that single-variant
+  classes and classes with no enemy art still resolve exactly as before.
+  No Playwright pass — the repo owner will confirm the variety visually
+  themselves (HANDOFF.md §11).
 - 2026-08-28 Claude: Fixed a real bug the repo owner hit testing yesterday's
   graphical forecast/status-bar work: **enemy art in `UnitStatusBar`
   rendered grayscale during the player's own turn**, as if every enemy had
