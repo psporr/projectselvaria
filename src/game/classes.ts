@@ -232,9 +232,25 @@ export function canPromote(unit: Unit): boolean {
 /**
  * Promotes `unit` in place to `toClass` (must be one of `PROMOTES_TO`'s
  * options for the unit's current class — a no-op if not, so a stale or
- * forged choice can't smuggle in an illegal class change): resets to level
- * 1 on the new class's curve, and fully heals — matching classic FE
- * promotion feel (a real jump, not a continuation of the old curve).
+ * forged choice can't smuggle in an illegal class change): re-evaluates
+ * `statsAtLevel` for the new class **at the unit's current level**, and
+ * fully heals.
+ *
+ * CHANGED 2026-08-28, per the repo owner: this used to reset `unit.level`
+ * to 1 first, which meant a level-10 unit's 9 levels of growth (`+1 Atk,
+ * +1 Def, +2 maxHp` each, `LEVEL_GROWTH`) were discarded and replaced with
+ * just the new class's level-1 base — a real stat *drop* on promotion (a
+ * level-10 Swordsman -> level-1 Swordmaster lost 7 Atk and 8 Def), the
+ * opposite of what a promotion is supposed to feel like. `PROMOTION_LEVEL`
+ * already gates *when* a unit can promote; every advanced class's base
+ * stats (`CLASS_STATS`) were already tuned higher than its base class's —
+ * that difference *is* the promotion's power jump, it just needs to be
+ * evaluated at the level the unit actually reached instead of at 1. Not
+ * resetting the level is the entire fix: same flat `LEVEL_GROWTH` curve,
+ * now applied to the new class starting from where the unit already was.
+ * `exp` isn't reset either — no reason to waste in-progress exp toward the
+ * next level just because the class changed underneath it.
+ *
  * `SKILLS[unit.className]` (skills.ts) is already keyed by class, so the
  * unit's active skill(s) swap automatically with no separate step. Resets
  * skillCooldowns/debuffDef/debuffTurns/buffAtk/buffTurns too, so a promoted
@@ -247,9 +263,7 @@ export function promoteUnit(unit: Unit, toClass: ClassName): void {
   if (!options?.includes(toClass)) return;
   const nextClass = toClass;
   unit.className = nextClass;
-  unit.level = 1;
-  unit.exp = 0;
-  const stats = statsAtLevel(nextClass, 1);
+  const stats = statsAtLevel(nextClass, unit.level);
   unit.maxHp = stats.maxHp;
   unit.atk = stats.atk;
   unit.def = stats.def;

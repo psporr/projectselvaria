@@ -141,6 +141,42 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-28 Claude: Rebalanced promotion so it's always a power gain, per
+  the repo owner. Through this change, `promoteUnit` (classes.ts) reset a
+  unit's level to 1 on promotion and evaluated the new class's stats there
+  — since `LEVEL_GROWTH` is flat and identical for every class (+1 Atk, +1
+  Def, +2 maxHp/level), that discarded every level of growth earned before
+  promoting and replaced it with just the new class's base: a level-10
+  Swordsman promoting to Swordmaster dropped from 18/14/42 (Atk/Def/maxHp)
+  to 11/6/28 — a real stat *cut*, not the power spike a promotion is
+  supposed to be. Fixed by not resetting the level: `promoteUnit` now calls
+  `statsAtLevel(nextClass, unit.level)`, so the new class's curve picks up
+  from the level the unit already reached. Advanced classes' `CLASS_STATS`
+  were already tuned higher than their base class's — that difference *is*
+  the promotion's power jump, it just needed evaluating at the right level.
+  `exp` is no longer reset either (no reason to waste in-progress exp). A
+  class's own stat *identity* still comes through — Fighter->Berserker
+  still trades 1 Def for +3 Atk at the same level, a deliberate glass-cannon
+  archetype choice in `CLASS_STATS`, not something this fix papers over —
+  but total power always goes up.
+  `PromotionPicker`'s stat-comparison screen now reads both classes at the
+  unit's current level (was: current level vs. new class's level 1).
+  `npm run sim`'s AI harness used to decline every promotion offered
+  specifically to avoid skewing survival numbers against the old stat drop
+  — now that promoting is a real gain, it auto-promotes into each eligible
+  unit's first branch instead (`promoteAllIntoFirstBranch`, simulate.ts).
+  Verified: `typecheck`/`build`/`validate-maps` clean. A temp headless
+  script confirmed level/exp survive promotion unchanged, Atk/Def/maxHp
+  never drop for a same-archetype promotion (Swordsman->Swordmaster), that
+  Fighter->Berserker's total power (Atk+Def+maxHp) still rises even with
+  its deliberate -1 Def trade, and that an invalid promotion is still a
+  no-op. `sim -- --batch 30` — unlike every other change today, this one is
+  *expected* to move the baseline, since the harness now actually uses
+  promotion instead of avoiding it: still 0/30 wiped (same survival floor),
+  but mean wave reached rose from 7.00 to 7.27 (max 7 -> 8), confirming the
+  fix is a real improvement, not just a stat-math change with no in-game
+  effect. No Playwright pass — the repo owner will feel the difference
+  testing it themselves (HANDOFF.md §11).
 - 2026-08-28 Claude: Enemy classes with both an `_f128`/`_m128` art variant
   now use both, per the repo owner (noticed for Archer specifically —
   `public/enemy/archer_f128.png` and `archer_m128.png` both exist, but only

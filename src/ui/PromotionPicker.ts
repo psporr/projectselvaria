@@ -56,11 +56,11 @@ type Screen = { kind: 'list' } | { kind: 'detail'; unitId: string; branchIndex: 
  * - **Detail**: one unit at a time. A tab per branch option (skipped
  *   entirely for a single-option class — identical UX to before branching
  *   existed) switches which class's stats/skills are shown below: a
- *   before/after comparison (this class's current level vs. the new
- *   class's level 1, since promoting always resets to level 1 — HANDOFF.md's
- *   Promotion section) and that class's active skill(s) with their
- *   descriptions. "Promote to X" commits the pick and returns to the list;
- *   "Back" returns without deciding.
+ *   before/after comparison (this class's stats vs. the new class's stats,
+ *   both read at the unit's *current* level — promotion no longer resets
+ *   level, HANDOFF.md's Promotion section, 2026-08-28) and that class's
+ *   active skill(s) with their descriptions. "Promote to X" commits the
+ *   pick and returns to the list; "Back" returns without deciding.
  *
  * Every element is positioned via a running vertical cursor during build,
  * then shifted into place once the total content height (and so the
@@ -251,8 +251,8 @@ export class PromotionPicker extends GameObjects.Container {
 
   private renderStatChanges(cursor: { y: number }, candidate: PromotionCandidate, toClass: ClassName): void {
     const before = statsAtLevel(candidate.fromClass, candidate.level);
-    const after = statsAtLevel(toClass, 1);
-    this.addText(cursor, `STAT CHANGES (Lv.${candidate.level} -> new class Lv.1)`, { fontSize: '10px', color: COLORS.textDisabled, wordWrapWidth: INNER_WIDTH }, 14);
+    const after = statsAtLevel(toClass, candidate.level);
+    this.addText(cursor, `STAT CHANGES (Lv.${candidate.level}, current class -> new class)`, { fontSize: '10px', color: COLORS.textDisabled, wordWrapWidth: INNER_WIDTH }, 14);
 
     const leftEdge = LOGICAL_WIDTH / 2 - INNER_WIDTH / 2;
     this.renderStatRow(cursor, 'HP', before.maxHp, after.maxHp, leftEdge, INNER_WIDTH);

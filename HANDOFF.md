@@ -112,12 +112,11 @@ member. A unit is eligible once it's player-controlled, level 10+
 Promoting (`promoteUnit(unit, toClass)`) swaps its class outright to the
 player's chosen branch (`toClass` must be one of `PROMOTES_TO[unit
 .className]`'s options — a mismatch is a silent no-op, not a crash, same
-defensive shape as a stale/forged move anywhere else in `game.ts`) — level
-resets to 1 on the new class's curve, a full heal, and its active skill(s)
-change with it (`SKILLS` is keyed by class to an array, so this needs no
-separate skill-swap step regardless of how many skills either class has).
-No additive skills, no partial carry-over of the old class — this is a
-clean class change, not a stat bonus layered on top.
+defensive shape as a stale/forged move anywhere else in `game.ts`), a full
+heal, and its active skill(s) change with it (`SKILLS` is keyed by class to
+an array, so this needs no separate skill-swap step regardless of how many
+skills either class has). No additive skills, no partial carry-over of the
+old class — this is a clean class change, not a stat bonus layered on top.
 `PromotionPicker` (`src/ui/`) is a two-screen flow (2026-08-27, per the
 repo owner — was one screen with inline branch buttons and no stat/skill
 detail before this): a **list** of eligible units (tap one to open its
@@ -125,25 +124,32 @@ detail screen; Continue always available, finalizing whatever's been
 picked so far — including nothing); then a per-unit **detail** screen —
 a tab per branch option (skipped for a single-option class, identical UX
 to before branching existed) showing that class's stat changes (current
-level vs. the new class's level 1, color-coded green/red per stat — see
-"Worth knowing" below on why that's often red) and its active skill(s)
+class vs. new class, both read at the unit's current level, color-coded
+green/red per stat — see the correction below) and its active skill(s)
 with descriptions, plus "Promote to X" / "Back". Internally tracked as
 `Map<unitId, ClassName>`, confirmed as `{unitId, toClass}[]` to
 `resolvePromotions` exactly as before — the UI rework didn't touch the
 move/data layer.
 
-**Worth knowing**: because `LEVEL_GROWTH` is flat and identical for every
-class (+1 Atk, +1 Def, +2 max HP/level), a unit promoted right at level 10
-takes a real *drop* in raw stats — a level-10 base class's grown stats
-regularly beat an advanced class's level-1 base outright (e.g. a level-10
-Thief's grown Def is 11; Assassin's level-1 base Def is 2). This is
-working as designed (the locked "level resets to 1... matching classic FE
-promotion feel" decision), not a bug, but it means promoting isn't a free
-power spike the instant it's available — timing it (e.g. right before a
-blessing pause, not mid-fight) matters. `npm run sim`'s AI harness
-deliberately declines every promotion offered for exactly this reason —
-see README's "Recent changes" for how discovering this shaped that
-harness fix.
+**Correction 2026-08-28: promotion no longer resets level, and the "Worth
+knowing" this section used to have here was describing the resulting bug,
+not a real design tradeoff.** Through 2026-08-28, `promoteUnit` reset
+`unit.level` to 1 and evaluated the new class's stats there — since
+`LEVEL_GROWTH` is flat and identical for every class (+1 Atk, +1 Def, +2
+max HP/level), a unit promoted at level 10 took a real *drop* in raw stats
+(a level-10 Thief's grown Def was 11; Assassin's level-1 base Def was 2).
+That was carried in this doc as "working as designed... matching classic
+FE promotion feel," and `npm run sim`'s AI harness was written to decline
+every promotion offered specifically to avoid skewing its survival numbers
+against that drop. Per the repo owner, that framing was wrong: an advanced
+class's `CLASS_STATS` were already tuned higher than its base class's —
+that difference *is* supposed to be the promotion's power jump, it just
+needs evaluating at the level the unit actually reached instead of at 1.
+`promoteUnit` now calls `statsAtLevel(nextClass, unit.level)` — same flat
+curve, no level reset, `exp` untouched — so a promotion is always a
+straight power gain, matching what "promotion" is supposed to feel like.
+`npm run sim`'s harness now auto-promotes into each eligible unit's first
+branch instead of declining (`promoteAllIntoFirstBranch`, simulate.ts).
 
 Two trigger points, both level-gated the same way:
 - **End of wave** (roguelike) — live and working. `chooseBlessing` pauses

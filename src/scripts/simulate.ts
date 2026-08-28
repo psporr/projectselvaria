@@ -20,9 +20,10 @@ import { Client } from 'boardgame.io/client';
 
 import { ProjectSelvaria, type GameOver } from '../game/game';
 import { decideAction } from '../game/ai';
-import { teamOf } from '../game/types';
+import { teamOf, type GameState } from '../game/types';
 import { unitsOf } from '../game/grid';
 import { BLESSINGS } from '../game/blessings';
+import { PROMOTES_TO, type ClassName } from '../game/classes';
 
 const MAX_ACTIONS = 20000;
 const WAVE_CAP = 6;
@@ -31,6 +32,17 @@ interface RunResult {
   wiped: boolean;
   waveReached: number;
   actions: number;
+}
+
+/** Promotes every eligible unit into its first available branch — a simple, deterministic stand-in for a player's judgment (see the awaitingPromotion branches below for why this batch no longer declines). */
+function promoteAllIntoFirstBranch(G: GameState): { unitId: string; toClass: ClassName }[] {
+  const selections: { unitId: string; toClass: ClassName }[] = [];
+  for (const unitId of G.promotionEligibleUnitIds) {
+    const unit = G.units[unitId];
+    const toClass = unit ? PROMOTES_TO[unit.className]?.[0] : undefined;
+    if (toClass) selections.push({ unitId, toClass });
+  }
+  return selections;
 }
 
 function runOnce(seed: string | number): RunResult {
@@ -61,23 +73,20 @@ function runOnce(seed: string | number): RunResult {
     }
 
     if (G.awaitingPromotion) {
-      // Declines every promotion offered ("promote nobody, continue" — a
-      // fully valid, intended skip, same as passing [] to the real move).
-      // Without SOME response here the run stalls forever: awaitingPromotion
-      // pauses wave advancement (game.ts's chooseBlessing/resolvePromotions)
-      // the same way awaitingBlessing does, but a stale enemy-side turn with
-      // no enemies left (the new wave hasn't spawned yet) never naturally
-      // ends on its own. Declining rather than auto-promoting is deliberate:
-      // promoting resets level to 1 (classes.ts's promoteUnit, a locked
-      // design decision — "matching classic FE promotion feel"), which is a
-      // real stat *drop* against a unit's pre-promotion level — a dumb
-      // always-promote heuristic isn't a fair proxy for a player's actual
-      // judgment about when that trade is worth it, and skews this batch's
-      // survival numbers into territory that doesn't reflect this class
-      // tree's real balance. Declining keeps the roguelike-survival
-      // baseline this batch measures comparable across every part of the
-      // class-tree rework.
-      client.moves.resolvePromotions([]);
+      // Auto-promotes into each unit's first available branch (2026-08-28 —
+      // this used to decline every offer, back when promoteUnit reset level
+      // to 1 and promoting was a real stat *drop*; classes.ts's promoteUnit
+      // doc comment has the full story). Now that a promotion only ever
+      // gains stats (same class curve, evaluated at the unit's current
+      // level instead of level 1), declining would be the unrealistic
+      // choice — a player has no reason not to promote once eligible, so
+      // this batch shouldn't either. Without SOME response here the run
+      // stalls forever: awaitingPromotion pauses wave advancement
+      // (game.ts's chooseBlessing/resolvePromotions) the same way
+      // awaitingBlessing does, but a stale enemy-side turn with no enemies
+      // left (the new wave hasn't spawned yet) never naturally ends on its
+      // own.
+      client.moves.resolvePromotions(promoteAllIntoFirstBranch(G));
       continue;
     }
 
@@ -136,9 +145,10 @@ function runVerboseOnce(): void {
     }
 
     if (G.awaitingPromotion) {
-      // Declines every promotion offered — see runOnce's matching branch for why.
-      console.log(`  declining ${G.promotionEligibleUnitIds.length} promotion offer(s)`);
-      client.moves.resolvePromotions([]);
+      // Auto-promotes — see runOnce's matching branch for why.
+      const selections = promoteAllIntoFirstBranch(G);
+      console.log(`  promoting ${selections.length} of ${G.promotionEligibleUnitIds.length} eligible unit(s)`);
+      client.moves.resolvePromotions(selections);
       continue;
     }
 
