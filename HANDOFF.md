@@ -357,14 +357,18 @@ be kept in lockstep with every roster tweak.
 `"<Class> Shadow"`. Campaign enemies keep their authored names (Gate Chief,
 Vale Captain), because chapters carry story around named individuals.
 
-**Chapter select + the chapter-to-chapter pipeline are live** (2026-08-27):
-`ChapterSelectScene` is the game's first scene now (`main.ts`), offering
-Roguelike or a campaign chapter (fresh, or Continue from a
-`localStorage`-backed save). Clearing a `'rout'` chapter builds a real
-`CampaignCarryOver` from the survivors, offers promotion to anyone
-eligible (see the Promotion section above), saves, and returns to Chapter
-Select. See `TacticalScene.continueCampaign()`/`finishCampaignContinue()`
-and `systems/gameClient.ts`'s now-parameterized `createGameClient`.
+**Chapter select + the chapter-to-chapter pipeline are live** (2026-08-27,
+menu split into two scenes 2026-08-28): `MainMenuScene` is the game's first
+real scene now (`main.ts`, `BootScene` hands off to it), offering Roguelike
+or Campaign — New Game (Chapter 1, fresh), Load Game (only shown once a
+`localStorage`-backed save exists), or Chapter Select, which hands off to
+`ChapterSelectScene` for jumping straight into any individual chapter.
+Clearing a `'rout'` chapter builds a real `CampaignCarryOver` from the
+survivors, offers promotion to anyone eligible (see the Promotion section
+above), saves, and returns to the main menu (its own save-detection is what
+surfaces Load Game from there). See
+`TacticalScene.continueCampaign()`/`finishCampaignContinue()` and
+`systems/gameClient.ts`'s now-parameterized `createGameClient`.
 
 ### Story system
 

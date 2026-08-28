@@ -21,10 +21,10 @@ export type GameClient = ReturnType<typeof Client<GameState>>;
 /**
  * Builds the Game definition for `mode`/`chapter` (via `createSelvariaGame`,
  * game.ts) and constructs a client against it. `mode`/`chapter` are now
- * caller-supplied rather than hardcoded — `ChapterSelectScene` picks them,
- * `TacticalScene.init()` passes them through — so the same client factory
- * serves both a roguelike run and any campaign chapter, fresh or resumed
- * from a `CampaignCarryOver`.
+ * caller-supplied rather than hardcoded — `MainMenuScene`/
+ * `ChapterSelectScene` pick them, `TacticalScene.init()` passes them
+ * through — so the same client factory serves both a roguelike run and any
+ * campaign chapter, fresh or resumed from a `CampaignCarryOver`.
  */
 export function createGameClient(mode: GameMode, chapter: ChapterDef, carryOver?: CampaignCarryOver, baseLevel?: number): GameClient {
   const game = createSelvariaGame(mode, chapter, carryOver, baseLevel);

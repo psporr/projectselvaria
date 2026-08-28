@@ -141,6 +141,29 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-28 Claude: Split the main menu's Campaign section into three rows,
+  per the repo owner. It used to be one "Continue" row (when a save
+  exists) plus a flat "New: <chapter name>" row per campaign chapter,
+  growing by one row every time a chapter gets added. Now: **New Game**
+  (starts Chapter 1 fresh, same as the old first "New:" row), **Load
+  Game** (only shown when a `localStorage` save exists — same behavior as
+  the old "Continue" row, just renamed to pair with New Game), and
+  **Chapter Select**, which now hands off to its own scene
+  (`ChapterSelectScene`) listing every individual chapter to jump straight
+  into. The old all-in-one scene is split into two: `MainMenuScene`
+  (`main.ts`'s first real scene now, `BootScene` hands off to it) owns mode
+  selection, `ChapterSelectScene` is now purely the per-chapter picker
+  (plus a Back button). Both share a new `menuBackground.ts` helper for the
+  full-bleed background + scrim so they read as one visual space instead of
+  a flash/reload between them. Updated the two places that used to send the
+  player back to `'ChapterSelect'` after a battle (`TacticalScene`'s
+  `returnToMainMenu()` and `finishCampaignContinue()`) to target
+  `'MainMenu'` instead, since "go back" should land on the actual main
+  menu, not the chapter list.
+  Verified: `typecheck`/`build`/`validate-maps` clean; `sim -- --batch 30`
+  matches the historical baseline exactly (menu-only change, doesn't touch
+  `game.ts`/`classes.ts`). No Playwright pass — the repo owner tests in a
+  real browser themselves (HANDOFF.md §11).
 - 2026-08-28 Claude: Fixed a real bug the repo owner hit in the actual
   build, plus a follow-up to the System Menu's new Main Menu option from
   earlier today:

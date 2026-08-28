@@ -5,12 +5,12 @@ import { FONT_FAMILY } from '../ui/kit';
 
 const LOGO_KEY = 'boot-logo';
 
-// A brief title beat before handing off to ChapterSelectScene (2026-08-27;
+// A brief title beat before handing off to MainMenuScene (2026-08-27;
 // used to hand off straight to TacticalScene, back when Roguelike/
 // TEST_MAP_2 was the only reachable mode). Shows the real game logo (same
-// asset ChapterSelectScene uses) rather than plain text — since it's on
+// asset MainMenuScene uses) rather than plain text — since it's on
 // screen so briefly, it's preloaded here and just re-requested (cached, a
-// no-op fetch) by ChapterSelectScene's own preload().
+// no-op fetch) by MainMenuScene's own preload().
 export class BootScene extends Scene {
     constructor() {
         super('Boot');
@@ -33,6 +33,6 @@ export class BootScene extends Scene {
             resolution: DPR
         }).setOrigin(0.5);
 
-        this.time.delayedCall(500, () => this.scene.start('ChapterSelect'));
+        this.time.delayedCall(500, () => this.scene.start('MainMenu'));
     }
 }

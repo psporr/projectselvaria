@@ -1,0 +1,176 @@
+import { Scene } from 'phaser';
+
+import { PLAYER_START_LEVEL } from '../game/classes';
+import { CAMPAIGN_CHAPTERS } from '../game/maps';
+import { loadCampaignSave } from '../game/save';
+import { browserStorage } from '../systems/storage';
+import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
+import { GAME_VERSION } from '../version';
+import { Button, Card, COLORS, FONT_FAMILY } from '../ui/kit';
+import { drawMenuBackground, preloadMenuBackground } from './menuBackground';
+import type { TacticalSceneData } from './TacticalScene';
+
+const ROW_WIDTH = 296;
+const ROW_HEIGHT = 46;
+const ROW_GAP = 10;
+const CARD_WIDTH = ROW_WIDTH + 32;
+const CARD_PADDING_TOP = 22;
+const CARD_PADDING_BOTTOM = 20;
+const HEADING_HEIGHT = 24;
+const SECTION_GAP = 18;
+const DIVIDER_COLOR = 0x3a4258;
+
+const LOGO_KEY = 'menu-logo';
+const LOGO_DISPLAY_SIZE = 132;
+
+/**
+ * The main menu — mode selection between Roguelike and Campaign. Campaign
+ * split into three rows (2026-08-28, per the repo owner) instead of one
+ * "Continue" plus a flat list of every chapter: **New Game** (starts
+ * Chapter 1 fresh), **Load Game** (only shown when a save exists — was
+ * "Continue" before, unchanged behavior/save format, just renamed to match
+ * the New/Load pairing), and **Chapter Select**, which now hands off to its
+ * own scene (`ChapterSelectScene`) for jumping straight into any individual
+ * chapter — that per-chapter list used to live inline on this screen. Keeps
+ * this screen's own row count fixed at 2-3 regardless of how many chapters
+ * the campaign ever grows to, rather than this card growing a row per
+ * chapter forever.
+ *
+ * Redesigned (2026-08-27, per the repo owner: "look weird in mobile and not
+ * beautiful") from a flat navy screen with two bare text headings floating
+ * over a mostly-empty canvas into a proper title screen: a full-bleed
+ * atmospheric background (`menuBackground.ts`, shared with
+ * `ChapterSelectScene` so the two read as one visual space), the real game
+ * logo (`public/project selvaria icon.png`) in place of plain "Project
+ * Selvaria" text, and both mode sections consolidated into one `Card` panel
+ * (matching every other panel in the game) instead of buttons sitting
+ * directly on the background. The whole logo+card block is vertically
+ * centered as one group so the layout doesn't read as "a few rows stuck at
+ * the top of a mostly empty screen" the way the original did on a tall
+ * phone viewport.
+ */
+export class MainMenuScene extends Scene {
+  constructor() {
+    super('MainMenu');
+  }
+
+  preload(): void {
+    preloadMenuBackground(this);
+    if (!this.textures.exists(LOGO_KEY)) this.load.image(LOGO_KEY, encodeURI('project selvaria icon.png'));
+  }
+
+  create(): void {
+    this.cameras.main.setBackgroundColor('#0d0f1a');
+    applyDprZoom(this);
+
+    drawMenuBackground(this);
+
+    // --- compute total content height so the logo+card block can be centered as one group ---
+    const save = loadCampaignSave(browserStorage);
+    const campaignRowCount = 2 + (save ? 1 : 0); // New Game + Chapter Select, plus Load Game when a save exists
+    const roguelikeSectionHeight = HEADING_HEIGHT + ROW_HEIGHT;
+    const campaignSectionHeight = HEADING_HEIGHT + campaignRowCount * ROW_HEIGHT + Math.max(0, campaignRowCount - 1) * ROW_GAP;
+    const cardHeight =
+      CARD_PADDING_TOP + roguelikeSectionHeight + SECTION_GAP + campaignSectionHeight + CARD_PADDING_BOTTOM;
+
+    const logoBlockHeight = LOGO_DISPLAY_SIZE + 12 + 20; // logo + gap + tagline
+    const blockGap = 28;
+    const totalHeight = logoBlockHeight + blockGap + cardHeight;
+    const blockTop = Math.max(24, (LOGICAL_HEIGHT - totalHeight) / 2 - 20);
+
+    // --- logo + tagline ---
+    const logoY = blockTop + LOGO_DISPLAY_SIZE / 2;
+    this.add.image(LOGICAL_WIDTH / 2, logoY, LOGO_KEY).setDisplaySize(LOGO_DISPLAY_SIZE, LOGO_DISPLAY_SIZE);
+    this.add
+      .text(LOGICAL_WIDTH / 2, blockTop + LOGO_DISPLAY_SIZE + 20, 'A TACTICAL RPG', {
+        fontFamily: FONT_FAMILY,
+        fontSize: '12px',
+        color: COLORS.textDisabled,
+        letterSpacing: 3,
+        resolution: DPR,
+      })
+      .setOrigin(0.5);
+
+    // --- menu card ---
+    const cardTop = blockTop + logoBlockHeight + blockGap;
+    const cardCenterY = cardTop + cardHeight / 2;
+    new Card(this, LOGICAL_WIDTH / 2, cardCenterY, CARD_WIDTH, cardHeight);
+
+    let y = cardTop + CARD_PADDING_TOP;
+    const addHeading = (text: string) => {
+      this.add
+        .text(LOGICAL_WIDTH / 2, y + HEADING_HEIGHT / 2 - 2, text, {
+          fontFamily: FONT_FAMILY,
+          fontSize: '13px',
+          color: COLORS.textAccent,
+          fontStyle: 'bold',
+          letterSpacing: 1,
+          resolution: DPR,
+        })
+        .setOrigin(0.5);
+      y += HEADING_HEIGHT;
+    };
+    const addRow = (label: string, onTap: () => void, fontSize = '14px', primary = false) => {
+      const button = new Button(this, LOGICAL_WIDTH / 2, y + ROW_HEIGHT / 2, ROW_WIDTH, ROW_HEIGHT, label, onTap, fontSize);
+      if (primary) button.setAccent(COLORS.successFill, COLORS.successStroke);
+      y += ROW_HEIGHT + ROW_GAP;
+    };
+
+    addHeading('ROGUELIKE');
+    addRow('Start Run', () => this.startRoguelike(), '15px', true);
+    y -= ROW_GAP;
+
+    const divider = this.add.graphics();
+    divider.lineStyle(1, DIVIDER_COLOR, 1);
+    const dividerY = y + SECTION_GAP / 2;
+    divider.lineBetween(LOGICAL_WIDTH / 2 - ROW_WIDTH / 2, dividerY, LOGICAL_WIDTH / 2 + ROW_WIDTH / 2, dividerY);
+    y += SECTION_GAP;
+
+    addHeading('CAMPAIGN');
+    addRow('New Game', () => this.startNewCampaign(), '14px', true);
+    if (save) {
+      const chapter = CAMPAIGN_CHAPTERS.find((candidate) => candidate.id === save.chapterId);
+      addRow(`Load Game — ${chapter?.shortName ?? save.chapterId}`, () => this.loadGame(), '13px');
+    }
+    addRow('Chapter Select', () => this.scene.start('ChapterSelect'), '13px');
+
+    this.add
+      .text(LOGICAL_WIDTH - 12, LOGICAL_HEIGHT - 12, `v${GAME_VERSION}`, {
+        fontFamily: FONT_FAMILY,
+        fontSize: '11px',
+        color: COLORS.textDisabled,
+        resolution: DPR,
+      })
+      .setOrigin(1, 1);
+  }
+
+  /**
+   * Explicit `{ mode: 'roguelike' }` rather than an omitted data argument —
+   * Phaser's `Systems.start(data)` only overwrites `settings.data` when
+   * `data` is truthy, so `this.scene.start('Tactical')` alone leaves a
+   * previous campaign run's `TacticalSceneData` (mode: 'campaign', a real
+   * `chapterId`, etc.) sitting there, and `TacticalScene.create()` reads it
+   * right back — Roguelike would silently boot back into whichever campaign
+   * chapter was last played, right after returning from it via the System
+   * Menu's Main Menu option (found 2026-08-28, real bug: the repo owner hit
+   * this in the actual build).
+   */
+  private startRoguelike(): void {
+    const data: TacticalSceneData = { mode: 'roguelike' };
+    this.scene.start('Tactical', data);
+  }
+
+  /** Always Chapter 1, fresh — the equivalent of picking the first row on `ChapterSelectScene`. Starting a listed chapter fresh (no carry-over) begins the squad at PLAYER_START_LEVEL + its position in CAMPAIGN_CHAPTERS (HANDOFF.md §3); Chapter 1 is index 0, so that's just PLAYER_START_LEVEL. */
+  private startNewCampaign(): void {
+    const first = CAMPAIGN_CHAPTERS[0];
+    const data: TacticalSceneData = { mode: 'campaign', chapterId: first.id, baseLevel: PLAYER_START_LEVEL };
+    this.scene.start('Tactical', data);
+  }
+
+  private loadGame(): void {
+    const save = loadCampaignSave(browserStorage);
+    if (!save) return;
+    const data: TacticalSceneData = { mode: 'campaign', chapterId: save.chapterId, carryOver: save.carryOver };
+    this.scene.start('Tactical', data);
+  }
+}

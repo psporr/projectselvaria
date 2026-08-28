@@ -112,7 +112,8 @@ const CURSOR_BLINK_HALF_MS = 250;
 type UiMode = 'idle' | 'unit-selected' | 'action-menu' | 'awaiting-target' | 'skill-targeting' | 'confirming';
 
 /**
- * Scene-start data (`ChapterSelectScene.ts`'s `this.scene.start('Tactical', data)`).
+ * Scene-start data (`MainMenuScene.ts`/`ChapterSelectScene.ts`'s
+ * `this.scene.start('Tactical', data)`).
  * Every field is optional and defaults to today's original behavior when
  * omitted entirely — booting with no data at all (BootScene's old direct
  * hand-off, and anything else that doesn't know about chapter selection)
@@ -886,7 +887,7 @@ export class TacticalScene extends Scene {
   /** Abandons the current battle and returns to the mode-select screen — same scene-teardown pairing `finishCampaignContinue()` uses on a real chapter clear. Gated behind a confirm (`onSystemMenuChosen`'s 'main-menu' branch), unlike Restart Battle, since this one also throws away the in-progress battle with no way back to it at all (Restart at least gets you a fresh attempt at the same fight). */
   private returnToMainMenu(): void {
     this.scene.stop('UI');
-    this.scene.start('ChapterSelect');
+    this.scene.start('MainMenu');
   }
 
   /**
@@ -1015,7 +1016,7 @@ export class TacticalScene extends Scene {
     }
   }
 
-  /** Saves progress (or clears it, if that was the last chapter) and returns to Chapter Select — its own save-detection offers Continue from there, so there's no separate "resume" path to build. */
+  /** Saves progress (or clears it, if that was the last chapter) and returns to the main menu — its own save-detection offers Load Game from there, so there's no separate "resume" path to build. */
   private finishCampaignContinue(clearedChapterId: string, carryOver: CampaignCarryOver): void {
     const clearedIndex = CAMPAIGN_CHAPTERS.findIndex((candidate) => candidate.id === clearedChapterId);
     const next = clearedIndex >= 0 ? CAMPAIGN_CHAPTERS[clearedIndex + 1] : undefined;
@@ -1025,7 +1026,7 @@ export class TacticalScene extends Scene {
       clearCampaignSave(browserStorage);
     }
     this.scene.stop('UI');
-    this.scene.start('ChapterSelect');
+    this.scene.start('MainMenu');
   }
 
   /**

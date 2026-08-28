@@ -1,6 +1,7 @@
 import { AUTO, Game, Scale, Types } from 'phaser';
 import { BootScene } from './scenes/BootScene';
 import { ChapterSelectScene } from './scenes/ChapterSelectScene';
+import { MainMenuScene } from './scenes/MainMenuScene';
 import { TacticalScene } from './scenes/TacticalScene';
 import { UIScene } from './scenes/UIScene';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from './systems/viewport';
@@ -42,7 +43,7 @@ const config: Types.Core.GameConfig = {
         width: LOGICAL_WIDTH * DPR,
         height: LOGICAL_HEIGHT * DPR
     },
-    scene: [BootScene, ChapterSelectScene, TacticalScene, UIScene]
+    scene: [BootScene, MainMenuScene, ChapterSelectScene, TacticalScene, UIScene]
 };
 
 document.addEventListener('DOMContentLoaded', () => {
