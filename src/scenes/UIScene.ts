@@ -206,7 +206,7 @@ export class UIScene extends Scene {
     if (!id) return;
     const state = this.client.getState();
     const unit = state?.G.units[id];
-    if (state && unit) this.unitStatusBar.show(unit, terrainAt(state.G, unit.x, unit.y));
+    if (state && unit) this.unitStatusBar.show(unit, terrainAt(state.G, unit.x, unit.y), unit.hasActed && unit.team === teamOf(state.ctx.currentPlayer));
     else this.unitStatusBar.hide();
   }
 

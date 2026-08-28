@@ -141,6 +141,27 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-28 Claude: Fixed a real bug the repo owner hit testing yesterday's
+  graphical forecast/status-bar work: **enemy art in `UnitStatusBar`
+  rendered grayscale during the player's own turn**, as if every enemy had
+  already acted. `Unit.hasActed` only resets at the start of *that unit's
+  own* team's turn (game.ts's `turn.onBegin`), so an enemy unit stays
+  `hasActed: true` for the player's entire turn — it doesn't clear until
+  the enemy's own next turn begins. `UnitStatusBar.show()` was dimming
+  straight off that raw flag, so any enemy tapped mid-player-turn looked
+  permanently "spent." `UnitSprite`'s on-board rendering already solved
+  this exact problem (its `sync()` takes an explicit `dimmed` boolean from
+  the caller rather than reading `hasActed` alone — see its own doc
+  comment) but `UnitStatusBar` never got the same treatment when it was
+  built. Applied the identical fix: `show()` now takes a `dimmed` parameter,
+  and all 5 call sites (`TacticalScene`'s four, `UIScene`'s
+  `refreshUnitStatusBar()`) compute it the same way `syncUnits()` already
+  does for the on-board sprites — `unit.hasActed && unit.team ===
+  teamOf(ctx.currentPlayer)`.
+  Verified: `typecheck`/`build`/`validate-maps` clean; `sim -- --batch 30`
+  matches the historical baseline exactly (UI-only fix). No Playwright pass
+  — the repo owner found this by testing themselves and will confirm the
+  fix the same way (HANDOFF.md §11).
 - 2026-08-28 Claude: Graphical combat forecast screen, per the repo owner
   (reference: Fire Emblem Fates/Awakening's own combat prediction screens).
   New `CombatForecastPanel` (`src/ui/`) replaces the old plain-text confirm

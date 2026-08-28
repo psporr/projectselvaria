@@ -540,7 +540,7 @@ export class TacticalScene extends Scene {
         // Any tapped unit (either team, acted or not) populates the status
         // bar as a side effect — read-only for enemies/already-acted units,
         // which fall through without also entering the move-selection flow.
-        this.ui.unitStatusBar.show(unitAtTile, terrainAt(G, unitAtTile.x, unitAtTile.y));
+        this.ui.unitStatusBar.show(unitAtTile, terrainAt(G, unitAtTile.x, unitAtTile.y), unitAtTile.hasActed && unitAtTile.team === teamOf(ctx.currentPlayer));
         if (unitAtTile.team === 'player' && !unitAtTile.hasActed) {
           this.selectUnit(unitAtTile.id);
         }
@@ -569,7 +569,7 @@ export class TacticalScene extends Scene {
         // bonus otherwise stayed stuck on the origin tile the whole time
         // the action menu was open, showing a bonus that no longer applies
         // (or missing one that now does) once the unit's actually moving.
-        this.ui.unitStatusBar.show(unit, terrainAt(G, x, y));
+        this.ui.unitStatusBar.show(unit, terrainAt(G, x, y), unit.hasActed && unit.team === teamOf(ctx.currentPlayer));
         this.openActionMenu(G, unit);
         return;
       }
@@ -579,7 +579,7 @@ export class TacticalScene extends Scene {
       // Without this, re-selecting a different ally left the panel showing
       // whichever unit was tapped last instead of the new selection.
       if (unitAtTile) {
-        this.ui.unitStatusBar.show(unitAtTile, terrainAt(G, unitAtTile.x, unitAtTile.y));
+        this.ui.unitStatusBar.show(unitAtTile, terrainAt(G, unitAtTile.x, unitAtTile.y), unitAtTile.hasActed && unitAtTile.team === teamOf(ctx.currentPlayer));
       }
 
       if (unitAtTile && unitAtTile.team === 'enemy') {
@@ -1065,7 +1065,7 @@ export class TacticalScene extends Scene {
     // backing out of it, since picking a destination is the only other
     // place that refreshes the panel's terrain row.
     if (!skipStatusBarRefresh && unit && state) {
-      this.ui.unitStatusBar.show(unit, terrainAt(state.G, unit.x, unit.y));
+      this.ui.unitStatusBar.show(unit, terrainAt(state.G, unit.x, unit.y), unit.hasActed && unit.team === teamOf(state.ctx.currentPlayer));
     }
   }
 

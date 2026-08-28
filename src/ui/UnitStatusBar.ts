@@ -292,17 +292,30 @@ export class UnitStatusBar extends GameObjects.Container {
     this.setContentVisible(false);
   }
 
-  /** Shows (or refreshes, if already showing this same unit) the panel for `unit`, standing on `terrain` — the caller reads that off G (see class doc comment on why this component doesn't). */
-  show(unit: Unit, terrain: Terrain): void {
+  /**
+   * Shows (or refreshes, if already showing this same unit) the panel for
+   * `unit`, standing on `terrain` — the caller reads that off G (see class
+   * doc comment on why this component doesn't). `dimmed` is the caller's
+   * call, not derived from `unit.hasActed` alone — that flag only resets at
+   * the start of *that unit's own* team's turn (game.ts's turn.onBegin), so
+   * an enemy unit stays `hasActed: true` for the player's *entire* turn (it
+   * doesn't reset until the enemy's own next turn begins). Dimming off the
+   * raw flag made every enemy the player tapped look "already acted" for
+   * the whole player phase (found 2026-08-28, real bug: the repo owner hit
+   * this in the actual build) — same fix `UnitSprite.sync()`'s `dimmed`
+   * param already applied to the on-board sprite; callers compute it the
+   * same way (`unit.hasActed && unit.team === teamOf(ctx.currentPlayer)`).
+   */
+  show(unit: Unit, terrain: Terrain, dimmed: boolean): void {
     this.current = unit;
     this.hint.setVisible(false);
     this.setContentVisible(true);
 
     const teamColor = TEAM_COLOR[unit.team] ?? TEAM_COLOR.player;
-    const panelColor = unit.hasActed ? blendToward(teamColor, ACTED_GRAY, 0.55) : teamColor;
+    const panelColor = dimmed ? blendToward(teamColor, ACTED_GRAY, 0.55) : teamColor;
 
     this.portraitGfx.clear();
-    this.portraitGfx.fillStyle(panelColor, unit.hasActed ? 0.35 : 0.5);
+    this.portraitGfx.fillStyle(panelColor, dimmed ? 0.35 : 0.5);
     this.portraitGfx.fillRoundedRect(PORTRAIT_X, PORTRAIT_Y, PORTRAIT_W, PORTRAIT_H, 10);
     this.portraitGfx.lineStyle(2, panelColor, 1);
     this.portraitGfx.strokeRoundedRect(PORTRAIT_X, PORTRAIT_Y, PORTRAIT_W, PORTRAIT_H, 10);
@@ -319,7 +332,7 @@ export class UnitStatusBar extends GameObjects.Container {
         ? heroKey
         : enemyKey;
     const hasArt = this.scene.textures.exists(textureKey);
-    this.portraitLetter.setVisible(!hasArt).setText(CLASS_LETTER[unit.className] ?? '?').setAlpha(unit.hasActed ? 0.6 : 1);
+    this.portraitLetter.setVisible(!hasArt).setText(CLASS_LETTER[unit.className] ?? '?').setAlpha(dimmed ? 0.6 : 1);
     if (hasArt) {
       // Live grayscale filter toggle, not a faded alpha, for an acted unit
       // — matches the on-board sprite's own treatment (UnitSprite.ts).
@@ -333,7 +346,7 @@ export class UnitStatusBar extends GameObjects.Container {
       const maxH = PORTRAIT_H - 12;
       const fitScale = Math.min(maxW / this.portraitImage.width, maxH / this.portraitImage.height);
       this.portraitImage.setDisplaySize(this.portraitImage.width * fitScale, this.portraitImage.height * fitScale).setAlpha(1).setVisible(true);
-      this.portraitGrayscale.active = unit.hasActed;
+      this.portraitGrayscale.active = dimmed;
     } else {
       this.portraitImage.setVisible(false);
     }
@@ -342,7 +355,7 @@ export class UnitStatusBar extends GameObjects.Container {
     this.bannerGfx.clear();
     this.bannerGfx.fillStyle(panelColor, 1);
     this.bannerGfx.fillRoundedRect(INFO_X, BANNER_Y - BANNER_HEIGHT / 2, INFO_WIDTH, BANNER_HEIGHT, 8);
-    this.nameText.setText(`${unit.name}  •  ${unit.className}${unit.hasActed ? '  (acted)' : ''}`);
+    this.nameText.setText(`${unit.name}  •  ${unit.className}${dimmed ? '  (acted)' : ''}`);
 
     const ratio = clamp01(unit.hp / unit.maxHp);
     this.hpText.setText(`${unit.hp} / ${unit.maxHp}`);
