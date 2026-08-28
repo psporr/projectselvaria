@@ -732,8 +732,14 @@ the eventual wrap is uneventful:
   choices ("deliberately NOT `width: max-content` because…"). This paid off
   every time someone returned to that code. Keep the standard.
 - **Semantic versioning on every change**: patch for fixes, minor for features.
-- **Verify before claiming.** Typecheck + build + sim + a real browser check,
-  then confirm the deployed asset actually changed.
+- **Verify before claiming.** Typecheck + build + sim (+ validate-maps when
+  map data changed), then confirm the deployed asset actually changed.
+  **Skip the Playwright/browser check by default** (2026-08-28, per the
+  repo owner) — they test in a real browser themselves and a screenshot
+  pass burns real token budget for verification they're going to redo
+  anyway. Only add one when they explicitly ask for it, or when a change is
+  genuinely unverifiable any other way (e.g. a headless script can't touch
+  it) — say so and ask first rather than defaulting to a screenshot pass.
 - **Attribution is tracked** in `CREDITS.md` — every third-party asset with its
   licence and source. Current: SSCAP tileset (CC-BY 3.0), Kenney SFX (CC0),
   original unit sprites (drawn by a friend, no external licence).
