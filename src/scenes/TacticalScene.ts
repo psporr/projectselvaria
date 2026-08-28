@@ -879,11 +879,11 @@ export class TacticalScene extends Scene {
     } else if (choice === 'restart') {
       this.restartBattle();
     } else if (choice === 'main-menu') {
-      this.returnToMainMenu();
+      this.ui.showConfirm('Return to the main menu? This battle\'s progress will be lost.', 'Main Menu', () => this.returnToMainMenu());
     }
   }
 
-  /** Abandons the current battle (no confirmation, same as Restart Battle) and returns to the mode-select screen — same scene-teardown pairing `finishCampaignContinue()` uses on a real chapter clear. */
+  /** Abandons the current battle and returns to the mode-select screen — same scene-teardown pairing `finishCampaignContinue()` uses on a real chapter clear. Gated behind a confirm (`onSystemMenuChosen`'s 'main-menu' branch), unlike Restart Battle, since this one also throws away the in-progress battle with no way back to it at all (Restart at least gets you a fresh attempt at the same fight). */
   private returnToMainMenu(): void {
     this.scene.stop('UI');
     this.scene.start('ChapterSelect');

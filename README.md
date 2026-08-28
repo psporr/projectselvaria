@@ -141,6 +141,34 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-28 Claude: Fixed a real bug the repo owner hit in the actual
+  build, plus a follow-up to the System Menu's new Main Menu option from
+  earlier today:
+  1. **Roguelike booted into a stale campaign chapter after returning to
+     the main menu.** `ChapterSelectScene.startRoguelike()` called
+     `this.scene.start('Tactical')` with no data argument — Phaser's
+     `Systems.start(data)` only overwrites `settings.data` when `data` is
+     truthy, so a previous campaign run's `TacticalSceneData` (`mode:
+     'campaign'`, a real `chapterId`, etc.) was still sitting there, and
+     `TacticalScene.create()` read it straight back. Repro: play a campaign
+     chapter, System Menu -> Main Menu, then Start Run — it silently
+     booted the same campaign chapter instead of the roguelike map. Fixed
+     by passing an explicit `{ mode: 'roguelike' }` instead of omitting the
+     argument, matching the other two call sites
+     (`startCampaignChapter`/`continueCampaign`), which already always
+     passed explicit data and were never affected.
+  2. **Main Menu now confirms before leaving.** New generic `ConfirmDialog`
+     (`src/ui/`, same centered/dimmed-backdrop shape as `BlessingPicker`/
+     `DialoguePanel`, tapping the backdrop cancels like `SystemMenu`'s own
+     backdrop) — `onSystemMenuChosen`'s `'main-menu'` branch now shows
+     "Return to the main menu? This battle's progress will be lost." before
+     calling `returnToMainMenu()`. Restart Battle deliberately stays
+     unconfirmed (it's a fresh attempt at the same fight, not a dead end
+     the way leaving to the main menu is).
+  Verified: `typecheck`/`build`/`validate-maps` clean; `sim -- --batch 30`
+  matches the historical baseline exactly (neither change touches
+  `game.ts`/`classes.ts`). No Playwright pass — the repo owner tests in a
+  real browser themselves now (see HANDOFF.md §11).
 - 2026-08-28 Claude: Two follow-ups to yesterday's dialogue rendering, per
   the repo owner:
   1. **`DialoguePanel` redesigned as a centered, dimmed modal** instead of

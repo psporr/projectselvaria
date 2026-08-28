@@ -154,8 +154,20 @@ export class ChapterSelectScene extends Scene {
     scrim.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
   }
 
+  /**
+   * Explicit `{ mode: 'roguelike' }` rather than an omitted data argument —
+   * Phaser's `Systems.start(data)` only overwrites `settings.data` when
+   * `data` is truthy, so `this.scene.start('Tactical')` alone leaves a
+   * previous campaign run's `TacticalSceneData` (mode: 'campaign', a real
+   * `chapterId`, etc.) sitting there, and `TacticalScene.create()` reads it
+   * right back — Roguelike would silently boot back into whichever campaign
+   * chapter was last played, right after returning from it via the System
+   * Menu's Main Menu option (found 2026-08-28, real bug: the repo owner hit
+   * this in the actual build).
+   */
   private startRoguelike(): void {
-    this.scene.start('Tactical');
+    const data: TacticalSceneData = { mode: 'roguelike' };
+    this.scene.start('Tactical', data);
   }
 
   /** Starting a listed chapter fresh (no carry-over) begins the squad at PLAYER_START_LEVEL + its position in CAMPAIGN_CHAPTERS, so jumping straight to a later chapter isn't under-levelled (HANDOFF.md §3). */

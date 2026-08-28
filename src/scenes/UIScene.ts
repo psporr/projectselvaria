@@ -11,6 +11,7 @@ import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/vie
 import { GAME_VERSION } from '../version';
 import { ActionMenu, type ActionMenuChoice, type ActionMenuOption } from '../ui/ActionMenu';
 import { BlessingPicker } from '../ui/BlessingPicker';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { DialoguePanel } from '../ui/DialoguePanel';
 import { EquipScreen } from '../ui/EquipScreen';
 import { ForecastPanel } from '../ui/ForecastPanel';
@@ -60,6 +61,7 @@ export class UIScene extends Scene {
   unitStatusBar!: UnitStatusBar;
   logPanel!: LogPanel;
   dialoguePanel!: DialoguePanel;
+  confirmDialog!: ConfirmDialog;
 
   /**
    * Last ctx.turn seen, used to fire the phase banner exactly once per real
@@ -183,6 +185,7 @@ export class UIScene extends Scene {
     this.unitStatusBar = new UnitStatusBar(this);
     this.logPanel = new LogPanel(this);
     this.dialoguePanel = new DialoguePanel(this);
+    this.confirmDialog = new ConfirmDialog(this);
 
     this.refreshHud();
     const unsubscribe = this.client.subscribe(() => {
@@ -296,6 +299,10 @@ export class UIScene extends Scene {
 
   showDialogue(script: DialogueScript, onComplete: () => void): void {
     this.dialoguePanel.show(script, onComplete);
+  }
+
+  showConfirm(message: string, confirmLabel: string, onConfirm: () => void): void {
+    this.confirmDialog.show(message, confirmLabel, onConfirm);
   }
 
   showLogPanel(log: string[]): void {
