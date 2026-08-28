@@ -16,7 +16,6 @@ import { createGameClient, type GameClient } from '../systems/gameClient';
 import { browserStorage } from '../systems/storage';
 import { applyDprZoom, DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import type { ActionMenuChoice, ActionMenuOption } from '../ui/ActionMenu';
-import { formatAttackForecast } from '../ui/ForecastPanel';
 import type { SystemMenuChoice, SystemMenuOption } from '../ui/SystemMenu';
 import type { PromotionCandidate } from '../ui/PromotionPicker';
 import {
@@ -803,11 +802,13 @@ export class TacticalScene extends Scene {
   private enterAttackConfirm(G: GameState, attacker: Unit, defender: Unit, onCancel: () => void): void {
     this.clearHighlights();
     const forecast = forecastCombat(G, attacker, defender);
-    const lines = formatAttackForecast(G, attacker, defender, forecast);
 
     this.mode = 'confirming';
-    this.ui.showForecast(
-      lines,
+    this.ui.showCombatForecast(
+      G,
+      attacker,
+      defender,
+      forecast,
       () => {
         const dest = this.pendingDestination!;
         this.client.moves.moveUnit(attacker.id, dest.x, dest.y);

@@ -1,8 +1,5 @@
 import { GameObjects, Scene } from 'phaser';
 
-import type { CombatForecast } from '../game/combat';
-import { terrainAt } from '../game/grid';
-import type { GameState, Unit } from '../game/types';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { Button, Card, COLORS, FONT_FAMILY } from './kit';
 
@@ -12,34 +9,18 @@ const BUTTON_WIDTH = 130;
 const BUTTON_HEIGHT = 36;
 
 /**
- * Display lines for a basic-attack confirm card. Kept next to the panel that
- * renders them so formatting and layout stay in one place. Reads straight off
- * forecastCombat's pure output (combat.ts) — nothing here recomputes chances.
- */
-export function formatAttackForecast(G: GameState, attacker: Unit, defender: Unit, forecast: CombatForecast): string[] {
-  const terrain = terrainAt(G, defender.x, defender.y);
-  const lines = [
-    `${attacker.name} (${attacker.hp}/${attacker.maxHp}) vs ${defender.name} (${defender.hp}/${defender.maxHp})`,
-    `Attack — Hit ${forecast.attack.hitChance}%  Dmg ${forecast.attack.normalDamage}  Crit ${forecast.attack.critChance}%`,
-  ];
-  if (terrain.defBonus > 0 || terrain.avoid > 0) {
-    lines.push(`${defender.name}'s terrain (${terrain.name}): +${terrain.defBonus} Def, +${terrain.avoid} Avoid`);
-  }
-  lines.push(
-    forecast.counter
-      ? `Counter — Hit ${forecast.counter.hitChance}%  Dmg ${forecast.counter.normalDamage}  Crit ${forecast.counter.critChance}%`
-      : 'Cannot Counter',
-  );
-  return lines;
-}
-
-/**
- * A generic confirm/cancel card — used both for the basic-attack forecast
- * (formatAttackForecast above) and skill previews (describeSkillEffect,
- * skills.ts), which just hand it a different set of lines. Blocks board
- * input by putting TacticalScene into a mode its own click handler doesn't
- * branch on (see TacticalScene's UiMode) rather than trying to intercept
- * clicks across scenes.
+ * A generic confirm/cancel card for skill previews (describeSkillEffect,
+ * skills.ts) — TacticalScene's enterSkillConfirm hands it a plain set of
+ * lines. Used to also serve the basic-attack forecast until it got its own
+ * graphical screen (`CombatForecastPanel`, 2026-08-28, styled after Fire
+ * Emblem's own combat prediction screen) — a basic attack always has the
+ * same "two units, an exchange of hit/dmg/crit, maybe a counter" shape
+ * (CombatForecast, combat.ts) that layout fits, but a skill preview doesn't
+ * (heals/buffs/AoE too), so this plain-text card stays exactly as it was
+ * for that path instead of being stretched to fit both. Blocks board input
+ * by putting TacticalScene into a mode its own click handler doesn't branch
+ * on (see TacticalScene's UiMode) rather than trying to intercept clicks
+ * across scenes.
  */
 export class ForecastPanel extends GameObjects.Container {
   private readonly bodyText: GameObjects.Text;

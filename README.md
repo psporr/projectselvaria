@@ -141,6 +141,35 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-28 Claude: Graphical combat forecast screen, per the repo owner
+  (reference: Fire Emblem Fates/Awakening's own combat prediction screens).
+  New `CombatForecastPanel` (`src/ui/`) replaces the old plain-text confirm
+  card for basic attacks — attacker and defender portraits face off
+  (resolved through the same fallback chain `UnitStatusBar` already uses:
+  bust portrait, then map sprite, then anonymous enemy-class art, then the
+  class-letter placeholder), each with a name banner, an equipped-weapon
+  label (`ITEMS`, equipment.ts — falls back to the unit's class name for
+  every enemy, since `Unit.equipment` is only ever populated for player
+  units), and a bordered HP bar (enemy always red, matching the on-board
+  sprite/`UnitStatusBar` convention). Below that, two stat columns read
+  straight off the same `CombatForecast` the old text card did — no new
+  math, just a new face: the attacker's `forecast.attack` (Dmg/Hit/Crit) on
+  the left, the defender's `forecast.counter` on the right, or "Cannot
+  Counter" in its place when the defender is out of range. A terrain note
+  still shows when the defender is standing on a tile that grants Def or
+  Avoid.
+  Skill previews (`enterSkillConfirm`) are untouched — still the original
+  plain-text `ForecastPanel`, kept deliberately separate rather than
+  stretched to fit both: a basic attack always has the same "two units, an
+  exchange of hit/dmg/crit, maybe a counter" shape, but a skill preview
+  covers heals/buffs/AoE too, which don't map onto attacker/defender stat
+  columns. `formatAttackForecast` (the old text-line formatter for attacks)
+  is gone — nothing calls it anymore.
+  Verified: `typecheck`/`build`/`validate-maps` clean; `sim -- --batch 30`
+  matches the historical baseline exactly (UI-only change, doesn't touch
+  `game.ts`/`classes.ts`/`combat.ts`). No Playwright pass this time either —
+  per the repo owner's standing preference (HANDOFF.md §11), they're
+  testing this one visually themselves.
 - 2026-08-28 Claude: Split the main menu's Campaign section into three rows,
   per the repo owner. It used to be one "Continue" row (when a save
   exists) plus a flat "New: <chapter name>" row per campaign chapter,

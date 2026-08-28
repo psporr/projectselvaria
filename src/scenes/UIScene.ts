@@ -1,16 +1,18 @@
 import { GameObjects, Scene } from 'phaser';
 
 import type { Blessing } from '../game/blessings';
+import type { CombatForecast } from '../game/combat';
 import type { GameOver } from '../game/game';
 import { terrainAt } from '../game/grid';
 import { CAMPAIGN_CHAPTERS } from '../game/maps';
 import type { DialogueScript } from '../game/story';
-import { teamOf } from '../game/types';
+import { teamOf, type GameState, type Unit } from '../game/types';
 import type { GameClient } from '../systems/gameClient';
 import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { GAME_VERSION } from '../version';
 import { ActionMenu, type ActionMenuChoice, type ActionMenuOption } from '../ui/ActionMenu';
 import { BlessingPicker } from '../ui/BlessingPicker';
+import { CombatForecastPanel } from '../ui/CombatForecastPanel';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { DialoguePanel } from '../ui/DialoguePanel';
 import { EquipScreen } from '../ui/EquipScreen';
@@ -53,6 +55,7 @@ export class UIScene extends Scene {
 
   actionMenu!: ActionMenu;
   forecastPanel!: ForecastPanel;
+  combatForecastPanel!: CombatForecastPanel;
   blessingPicker!: BlessingPicker;
   promotionPicker!: PromotionPicker;
   equipScreen!: EquipScreen;
@@ -176,6 +179,7 @@ export class UIScene extends Scene {
       .setVisible(false);
 
     this.forecastPanel = new ForecastPanel(this);
+    this.combatForecastPanel = new CombatForecastPanel(this);
     this.actionMenu = new ActionMenu(this);
     this.blessingPicker = new BlessingPicker(this);
     this.promotionPicker = new PromotionPicker(this);
@@ -287,6 +291,10 @@ export class UIScene extends Scene {
 
   showForecast(lines: string[], onConfirm: () => void, onCancel: () => void): void {
     this.forecastPanel.show(lines, onConfirm, onCancel);
+  }
+
+  showCombatForecast(G: GameState, attacker: Unit, defender: Unit, forecast: CombatForecast, onConfirm: () => void, onCancel: () => void): void {
+    this.combatForecastPanel.show(G, attacker, defender, forecast, onConfirm, onCancel);
   }
 
   showBlessingPicker(blessings: Blessing[], onPick: (id: string) => void): void {
