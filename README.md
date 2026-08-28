@@ -141,6 +141,37 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-28 Claude: Two follow-ups to yesterday's dialogue rendering, per
+  the repo owner:
+  1. **`DialoguePanel` redesigned as a centered, dimmed modal** instead of
+     the bottom-anchored bar it originally shipped with — matches
+     `BlessingPicker`/`PromotionPicker`'s treatment (0.7-alpha backdrop)
+     rather than being the one panel that left the board visible
+     underneath. The portrait slot now shows the **speaking unit's actual
+     map sprite** (`heroArt.ts`'s `heroTextureKey`, the same texture
+     `UnitSprite` renders on the board — not the separate bust-portrait
+     art category `UnitStatusBar` prefers), falling back to the enemy-class
+     sprite for an unnamed enemy speaker (Gate Chief/Vale Captain ->
+     Barbarian) and finally to the existing class-letter placeholder if
+     neither resolves — same three-tier convention `UnitStatusBar`'s own
+     portrait slot already established, just resolved from
+     `DialogueLine.speaker`/`.portraitClass` instead of a live `Unit`. Also
+     added a **Skip** button (top-right of the card) that dismisses the
+     entire remaining script in one tap, distinct from tapping the backdrop
+     to advance one line at a time.
+  2. **"Main Menu" added to the System Menu** (the dock's bottom-right
+     "Menu" button) — `SystemMenuChoice` gets a `'main-menu'` option
+     between Restart Battle and Cancel; `TacticalScene`'s new
+     `returnToMainMenu()` does the same `scene.stop('UI')` +
+     `scene.start('ChapterSelect')` pairing `finishCampaignContinue()`
+     already uses on a real chapter clear, so a mid-battle exit tears down
+     the same way a real one does. No confirmation prompt — matches
+     Restart Battle, the existing option right above it, which also
+     abandons the current battle with no "are you sure."
+  Verified: `typecheck`/`build`/`validate-maps` clean; `sim -- --batch 30`
+  matches the historical baseline exactly (neither change touches
+  `game.ts`/`classes.ts`). Per the repo owner's own request, no Playwright
+  screenshot pass this time — they're testing this round themselves.
 - 2026-08-27 Claude: Campaign dialogue rendering — the last "Not built yet"
   item from campaign mode's launch now actually reads `ChapterDef.intro`/
   `.outro` and `story.ts`'s mid-battle `MapEvent` triggers, instead of the

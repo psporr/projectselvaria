@@ -1,53 +1,81 @@
 import { GameObjects, Scene } from 'phaser';
 
-import type { DialogueScript } from '../game/story';
+import type { DialogueLine, DialogueScript } from '../game/story';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from './classIcons';
-import { Card, COLORS, FONT_FAMILY } from './kit';
+import { enemyClassTextureKey, heroTextureKey } from './heroArt';
+import { Button, Card, COLORS, FONT_FAMILY } from './kit';
 
-const BOX_WIDTH = LOGICAL_WIDTH - 24;
-const BOX_HEIGHT = 190;
-const BOX_BOTTOM_MARGIN = 20;
-const BOX_CENTER_Y = LOGICAL_HEIGHT - BOX_BOTTOM_MARGIN - BOX_HEIGHT / 2;
+const BOX_WIDTH = LOGICAL_WIDTH - 40;
+const BOX_HEIGHT = 224;
+const BOX_CENTER_Y = LOGICAL_HEIGHT / 2;
 const BOX_TOP = BOX_CENTER_Y - BOX_HEIGHT / 2;
 const BOX_LEFT = LOGICAL_WIDTH / 2 - BOX_WIDTH / 2;
 const BOX_RIGHT = LOGICAL_WIDTH / 2 + BOX_WIDTH / 2;
 
-const PORTRAIT_RADIUS = 32;
-const PORTRAIT_MARGIN = 16;
-const PORTRAIT_Y = BOX_TOP + PORTRAIT_MARGIN + PORTRAIT_RADIUS;
+const SKIP_BUTTON_W = 52;
+const SKIP_BUTTON_H = 22;
+const SKIP_BUTTON_Y = BOX_TOP + 16 + SKIP_BUTTON_H / 2;
 
-const TEXT_PADDING = 18;
-const NAME_Y = BOX_TOP + 26;
-const BODY_TOP = BOX_TOP + 50;
-const HINT_Y = BOX_TOP + BOX_HEIGHT - 16;
+/** Everything below the skip-button row — portrait + name + body all measure down from here. */
+const CONTENT_TOP = SKIP_BUTTON_Y + SKIP_BUTTON_H / 2 + 14;
+const PORTRAIT_SIZE = 84;
+const PORTRAIT_MARGIN = 16;
+const PORTRAIT_Y = CONTENT_TOP + PORTRAIT_SIZE / 2;
+
+const TEXT_PADDING = 20;
+const NAME_Y = CONTENT_TOP + 6;
+const BODY_TOP = NAME_Y + 24;
+const HINT_Y = BOX_TOP + BOX_HEIGHT - 18;
+
+/** Same texture-resolution order as `UnitSprite`'s on-board rendering (not `UnitStatusBar`'s, which prefers a bust portrait first) — "use the unit sprite" means the map sprite a player already recognizes from the board, not the separate higher-detail portrait art category. Falls back to the enemy-class sprite for an unnamed enemy speaker (Gate Chief/Vale Captain -> Barbarian), then to the caller's own class-letter placeholder when neither exists. */
+function resolvePortraitTexture(scene: Scene, line: DialogueLine): string | undefined {
+  const heroKey = heroTextureKey(line.speaker);
+  if (scene.textures.exists(heroKey)) return heroKey;
+  if (line.portraitClass) {
+    const enemyKey = enemyClassTextureKey(line.portraitClass);
+    if (scene.textures.exists(enemyKey)) return enemyKey;
+  }
+  return undefined;
+}
 
 /**
- * Campaign chapter dialogue — intro/outro framing and mid-battle story
- * beats (`ChapterDef.intro`/`.outro`/`events`, `src/game/story.ts`'s
- * `MapEvent`), rendered for the first time 2026-08-27 (the data and pure
- * trigger-evaluation logic existed since campaign chapters were authored,
- * but nothing ever read them — see README's "Recent changes").
+ * Campaign chapter dialogue — intro/outro framing and mid-battle story beats
+ * (`ChapterDef.intro`/`.outro`/`events`, `src/game/story.ts`'s `MapEvent`).
  *
- * Bottom-anchored rather than a centered modal like `BlessingPicker`/
- * `PromotionPicker` — deliberately different, so the board stays visible
- * above it during a mid-battle event instead of the whole screen vanishing
- * behind a card for one line of dialogue. Renders on top of
- * `UnitStatusBar`'s dock (higher depth) rather than coordinating layout
- * with it — input is suspended while a script is showing (TacticalScene's
- * `inputSuspended`), so nothing under it needs to stay interactive or even
- * visible.
+ * Centered modal with a dimmed backdrop (2026-08-28, per the repo owner) —
+ * originally shipped bottom-anchored so the board stayed visible during a
+ * mid-battle event, but a full read of the same portrait/name/body layout
+ * `UnitStatusBar` uses reads better with the board dimmed out behind it and
+ * more room for real character art, matching every other panel in this game
+ * (`BlessingPicker`/`PromotionPicker`) rather than being the one exception.
+ * Input is already suspended for the full duration a script is showing
+ * (`TacticalScene.inputSuspended`), so nothing under it needs to stay
+ * visible or interactive either way.
  *
- * One `DialogueLine` on screen at a time; a full-screen invisible tap
- * catcher (matching `ActionMenu`'s backdrop convention) advances to the
- * next line, or hides and fires `onComplete` after the last one — the same
- * "show a script, callback when the player's done with it" shape
- * `PhaseBanner.show()` established, just player-paced instead of timed.
+ * The portrait shows the speaking unit's actual map sprite (`heroArt.ts`,
+ * same texture `UnitSprite` renders on the board) when one resolves,
+ * falling back to the class-letter placeholder otherwise — same three-tier
+ * "real art, then a themed fallback" convention `UnitStatusBar`'s portrait
+ * slot already established, just keyed off `DialogueLine.speaker`/
+ * `.portraitClass` instead of a live `Unit`.
+ *
+ * A **Skip** button dismisses the entire remaining script in one tap,
+ * distinct from tapping the backdrop to advance one line at a time — for a
+ * player who's already read this chapter's dialogue on a previous run.
+ *
+ * One `DialogueLine` on screen at a time; a full-screen dimmed tap catcher
+ * advances to the next line, or hides and fires `onComplete` after the last
+ * one — the same "show a script, callback when the player's done with it"
+ * shape `PhaseBanner.show()` established, just player-paced instead of
+ * timed.
  */
 export class DialoguePanel extends GameObjects.Container {
-  private readonly tapCatcher: GameObjects.Rectangle;
+  private readonly backdrop: GameObjects.Rectangle;
   private readonly card: Card;
-  private readonly portraitGfx: GameObjects.Arc;
+  private readonly skipButton: Button;
+  private readonly portraitGfx: GameObjects.Graphics;
+  private readonly portraitImage: GameObjects.Image;
   private readonly portraitLetter: GameObjects.Text;
   private readonly nameText: GameObjects.Text;
   private readonly bodyText: GameObjects.Text;
@@ -60,14 +88,17 @@ export class DialoguePanel extends GameObjects.Container {
   constructor(scene: Scene) {
     super(scene, 0, 0);
 
-    this.tapCatcher = scene.add.rectangle(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2, LOGICAL_WIDTH, LOGICAL_HEIGHT, 0x000000, 0).setInteractive();
-    this.tapCatcher.on('pointerup', () => this.advance());
+    this.backdrop = scene.add.rectangle(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2, LOGICAL_WIDTH, LOGICAL_HEIGHT, 0x000000, 0.7).setInteractive();
+    this.backdrop.on('pointerup', () => this.advance());
 
     this.card = new Card(scene, LOGICAL_WIDTH / 2, BOX_CENTER_Y, BOX_WIDTH, BOX_HEIGHT);
 
-    this.portraitGfx = scene.add.circle(0, PORTRAIT_Y, PORTRAIT_RADIUS, COLORS.playerAccent).setStrokeStyle(2, 0x000000, 0.4);
+    this.skipButton = new Button(scene, BOX_RIGHT - SKIP_BUTTON_W / 2 - 12, SKIP_BUTTON_Y, SKIP_BUTTON_W, SKIP_BUTTON_H, 'Skip', () => this.skip(), '11px');
+
+    this.portraitGfx = scene.add.graphics();
+    this.portraitImage = scene.add.image(0, PORTRAIT_Y, '__WHITE').setVisible(false);
     this.portraitLetter = scene.add
-      .text(0, PORTRAIT_Y, '', { fontFamily: FONT_FAMILY, fontSize: '22px', fontStyle: 'bold', color: '#ffffff', resolution: DPR })
+      .text(0, PORTRAIT_Y, '', { fontFamily: FONT_FAMILY, fontSize: '28px', fontStyle: 'bold', color: '#ffffff', resolution: DPR })
       .setOrigin(0.5);
 
     this.nameText = scene.add.text(0, NAME_Y, '', {
@@ -88,7 +119,17 @@ export class DialoguePanel extends GameObjects.Container {
       .text(BOX_RIGHT - TEXT_PADDING, HINT_Y, '', { fontFamily: FONT_FAMILY, fontSize: '10px', color: COLORS.textDisabled, resolution: DPR })
       .setOrigin(1, 0.5);
 
-    this.add([this.tapCatcher, this.card, this.portraitGfx, this.portraitLetter, this.nameText, this.bodyText, this.hint]);
+    this.add([
+      this.backdrop,
+      this.card,
+      this.portraitGfx,
+      this.portraitImage,
+      this.portraitLetter,
+      this.nameText,
+      this.bodyText,
+      this.hint,
+      this.skipButton,
+    ]);
     this.setDepth(22);
     scene.add.existing(this);
     this.setVisible(false);
@@ -110,21 +151,38 @@ export class DialoguePanel extends GameObjects.Container {
     const line = this.script[this.index];
     const side = line.side ?? 'left';
     const hasPortrait = line.portraitClass !== undefined;
+    const accent = side === 'right' ? COLORS.enemyAccent : COLORS.playerAccent;
 
     this.portraitGfx.setVisible(hasPortrait);
-    this.portraitLetter.setVisible(hasPortrait);
+    this.portraitImage.setVisible(false);
+    this.portraitLetter.setVisible(false);
+
     if (hasPortrait) {
-      const portraitX = side === 'right' ? BOX_RIGHT - PORTRAIT_MARGIN - PORTRAIT_RADIUS : BOX_LEFT + PORTRAIT_MARGIN + PORTRAIT_RADIUS;
-      this.portraitGfx.setPosition(portraitX, PORTRAIT_Y).setFillStyle(side === 'right' ? COLORS.enemyAccent : COLORS.playerAccent);
-      this.portraitLetter.setPosition(portraitX, PORTRAIT_Y).setText(CLASS_LETTER[line.portraitClass!] ?? '?');
+      const portraitX = side === 'right' ? BOX_RIGHT - PORTRAIT_MARGIN - PORTRAIT_SIZE / 2 : BOX_LEFT + PORTRAIT_MARGIN + PORTRAIT_SIZE / 2;
+
+      this.portraitGfx.clear();
+      this.portraitGfx.fillStyle(accent, 0.5);
+      this.portraitGfx.fillRoundedRect(portraitX - PORTRAIT_SIZE / 2, PORTRAIT_Y - PORTRAIT_SIZE / 2, PORTRAIT_SIZE, PORTRAIT_SIZE, 10);
+      this.portraitGfx.lineStyle(2, accent, 1);
+      this.portraitGfx.strokeRoundedRect(portraitX - PORTRAIT_SIZE / 2, PORTRAIT_Y - PORTRAIT_SIZE / 2, PORTRAIT_SIZE, PORTRAIT_SIZE, 10);
+
+      const textureKey = resolvePortraitTexture(this.scene, line);
+      if (textureKey) {
+        this.portraitImage.setTexture(textureKey).setPosition(portraitX, PORTRAIT_Y);
+        const maxSize = PORTRAIT_SIZE - 12;
+        const fitScale = Math.min(maxSize / this.portraitImage.width, maxSize / this.portraitImage.height);
+        this.portraitImage.setDisplaySize(this.portraitImage.width * fitScale, this.portraitImage.height * fitScale).setVisible(true);
+      } else {
+        this.portraitLetter.setPosition(portraitX, PORTRAIT_Y).setText(CLASS_LETTER[line.portraitClass!] ?? '?').setVisible(true);
+      }
     }
 
     // Text column sits opposite whichever edge the portrait occupies (or
     // spans the full width, minus padding, for a portrait-less narrator
     // line) — same "leave room for whichever side has art" idea
     // UnitStatusBar's own layout already uses.
-    const textLeft = hasPortrait && side === 'left' ? BOX_LEFT + PORTRAIT_MARGIN * 2 + PORTRAIT_RADIUS * 2 : BOX_LEFT + TEXT_PADDING;
-    const textRight = hasPortrait && side === 'right' ? BOX_RIGHT - PORTRAIT_MARGIN * 2 - PORTRAIT_RADIUS * 2 : BOX_RIGHT - TEXT_PADDING;
+    const textLeft = hasPortrait && side === 'left' ? BOX_LEFT + PORTRAIT_MARGIN * 2 + PORTRAIT_SIZE : BOX_LEFT + TEXT_PADDING;
+    const textRight = hasPortrait && side === 'right' ? BOX_RIGHT - PORTRAIT_MARGIN * 2 - PORTRAIT_SIZE : BOX_RIGHT - TEXT_PADDING;
     const textWidth = textRight - textLeft;
 
     this.nameText.setPosition(textLeft, NAME_Y).setText(line.speaker);
@@ -140,6 +198,12 @@ export class DialoguePanel extends GameObjects.Container {
       return;
     }
     this.renderLine();
+  }
+
+  /** Dismisses the whole remaining script in one tap, unlike `advance()` which only steps one line at a time. */
+  private skip(): void {
+    if (!this.script.length) return;
+    this.hide();
   }
 
   private hide(): void {

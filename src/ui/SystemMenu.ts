@@ -2,7 +2,7 @@ import { GameObjects, Scene } from 'phaser';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { Button, Card, COLORS, FONT_FAMILY } from './kit';
 
-export type SystemMenuChoice = 'end-turn' | 'log' | 'restart' | 'cancel';
+export type SystemMenuChoice = 'end-turn' | 'log' | 'restart' | 'main-menu' | 'cancel';
 
 export interface SystemMenuOption {
   id: SystemMenuChoice;

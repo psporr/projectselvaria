@@ -865,6 +865,7 @@ export class TacticalScene extends Scene {
       { id: 'end-turn', label: 'End Turn', enabled: isPlayerTurn },
       { id: 'log', label: 'Battle Log', enabled: true },
       { id: 'restart', label: 'Restart Battle', enabled: true },
+      { id: 'main-menu', label: 'Main Menu', enabled: true },
       { id: 'cancel', label: 'Cancel', enabled: true },
     ];
     this.ui.showSystemMenu(options, (choice) => this.onSystemMenuChosen(choice, G.log));
@@ -877,7 +878,15 @@ export class TacticalScene extends Scene {
       this.ui.showLogPanel(log);
     } else if (choice === 'restart') {
       this.restartBattle();
+    } else if (choice === 'main-menu') {
+      this.returnToMainMenu();
     }
+  }
+
+  /** Abandons the current battle (no confirmation, same as Restart Battle) and returns to the mode-select screen — same scene-teardown pairing `finishCampaignContinue()` uses on a real chapter clear. */
+  private returnToMainMenu(): void {
+    this.scene.stop('UI');
+    this.scene.start('ChapterSelect');
   }
 
   /**
