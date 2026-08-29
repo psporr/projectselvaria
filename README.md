@@ -141,6 +141,9 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-28 Claude: `COMBAT_BEAT_DELAY_MS` (the attack-beat -> counter-beat
+  gap added earlier today) bumped 350 -> 600ms, per the repo owner's own
+  feel-test. `typecheck`/`build` clean; no other change.
 - 2026-08-28 Claude: First concrete step of the "cut-in battle scene"
   discussion with the repo owner (HANDOFF.md §7's deferred
   `CombatOverlayScene`) — the "easy" half they asked to start with: attack

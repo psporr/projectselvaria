@@ -1,7 +1,7 @@
 {
   "name": "project-selvaria",
   "private": true,
-  "version": "0.24.0",
+  "version": "0.24.1",
   "description": "A 2D tactical RPG in the Fire Emblem lineage, built on Phaser 4 + TypeScript + Vite + boardgame.io.",
   "type": "module",
   "scripts": {

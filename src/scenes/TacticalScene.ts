@@ -77,7 +77,7 @@ const SKILL_HIGHLIGHT = 0xf0ad4e;
 const ENEMY_STEP_DELAY_MS = 450;
 const BLESSING_DELAY_MS = 700;
 /** Gap between an attack beat and its counter beat in playCombatSequence() — long enough to read as two distinct hits, short enough not to drag out every exchange. */
-const COMBAT_BEAT_DELAY_MS = 350;
+const COMBAT_BEAT_DELAY_MS = 600;
 
 /** Corner-bracket tile cursor — a classic tactics-RPG "you selected this square" reticle, distinct from the flat-color range/target overlays `highlightTiles` paints. See `showTileCursor`'s doc comment for exactly when it appears. */
 const CURSOR_COLOR = 0xff5a5a;
