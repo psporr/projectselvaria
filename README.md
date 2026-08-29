@@ -141,6 +141,12 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-28 Claude: Camera shake and flash reserved for crits only, per
+  the repo owner's feel-test of the combat juice above — a normal hit was
+  shaking the camera too (just a lighter one); now only `beat.crit` triggers
+  either effect at all, so a crit's camera punch actually reads as
+  distinct from a normal connecting hit instead of every hit doing some
+  version of the same thing. `typecheck`/`build` clean; no other change.
 - 2026-08-28 Claude: On-grid combat juice, per the repo owner — while they
   commission real combat-overlay assets, keep improving the version that
   needs none. All of this rides Phaser 4's own built-ins, no new art:
