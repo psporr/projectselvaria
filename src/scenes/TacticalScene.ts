@@ -506,13 +506,11 @@ export class TacticalScene extends Scene {
       const impact = () => {
         if (defender.scene === undefined) return;
         if (beat.hit) {
-          this.spawnFloatingText(defender.x, defender.y, beat.crit ? `-${beat.damage}!` : `-${beat.damage}`, '#ff6b6b');
+          if (beat.crit) this.spawnFloatingText(defender.x, defender.y - 16, 'Crit!', '#f0ad4e');
+          this.spawnFloatingText(defender.x, defender.y, `-${beat.damage}`, '#ff6b6b');
           defender.flash(0xffffff);
-          this.spawnImpactBurst(defender.x, defender.y, beat.crit ? 0xf0ad4e : 0xff6b6b, beat.crit ? 14 : 7);
-          if (beat.crit) {
-            this.cameras.main.shake(180, 0.012);
-            this.cameras.main.flash(120, 240, 90, 60);
-          }
+          this.spawnImpactBurst(defender.x, defender.y, beat.crit ? 0xf0ad4e : 0xff6b6b, beat.crit ? 24 : 7);
+          if (beat.crit) this.cameras.main.shake(180, 0.012);
         } else {
           this.spawnFloatingText(defender.x, defender.y, 'Miss', '#a0a8c0');
           const stepAway = defender.x <= (attacker?.x ?? defender.x) ? -8 : 8;

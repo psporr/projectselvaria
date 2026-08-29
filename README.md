@@ -141,6 +141,15 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-28 Claude: Crit feedback tuned again, per the repo owner:
+  `cameras.main.flash()` removed entirely (shake stays, alone), the impact
+  particle burst nearly doubled for a crit specifically (14 -> 24, normal
+  hits unchanged at 7), and a separate **"Crit!"** floating label now
+  appears just above the damage number (own `spawnFloatingText` call, gold
+  `#f0ad4e`, offset 16px above where the damage number itself starts) —
+  the damage number itself dropped its old crit-only `!` suffix now that
+  the label says it explicitly instead. `typecheck`/`build` clean; no
+  other change.
 - 2026-08-28 Claude: Fixed a real bug the repo owner hit testing the combat
   sequencing/juice work above: **the phase banner (and enemy AI stepping)
   could fire while an attack's own animation was still playing**, since
