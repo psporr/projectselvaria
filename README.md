@@ -141,6 +141,43 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-28 Claude: On-grid combat juice, per the repo owner — while they
+  commission real combat-overlay assets, keep improving the version that
+  needs none. All of this rides Phaser 4's own built-ins, no new art:
+  - **Attacker lunge, always** — each beat's attacker tweens ~28% of the
+    way toward its defender and back (`yoyo: true`), whether the swing
+    connects or not, since a real attack always swings; only the *outcome*
+    at the peak differs. Phaser fires `onYoyo` at the exact reversal point,
+    so impact effects land the instant the swing "arrives" instead of on a
+    separately-guessed delay.
+  - **On a hit**: the existing white flash + floating damage number, plus
+    a new tinted particle burst (`this.add.particles(x, y, '__WHITE',
+    ...).explode(count)` — `__WHITE` is Phaser's own built-in 1x1 texture,
+    not a new asset) and `this.cameras.main.shake(duration, intensity)` —
+    both scaled up on a crit (bigger burst, harder shake, plus a brief
+    `this.cameras.main.flash()` red-orange tint). Camera shake/flash are
+    Phaser's own built-in Camera effects (`Cameras.Scene2D.Effects.Shake`/
+    `.Flash`), not hand-rolled.
+  - **On a miss**: no flash/shake/burst — the defender just sidesteps away
+    from its attacker (a small tween), reading clearly as "dodged" rather
+    than "nothing happened."
+  Found while checking what Phaser 4 actually ships (verified against the
+  installed package's own type definitions, not assumed from memory):
+  camera `shake()`/`flash()` are unchanged from Phaser 3; the per-object
+  `Filters` system (already used for the acted-unit grayscale toggle) also
+  has `Glow`/`Shadow`/`Blur`/`Vignette`/`Pixelate`/`Wipe` available — Glow
+  in particular reads like a natural next crit effect, but it only applies
+  to a `Container`'s individual art/circle piece, not the whole
+  `UnitSprite`, so it's a bigger change than this pass and stayed out of
+  scope for now.
+  Verified: `typecheck`/`build`/`validate-maps` clean; `sim -- --batch 30`
+  matches the last shipped baseline exactly (0/30 wiped, mean wave 7.27,
+  max 8) — this is presentation-only. No Playwright pass, per the repo
+  owner's standing preference — but flagging explicitly this time: several
+  of these are Phaser APIs new to this codebase (particles, camera FX,
+  `onYoyo`), checked against the type definitions but never actually
+  rendered, so the usual "typecheck passed" confidence is thinner than
+  normal here — worth a close look at pacing/intensity specifically.
 - 2026-08-28 Claude: `COMBAT_BEAT_DELAY_MS` (the attack-beat -> counter-beat
   gap added earlier today) bumped 350 -> 600ms, per the repo owner's own
   feel-test. `typecheck`/`build` clean; no other change.

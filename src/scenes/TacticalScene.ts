@@ -452,16 +452,51 @@ export class TacticalScene extends Scene {
    * touch — the same "destroyed GameObject" hazard create()'s own reset
    * block exists to prevent for the *next* battle, just reachable here too
    * since this callback can fire after a mid-sequence restart.
+   *
+   * Each beat's attacker lunges toward its defender and back (a `yoyo`
+   * tween — Phaser fires `onYoyo` exactly at the reversal point, so impact
+   * effects land the instant the "swing" reaches its target instead of on a
+   * separately-timed guess). A miss still swings — only the outcome at
+   * impact differs: a hit flashes/shakes/bursts, a miss just sidesteps the
+   * defender. No new art — camera shake/flash are Phaser's own built-in
+   * Camera effects, and the impact burst is `__WHITE` (Phaser's built-in
+   * 1x1 texture) tinted and scattered, not a sprite sheet.
    */
   private playCombatSequence(result: CombatResult, sprites: Map<string, UnitSprite | undefined>): void {
     const playBeat = (beat: CombatBeat) => {
-      const sprite = sprites.get(beat.defenderId);
-      if (!sprite || sprite.scene === undefined) return;
-      if (beat.hit) {
-        this.spawnFloatingText(sprite.x, sprite.y, beat.crit ? `-${beat.damage}!` : `-${beat.damage}`, '#ff6b6b');
-        sprite.flash(0xffffff);
+      const attacker = sprites.get(beat.attackerId);
+      const defender = sprites.get(beat.defenderId);
+      if (!defender || defender.scene === undefined) return;
+
+      const impact = () => {
+        if (defender.scene === undefined) return;
+        if (beat.hit) {
+          this.spawnFloatingText(defender.x, defender.y, beat.crit ? `-${beat.damage}!` : `-${beat.damage}`, '#ff6b6b');
+          defender.flash(0xffffff);
+          this.spawnImpactBurst(defender.x, defender.y, beat.crit ? 0xf0ad4e : 0xff6b6b, beat.crit ? 14 : 7);
+          this.cameras.main.shake(beat.crit ? 180 : 90, beat.crit ? 0.012 : 0.005);
+          if (beat.crit) this.cameras.main.flash(120, 240, 90, 60);
+        } else {
+          this.spawnFloatingText(defender.x, defender.y, 'Miss', '#a0a8c0');
+          const stepAway = defender.x <= (attacker?.x ?? defender.x) ? -8 : 8;
+          this.tweens.add({ targets: defender, x: defender.x + stepAway, duration: 80, yoyo: true, ease: 'Quad.easeOut' });
+        }
+      };
+
+      if (attacker && attacker.scene !== undefined && attacker !== defender) {
+        const originX = attacker.x;
+        const originY = attacker.y;
+        this.tweens.add({
+          targets: attacker,
+          x: originX + (defender.x - originX) * 0.28,
+          y: originY + (defender.y - originY) * 0.28,
+          duration: 130,
+          ease: 'Quad.easeOut',
+          yoyo: true,
+          onYoyo: impact,
+        });
       } else {
-        this.spawnFloatingText(sprite.x, sprite.y, 'Miss', '#a0a8c0');
+        impact();
       }
     };
 
@@ -470,6 +505,20 @@ export class TacticalScene extends Scene {
       const counter = result.counter;
       this.time.delayedCall(COMBAT_BEAT_DELAY_MS, () => playBeat(counter));
     }
+  }
+
+  /** A brief, tinted scatter of Phaser's built-in `__WHITE` texture at the point of impact — no sprite sheet needed, just the one 1x1 texture every Phaser game ships with, scaled/tinted per particle. Self-destroys once its own burst has fully faded. */
+  private spawnImpactBurst(x: number, y: number, color: number, count: number): void {
+    const emitter = this.add.particles(x, y, '__WHITE', {
+      speed: { min: 60, max: 140 },
+      scale: { start: 0.5, end: 0 },
+      lifespan: 260,
+      tint: color,
+      emitting: false,
+    });
+    emitter.setDepth(4);
+    emitter.explode(count);
+    this.time.delayedCall(320, () => emitter.destroy());
   }
 
   private spawnFloatingText(x: number, y: number, text: string, colorHex: string): void {
