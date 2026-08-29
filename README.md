@@ -141,6 +141,48 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-28 Claude: First concrete step of the "cut-in battle scene"
+  discussion with the repo owner (HANDOFF.md §7's deferred
+  `CombatOverlayScene`) — the "easy" half they asked to start with: attack
+  and counter now play as a real sequence instead of landing simultaneously.
+  `attackUnit` (game.ts) now snapshots the resolved exchange into a new
+  `G.lastCombat` field (`CombatBeat`/`CombatResult`, types.ts) — the
+  attack's hit/crit/damage, and the counter's if one happened (`null` on a
+  miss, a kill, or out of counter range) — instead of the client only ever
+  seeing a before/after HP diff (which is all `syncUnits()`'s existing
+  diffing could see, and couldn't tell "attack landed for 12, then a
+  counter landed for 4" from any other kind of double-hit). `TacticalScene
+  .syncUnits()` diffs `lastCombat.seq` — the same "ever-increasing counter,
+  diffed against a last-seen value" pattern already established for loot
+  toasts (`nextItemInstance`) — and plays the attack beat, then (after a
+  350ms `COMBAT_BEAT_DELAY_MS`) the counter beat, via a new
+  `playCombatSequence()`. Every other HP change (heals, regen, skills)
+  keeps using the original instant diff; only the two unit ids `lastCombat`
+  names get routed to the new sequenced path. A fatal beat's target/
+  attacker sprite is captured before `syncUnits()`'s own cleanup pass can
+  remove it from `this.unitSprites` (it's still mid fade-out, just no
+  longer in that map), and every delayed touch checks `sprite.scene !==
+  undefined` first — the same "destroyed GameObject" hazard `create()`'s
+  reset-block comment already documents for a different scenario (a stale
+  scene restart), reachable here too if a mid-sequence restart lands
+  between the attack beat and the delayed counter beat.
+  No input lock and no `COMBAT_FINISHED` event yet (HANDOFF.md §7's item 3)
+  — the move's already fully resolved by the time this plays, so queuing
+  another action mid-sequence is rendering-order sloppiness today, not a
+  correctness bug, but real input-gating is still open before a full
+  overlay scene (the other half of the discussion) can own a board-hidden
+  transition.
+  Verified: `typecheck`/`build`/`validate-maps` clean; `sim -- --batch 30`
+  matches the last shipped baseline exactly (0/30 wiped, mean wave 7.27,
+  max 8) — this is presentation-only, the sim harness never touches Phaser
+  and `G.lastCombat` isn't read by any move/logic. A temp headless script
+  drove `attackUnit` directly (queued `random.Number()` values for
+  deterministic hit/miss/crit) through five real exchanges — miss (no
+  counter), hit+counter-hit, hit+counter-miss, a lethal hit (counter is
+  null even though the target would otherwise be in range — a kill
+  prevents any counter), and `seq` incrementing across two separate
+  exchanges — all passing. No Playwright pass — the repo owner will judge
+  the feel of the sequencing themselves (HANDOFF.md §11).
 - 2026-08-28 Claude: Rebalanced promotion so it's always a power gain, per
   the repo owner. Through this change, `promoteUnit` (classes.ts) reset a
   unit's level to 1 on promotion and evaluated the new class's stats there

@@ -3,7 +3,7 @@ import { INVALID_MOVE } from 'boardgame.io/core';
 
 import type { CampaignCarryOver, ChapterDef } from './maps';
 import type { ClassName } from './classes';
-import type { GameMode, GameState, ItemSlot, Team, Unit } from './types';
+import type { CombatBeat, GameMode, GameState, ItemSlot, Team, Unit } from './types';
 import { PLAYER_ID, teamOf } from './types';
 import { buildGameState, CAMPAIGN_CHAPTER_1, CHAPTER_1, TEST_MAP_2, type ShuffleAPI } from './maps';
 import { computeReachable, manhattan, tileKey, unitsOf } from './grid';
@@ -193,6 +193,11 @@ function grantExp(G: GameState, unit: Unit, amount: number = EXP_PER_ATTACK): vo
   grantExpToUnit(unit, amount, (leveled) => pushLog(G, `${leveled.name} reached level ${leveled.level}!`));
 }
 
+/** Snapshots a resolved exchange into `G.lastCombat` — see that field's doc comment (types.ts) for why. `seq` only ever increases, never derived from anything else, so two exchanges with identical-looking beats still diff as distinct events for a UI reading it. */
+function recordCombat(G: GameState, attack: CombatBeat, counter: CombatBeat | null): void {
+  G.lastCombat = { seq: (G.lastCombat?.seq ?? 0) + 1, attack, counter };
+}
+
 export const attackUnit = (
   { G, ctx, random }: { G: GameState; ctx: Ctx; random: DropRandomAPI },
   attackerId: string,
@@ -208,10 +213,13 @@ export const attackUnit = (
   attacker.hasActed = true;
 
   const roll = rollAttack(computeAttackChances(G, attacker, target), random);
+  const attackBeat: CombatBeat = { attackerId: attacker.id, defenderId: target.id, hit: roll.hit, crit: roll.crit, damage: roll.damage };
+
   if (!roll.hit) {
     pushLog(G, `${attacker.name} misses ${target.name}!`);
     // A whiffed swing still counts as a taken action for exp purposes.
     grantExp(G, attacker, EXP_PER_ATTACK);
+    recordCombat(G, attackBeat, null);
     return;
   }
 
@@ -221,13 +229,16 @@ export const attackUnit = (
   if (target.hp <= 0) {
     killUnit(G, target, random, attacker);
     grantExp(G, attacker, EXP_PER_KILL);
+    recordCombat(G, attackBeat, null);
     return;
   }
 
   // A killing blow prevents any counter (checked above); otherwise the
   // defender strikes back if attacker is within the defender's own reach.
+  let counterBeat: CombatBeat | null = null;
   if (canCounter(attacker, target)) {
     const counterRoll = rollAttack(computeCounterChances(G, target, attacker), random);
+    counterBeat = { attackerId: target.id, defenderId: attacker.id, hit: counterRoll.hit, crit: counterRoll.crit, damage: counterRoll.damage };
     if (!counterRoll.hit) {
       pushLog(G, `${target.name}'s counter misses!`);
     } else {
@@ -235,12 +246,14 @@ export const attackUnit = (
       pushLog(G, `${target.name} counters for ${counterRoll.damage}${counterRoll.crit ? ' (Critical!)' : ''}.`);
       if (attacker.hp <= 0) {
         killUnit(G, attacker, random, target);
+        recordCombat(G, attackBeat, counterBeat);
         return;
       }
     }
   }
 
   grantExp(G, attacker, EXP_PER_ATTACK);
+  recordCombat(G, attackBeat, counterBeat);
 };
 
 /** Ends a unit's turn where it stands. */

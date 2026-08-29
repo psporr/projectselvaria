@@ -552,6 +552,27 @@ To keep phase 2 cheap to add later, hold this contract from day one:
    (death removal, HP bars) and unlocks input. With that seam in place, adding
    the overlay scene later is a presentation swap, not a rewrite.
 
+**Item 1/2 landed 2026-08-28** (still on-grid, no overlay scene yet — the
+first concrete step of a "let's try building both the light and full version"
+discussion with the repo owner): `attackUnit` (game.ts) now snapshots the
+resolved exchange into `G.lastCombat` (`CombatBeat`/`CombatResult`,
+types.ts) — the attack roll's hit/crit/damage, and the counter's if one
+happened (`null` on a miss, a kill, or out of counter range) — instead of
+the client only ever seeing a before/after HP diff. `TacticalScene
+.syncUnits()` diffs `lastCombat.seq` (same "ever-increasing counter, diffed
+against a last-seen value" pattern `nextItemInstance` already established
+for loot toasts) and plays the attack beat, then the counter beat after
+`COMBAT_BEAT_DELAY_MS`, via `playCombatSequence()` — the two hits now read
+as a sequence instead of landing simultaneously. Every other HP change
+(heals, regen, skills) still uses the original instant diff; only the two
+ids `lastCombat` names get routed to the sequenced path.
+**Item 3 is not done** — no `COMBAT_FINISHED` event, no input lock during
+playback; the underlying move already fully resolved by the time this
+plays; queuing another action mid-sequence is currently rendering-order
+sloppiness, not a correctness bug, but it means real input-gating (needed
+before an overlay scene can own the camera/board-hidden transition) is
+still open.
+
 ### Pathfinding — keep Dijkstra, `easystarjs` is optional
 
 The technical design proposed `easystarjs` (A*). **A\* is the wrong tool for

@@ -10,7 +10,7 @@ import { CAMPAIGN_CHAPTERS, TEST_MAP_2, type CampaignCarryOver, type ChapterDef 
 import { saveCampaign, clearCampaignSave } from '../game/save';
 import { canUseSkill, describeSkillEffect, novaBlastCoords, skillTargets, SKILLS, type SkillDef } from '../game/skills';
 import { isTriggerMet, type MapEvent } from '../game/story';
-import { TERRAIN, teamOf, type GameMode, type GameState, type Team, type Unit } from '../game/types';
+import { TERRAIN, teamOf, type CombatBeat, type CombatResult, type GameMode, type GameState, type Team, type Unit } from '../game/types';
 import { UnitSprite } from '../entities/UnitSprite';
 import { createGameClient, type GameClient } from '../systems/gameClient';
 import { browserStorage } from '../systems/storage';
@@ -76,6 +76,8 @@ const TARGET_HIGHLIGHT = 0xd9534f;
 const SKILL_HIGHLIGHT = 0xf0ad4e;
 const ENEMY_STEP_DELAY_MS = 450;
 const BLESSING_DELAY_MS = 700;
+/** Gap between an attack beat and its counter beat in playCombatSequence() — long enough to read as two distinct hits, short enough not to drag out every exchange. */
+const COMBAT_BEAT_DELAY_MS = 350;
 
 /** Corner-bracket tile cursor — a classic tactics-RPG "you selected this square" reticle, distinct from the flat-color range/target overlays `highlightTiles` paints. See `showTileCursor`'s doc comment for exactly when it appears. */
 const CURSOR_COLOR = 0xff5a5a;
@@ -174,6 +176,8 @@ export class TacticalScene extends Scene {
    * ever moves in rollDrop (equipment.ts) — a real drop.
    */
   private lastDropCount = 0;
+  /** Last-seen G.lastCombat.seq, the same diffing pattern as lastDropCount above — syncUnits() plays a new exchange's attack/counter beats in sequence exactly once. */
+  private lastCombatSeq = 0;
   /** ctx.turn of the enemy phase whose opening action we've already handed off to onEnemyPhaseBannerDone() — see scheduleAutoAdvance(). */
   private enemyPhaseIntroDone: number | null = null;
   /** Set in init(), read in create() and re-passed by restartBattle() so a campaign battle restarts the same chapter/carryOver instead of falling back to the roguelike default. */
@@ -268,6 +272,7 @@ export class TacticalScene extends Scene {
     this.drawBoard();
     this.syncUnits();
     this.lastDropCount = this.client.getState()!.G.nextItemInstance;
+    this.lastCombatSeq = this.client.getState()!.G.lastCombat?.seq ?? 0;
 
     const unsubscribe = this.client.subscribe(() => this.onStateChange());
     this.events.once('shutdown', unsubscribe);
@@ -374,6 +379,19 @@ export class TacticalScene extends Scene {
     const isDimmed = (unit: Unit) => unit.hasActed && unit.team === activeTeam;
     const seen = new Set<string>();
 
+    // A new attackUnit exchange since the last sync — its attacker/defender
+    // get their hit feedback played as a sequence (playCombatSequence,
+    // below) instead of the generic instant diff every other HP change
+    // (heals, regen, skills) still uses. Sprites for both ids are captured
+    // now, before the cleanup pass below can remove a fatal beat's target
+    // from this.unitSprites — its sprite is still valid (about to fade
+    // out), just no longer in the map by the time playCombatSequence runs.
+    const pendingCombat = G.lastCombat && G.lastCombat.seq > this.lastCombatSeq ? G.lastCombat : null;
+    const combatUnitIds = pendingCombat ? new Set([pendingCombat.attack.attackerId, pendingCombat.attack.defenderId]) : null;
+    const combatSprites = combatUnitIds
+      ? new Map([...combatUnitIds].map((id) => [id, this.unitSprites.get(id)] as const))
+      : null;
+
     for (const unit of Object.values(G.units)) {
       seen.add(unit.id);
       const previous = this.lastUnits[unit.id];
@@ -392,11 +410,13 @@ export class TacticalScene extends Scene {
         }
         sprite.sync(unit, isDimmed(unit));
 
-        if (previous && unit.hp < previous.hp) {
-          this.spawnFloatingText(px, py, `-${previous.hp - unit.hp}`, '#ff6b6b');
-          sprite.flash(0xffffff);
-        } else if (previous && unit.hp > previous.hp) {
-          this.spawnFloatingText(px, py, `+${unit.hp - previous.hp}`, '#7cd992');
+        if (previous && unit.hp !== previous.hp && !combatUnitIds?.has(unit.id)) {
+          if (unit.hp < previous.hp) {
+            this.spawnFloatingText(px, py, `-${previous.hp - unit.hp}`, '#ff6b6b');
+            sprite.flash(0xffffff);
+          } else {
+            this.spawnFloatingText(px, py, `+${unit.hp - previous.hp}`, '#7cd992');
+          }
         }
       }
     }
@@ -413,7 +433,43 @@ export class TacticalScene extends Scene {
       });
     }
 
+    if (pendingCombat) {
+      this.playCombatSequence(pendingCombat, combatSprites!);
+      this.lastCombatSeq = pendingCombat.seq;
+    }
+
     this.lastUnits = Object.fromEntries(Object.values(G.units).map((u) => [u.id, { ...u }]));
+  }
+
+  /**
+   * Plays a resolved attackUnit exchange's beats in order — the attack
+   * first, then (after COMBAT_BEAT_DELAY_MS) the counter, if one happened —
+   * instead of both landing as a single instant HP diff the way every other
+   * HP change still does. `sprites` is what syncUnits() captured before its
+   * own cleanup pass ran; a fatal beat's target is already gone from
+   * G.units and this.unitSprites by the time this plays, so its sprite is
+   * looked up here rather than in G, and `.scene` is checked before each
+   * touch — the same "destroyed GameObject" hazard create()'s own reset
+   * block exists to prevent for the *next* battle, just reachable here too
+   * since this callback can fire after a mid-sequence restart.
+   */
+  private playCombatSequence(result: CombatResult, sprites: Map<string, UnitSprite | undefined>): void {
+    const playBeat = (beat: CombatBeat) => {
+      const sprite = sprites.get(beat.defenderId);
+      if (!sprite || sprite.scene === undefined) return;
+      if (beat.hit) {
+        this.spawnFloatingText(sprite.x, sprite.y, beat.crit ? `-${beat.damage}!` : `-${beat.damage}`, '#ff6b6b');
+        sprite.flash(0xffffff);
+      } else {
+        this.spawnFloatingText(sprite.x, sprite.y, 'Miss', '#a0a8c0');
+      }
+    };
+
+    playBeat(result.attack);
+    if (result.counter) {
+      const counter = result.counter;
+      this.time.delayedCall(COMBAT_BEAT_DELAY_MS, () => playBeat(counter));
+    }
   }
 
   private spawnFloatingText(x: number, y: number, text: string, colorHex: string): void {

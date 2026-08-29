@@ -165,6 +165,34 @@ export interface GameState {
   awaitingPromotion: boolean;
   /** Player unit ids offered promotion this wave-clear pause; empty unless awaitingPromotion. */
   promotionEligibleUnitIds: string[];
+  /**
+   * The most recent `attackUnit` exchange's outcome — presentation-only,
+   * like `nextItemInstance` (loot toasts): nothing in `game/` ever reads
+   * this back, it exists purely so the UI can sequence the attack/counter
+   * beats it animates instead of only seeing a combined before/after HP
+   * diff. Never reset to null once combat has happened this battle —
+   * `seq` (ever-increasing) is what a diff-based caller checks, the same
+   * "last-seen count" pattern `nextItemInstance` already established.
+   */
+  lastCombat: CombatResult | null;
+}
+
+/** One resolved swing — already rolled, already applied to `hp`. Presentation reads it to decide what to animate; nothing here is itself a roll. */
+export interface CombatBeat {
+  attackerId: string;
+  defenderId: string;
+  hit: boolean;
+  crit: boolean;
+  /** 0 on a miss. */
+  damage: number;
+}
+
+/** One `attackUnit` exchange: the attacker's swing, and the defender's counter if one happened (out of range, or the attack killed first, both read as `null` — no counter to animate). */
+export interface CombatResult {
+  /** Ever-increasing across the whole battle — never derived from anything else, so two exchanges with identical-looking beats still diff as distinct events. */
+  seq: number;
+  attack: CombatBeat;
+  counter: CombatBeat | null;
 }
 
 /** boardgame.io player IDs mapped onto the two sides of a battle. */

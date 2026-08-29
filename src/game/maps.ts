@@ -241,6 +241,7 @@ export function buildGameState(
     offeredBlessingIds: [],
     awaitingPromotion: false,
     promotionEligibleUnitIds: [],
+    lastCombat: null,
   };
 }
 
