@@ -566,12 +566,29 @@ for loot toasts) and plays the attack beat, then the counter beat after
 as a sequence instead of landing simultaneously. Every other HP change
 (heals, regen, skills) still uses the original instant diff; only the two
 ids `lastCombat` names get routed to the sequenced path.
-**Item 3 is not done** — no `COMBAT_FINISHED` event, no input lock during
-playback; the underlying move already fully resolved by the time this
-plays; queuing another action mid-sequence is currently rendering-order
-sloppiness, not a correctness bug, but it means real input-gating (needed
-before an overlay scene can own the camera/board-hidden transition) is
-still open.
+**Item 3 landed 2026-08-28 too**, once the gap it left actually caused a
+real bug: without input-gating, a killing blow that also crossed a turn
+boundary let UIScene's phase banner (and this scene's own enemy-AI
+stepping) fire while the attack's own lunge/counter animation was still
+playing — the repo owner hit this directly ("banner playing too fast that
+it happen mid attack"). `playCombatSequence()` now takes a real
+`onComplete`, chained beat-to-beat off each beat's own tween `onComplete`
+(not the `onYoyo` impact hook, which fires at the swing's peak, not when
+the lunge has finished returning) — not a plugin `COMBAT_FINISHED` DOM/
+Phaser event as originally sketched, just a plain callback, but the same
+contract: presentation signals when it's actually done, the tactical layer
+waits for that before doing anything else. `TacticalScene.inputSuspended`
+is held for the whole sequence (`isInputSuspended()`/`setInputSuspended()`
+getter/setter pair), `scheduleAutoAdvance()` bails out at the top while
+suspended instead of only its individual blessing/promotion/dialogue
+branches self-gating, and `UIScene.refreshHud()`'s phase-banner trigger
+checks the same flag — deliberately leaving `lastTurnSeen` stale rather
+than "consuming" a turn-change event it can't show yet, since
+`playCombatSequence`'s `onComplete` calls `refreshHud()` directly once the
+sequence actually finishes. This is the seam an eventual overlay scene
+still needs (own the camera/board-hidden transition off the same
+suspend-then-signal contract) — it just turned out to be needed for the
+on-grid version too, sooner than expected.
 
 ### Pathfinding — keep Dijkstra, `easystarjs` is optional
 

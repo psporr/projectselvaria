@@ -253,7 +253,16 @@ export class UIScene extends Scene {
     // the same signal simulate.ts's own turn-change logging diffs against —
     // so this fires the banner once per actual phase change, not on every
     // G/ctx update within a turn (unit moves, attacks, etc. don't touch it).
-    if (!ctx.gameover && ctx.turn !== this.lastTurnSeen) {
+    // isInputSuspended() gates it too — a killing blow can cross a turn
+    // boundary in the same move that's still playing its own combat-
+    // sequence animation (TacticalScene.playCombatSequence), and the banner
+    // popping up mid-animation read as broken (found 2026-08-28, real bug:
+    // the repo owner hit this in the actual build). lastTurnSeen is left
+    // stale when skipped for this reason — not "seen" yet — so the check
+    // re-fires and catches up the next time refreshHud() runs, which
+    // playCombatSequence's onComplete calls explicitly rather than waiting
+    // for some unrelated later state change to happen to trigger it.
+    if (!ctx.gameover && ctx.turn !== this.lastTurnSeen && !this.tactical.isInputSuspended()) {
       this.lastTurnSeen = ctx.turn;
       const team = teamOf(ctx.currentPlayer);
       // TacticalScene's scheduleAutoAdvance() deliberately does nothing for

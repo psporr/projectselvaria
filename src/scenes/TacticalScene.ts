@@ -78,6 +78,8 @@ const ENEMY_STEP_DELAY_MS = 450;
 const BLESSING_DELAY_MS = 700;
 /** Gap between an attack beat and its counter beat in playCombatSequence() — long enough to read as two distinct hits, short enough not to drag out every exchange. */
 const COMBAT_BEAT_DELAY_MS = 600;
+/** Beat of empty space between the attack move actually landing (the forecast panel closing, or an enemy AI action dispatching) and the combat sequence's first lunge starting — without it the cut from "Confirm" to the attack swinging read as instant/abrupt. */
+const COMBAT_SEQUENCE_START_DELAY_MS = 150;
 
 /** Corner-bracket tile cursor — a classic tactics-RPG "you selected this square" reticle, distinct from the flat-color range/target overlays `highlightTiles` paints. See `showTileCursor`'s doc comment for exactly when it appears. */
 const CURSOR_COLOR = 0xff5a5a;
@@ -367,6 +369,11 @@ export class TacticalScene extends Scene {
     this.inputSuspended = suspended;
   }
 
+  /** Read-only counterpart to setInputSuspended() — UIScene.refreshHud() checks this before showing the phase banner, so a turn boundary crossed mid-combat-sequence (or mid-dialogue, mid-blessing-pause, etc.) doesn't pop the banner over still-playing animation. */
+  isInputSuspended(): boolean {
+    return this.inputSuspended;
+  }
+
   /** Reconciles every unit sprite to G.units, diffing against the last known snapshot for hit feedback. */
   private syncUnits(): void {
     const { G, ctx } = this.client.getState()!;
@@ -434,7 +441,27 @@ export class TacticalScene extends Scene {
     }
 
     if (pendingCombat) {
-      this.playCombatSequence(pendingCombat, combatSprites!);
+      // Held for the whole sequence, not just the lunge tweens — otherwise
+      // a turn boundary this same attack crosses (a killing blow ending the
+      // phase) lets UIScene's phase banner and this scene's own enemy-AI
+      // stepping fire while the attack/counter are still visibly playing
+      // out (found 2026-08-28, real bug: the repo owner hit this in the
+      // actual build — "banner playing too fast that it happen mid
+      // attack"). Cleared, and everything that was waiting re-checked, only
+      // once the last beat's own tween actually finishes.
+      this.inputSuspended = true;
+      // A short beat of empty space before the first lunge, not an instant
+      // cut from the forecast panel closing straight into the swing — see
+      // COMBAT_SEQUENCE_START_DELAY_MS's own comment.
+      this.time.delayedCall(COMBAT_SEQUENCE_START_DELAY_MS, () => {
+        this.playCombatSequence(pendingCombat, combatSprites!, () => {
+          this.inputSuspended = false;
+          // Catches up a phase banner UIScene held off showing (isInputSuspended())
+          // if ctx.turn crossed a boundary while this sequence was playing.
+          this.ui.refreshHud();
+          this.scheduleAutoAdvance();
+        });
+      });
       this.lastCombatSeq = pendingCombat.seq;
     }
 
@@ -461,12 +488,20 @@ export class TacticalScene extends Scene {
    * defender. No new art — camera shake/flash are Phaser's own built-in
    * Camera effects, and the impact burst is `__WHITE` (Phaser's built-in
    * 1x1 texture) tinted and scattered, not a sprite sheet.
+   *
+   * `onComplete` fires once the *last* beat's own tween actually finishes
+   * (its `onComplete`, not `onYoyo` — the lunge's return leg still needs to
+   * play out) — chained beat-to-beat rather than timed separately, so it
+   * can't drift out of sync with what's actually still animating.
    */
-  private playCombatSequence(result: CombatResult, sprites: Map<string, UnitSprite | undefined>): void {
-    const playBeat = (beat: CombatBeat) => {
+  private playCombatSequence(result: CombatResult, sprites: Map<string, UnitSprite | undefined>, onComplete: () => void): void {
+    const playBeat = (beat: CombatBeat, onBeatDone: () => void) => {
       const attacker = sprites.get(beat.attackerId);
       const defender = sprites.get(beat.defenderId);
-      if (!defender || defender.scene === undefined) return;
+      if (!defender || defender.scene === undefined) {
+        onBeatDone();
+        return;
+      }
 
       const impact = () => {
         if (defender.scene === undefined) return;
@@ -496,17 +531,22 @@ export class TacticalScene extends Scene {
           ease: 'Quad.easeOut',
           yoyo: true,
           onYoyo: impact,
+          onComplete: onBeatDone,
         });
       } else {
         impact();
+        onBeatDone();
       }
     };
 
-    playBeat(result.attack);
-    if (result.counter) {
-      const counter = result.counter;
-      this.time.delayedCall(COMBAT_BEAT_DELAY_MS, () => playBeat(counter));
-    }
+    playBeat(result.attack, () => {
+      if (result.counter) {
+        const counter = result.counter;
+        this.time.delayedCall(COMBAT_BEAT_DELAY_MS, () => playBeat(counter, onComplete));
+      } else {
+        onComplete();
+      }
+    });
   }
 
   /** A brief, tinted scatter of Phaser's built-in `__WHITE` texture at the point of impact — no sprite sheet needed, just the one 1x1 texture every Phaser game ships with, scaled/tinted per particle. Self-destroys once its own burst has fully faded. */
@@ -1190,6 +1230,13 @@ export class TacticalScene extends Scene {
   private scheduleAutoAdvance(): void {
     const state = this.client.getState();
     if (!state || state.ctx.gameover) return;
+    // A combat sequence, dialogue, or picker is already suspending input —
+    // don't let enemy AI step, a blessing/promotion picker open, or a story
+    // beat fire underneath/over whatever's currently playing. Whoever set
+    // this is responsible for clearing it and calling scheduleAutoAdvance()
+    // again once done (see playCombatSequence's onComplete, the story/intro
+    // dialogue branches below, and their own callbacks).
+    if (this.inputSuspended) return;
     const { G, ctx } = state;
 
     // turnCounts bookkeeping (story.ts's turnReached trigger) — runs every
@@ -1251,6 +1298,9 @@ export class TacticalScene extends Scene {
         this.ui.showDialogue(pending.script, () => {
           this.storyDialogueOpen = false;
           this.inputSuspended = false;
+          // Catches up a phase banner UIScene held off showing (isInputSuspended())
+          // if ctx.turn happened to cross a boundary while this dialogue was up.
+          this.ui.refreshHud();
           // Re-check immediately in case another event's trigger became
           // true at the same moment this one's did — without this, a
           // second simultaneously-true event would just sit unfired until

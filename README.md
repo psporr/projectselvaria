@@ -141,6 +141,54 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-28 Claude: Fixed a real bug the repo owner hit testing the combat
+  sequencing/juice work above: **the phase banner (and enemy AI stepping)
+  could fire while an attack's own animation was still playing**, since
+  nothing gated either on "is a combat sequence currently on screen" —
+  exactly the gap HANDOFF.md §7's item 3 had already flagged as open
+  ("no input lock and no completion signal yet"). A killing blow that also
+  ends the phase would cross the turn boundary in the same move whose
+  lunge/impact/counter animation had barely started, and UIScene's
+  "Enemy Phase" banner would pop up mid-swing.
+  Fixed by actually building that seam: `TacticalScene` now sets
+  `inputSuspended` for the *whole* combat sequence (not just the tile-tap
+  gate it already was) and passes `playCombatSequence()` a real
+  `onComplete` callback, chained beat-to-beat (each beat's own tween
+  `onComplete`, not the earlier `onYoyo` impact hook) so it fires exactly
+  when the *last* beat's lunge actually finishes returning — not a
+  separately-guessed timer. `scheduleAutoAdvance()` now bails out at the
+  top while `inputSuspended` (new `isInputSuspended()` getter,
+  `setInputSuspended()`'s read-only counterpart) instead of only the
+  blessing/promotion/dialogue branches guarding themselves individually —
+  enemy AI stepping and story-event checks now wait too. `UIScene
+  .refreshHud()`'s phase-banner trigger checks the same getter and, when
+  suspended, deliberately leaves `lastTurnSeen` stale rather than
+  "consuming" the turn-change event — `playCombatSequence`'s `onComplete`
+  calls `refreshHud()` directly afterward, so the held-back banner shows
+  the moment the sequence actually finishes instead of waiting on some
+  unrelated later state change to happen to trigger it. Also added a
+  `COMBAT_SEQUENCE_START_DELAY_MS` (150ms) beat before the first lunge, so
+  the cut from the forecast panel closing straight into the attacker
+  swinging isn't instant — the other half of "attack playing too fast
+  after confirm."
+  **Side effect worth knowing about**: since `stepEnemyAi()`'s own
+  `ENEMY_STEP_DELAY_MS` pacing timer is scheduled from inside
+  `scheduleAutoAdvance()`, an enemy phase with several attacking units now
+  waits out each attack's *full* combat-sequence animation (up to ~1s:
+  150ms pre-roll + up to two ~260ms lunges plus the 600ms gap between
+  them) before the next enemy action is even considered, not just the
+  previous flat 450ms step timer — enemy phases with a lot of attacking
+  will run noticeably slower than before. Flagging rather than tuning
+  blind — if that drags, the fix is probably a shorter/simplified sequence
+  specifically for enemy-initiated attacks, not shrinking the player-facing
+  timings that were just tuned.
+  Verified: `typecheck`/`build`/`validate-maps` clean; `sim -- --batch 30`
+  matches the last shipped baseline exactly (0/30 wiped, mean wave 7.27,
+  max 8) — the sim harness drives moves directly against a headless
+  client, never touches TacticalScene/UIScene, so none of this pacing
+  logic is even reachable from it. No Playwright pass — the repo owner
+  found this by playing it and will confirm the fix the same way
+  (HANDOFF.md §11).
 - 2026-08-28 Claude: Camera shake and flash reserved for crits only, per
   the repo owner's feel-test of the combat juice above — a normal hit was
   shaking the camera too (just a lighter one); now only `beat.crit` triggers
