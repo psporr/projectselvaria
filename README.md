@@ -141,6 +141,53 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-31 Claude: Wired Luffy's idle/run/attack animations into the real
+  battle scene, not just SpriteTestScene's standalone viewer — a new
+  `LUFFY_TEST_STAGE` chapter (`?luffyTest=1`, same hidden-dev-route
+  convention as `?spriteTest=1`), one player-controlled and one
+  AI-controlled Luffy, reusing River Crossing's terrain. New `ClassName`
+  `Luffy` (`classes.ts`, untuned test-stage stats — a fast, hard-hitting
+  melee brawler; also needed a `CLASS_LETTER`/`SKILLS` entry, both
+  exhaustively-typed per-class records) backs it.
+  `UnitSprite` gains a third render mode alongside the circle placeholder
+  and static hero-art `Image`: an animated hero (`heroArt.ts`'s new
+  `ANIMATED_HERO_NAMES`) gets a `Sprite` playing real frame animations,
+  checked before the static-art path. It centers on the tile
+  (`setOrigin(0.5, 0.5)`) rather than SpriteTestScene's bottom-anchored
+  ground-line alignment — this board draws every unit centered in its
+  tile, and matching that keeps a Luffy level with its teammates; the
+  tradeoff (documented on the class) is a little vertical wobble on the
+  attack sheet's much taller frames, which the viewer's foot-anchor
+  approach didn't have to accept.
+  New `UnitSprite.walkTo()` centralizes what were 4 separate
+  `this.tweens.add({x, y, ...})` call sites in `TacticalScene` (a
+  confirmed move, the pre-confirm preview, a cancel snap-back, enemy AI
+  stepping) into one method that also plays the run loop for the tween's
+  duration and idle again after — "Run animation is used on moving," per
+  the repo owner, now holds for every movement path at once instead of
+  needing four separate call sites updated by hand. `playAttack()` plays
+  the attack animation once during a combat beat's existing lunge
+  (layered on top of it, not replacing it) and reverts to idle after.
+  The animation definitions themselves (per-frame timing, the flurry
+  loop) moved out of `SpriteTestScene.ts` into a new shared
+  `src/ui/heroAnimations.ts` so the real game and the standalone viewer
+  play the exact same tuned frames instead of two copies drifting apart —
+  the viewer now asks for a continuous loop at play time
+  (`sprite.play({key, repeat: -1})`) rather than that being baked into
+  the shared definition, since a real combat hit should play once.
+  Known unresolved rough edge, flagged rather than guessed at: the full
+  attack animation (windup + impact + 3x flurry + ease, ~1.1s+) runs much
+  longer than the existing combat beat's own pacing (~130ms lunge,
+  ~600ms between attack/counter) — timing/whether to trim it for real
+  combat is left for the repo owner's own feel-check in `?luffyTest=1`.
+  Also known: winning this chapter and continuing clears any real
+  in-progress campaign save (its id isn't in `CAMPAIGN_CHAPTERS`, so
+  `finishCampaignContinue`'s next-chapter lookup misses the same way
+  finishing the real last chapter does) — harmless for a hidden dev route,
+  documented on the chapter itself.
+  `typecheck`/`build`/`validate-maps` (now covers the new chapter too)/
+  `sim -- --batch 30` clean. No Playwright — per the repo owner, checking
+  this one themselves in `?luffyTest=1`.
 - 2026-08-31 Claude: Replaced the attack animation's flat 15fps with
   per-frame timing, per the repo owner's read of the 22 raw frames. Phaser
   supports this natively — confirmed in its own type definitions before

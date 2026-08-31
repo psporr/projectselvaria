@@ -76,6 +76,33 @@ export function heroPortraitTextureKey(unitName: string): string {
 }
 
 /**
+ * Frame-based animated map art (2026-08-31) — idle/run/attack, a separate
+ * category from the single-PNG `HERO_SPRITE_NAMES` above. Only `luffy` has
+ * this so far (`SpriteTestScene.ts`'s proof-of-concept, still placeholder
+ * art from a friend's drawing, not a commission). `UnitSprite` checks this
+ * list *before* `HERO_SPRITE_NAMES` — an animated name takes priority if a
+ * unit somehow matched both. Both atlases load from `public/test/` (see
+ * `TacticalScene.preload()`) since this is still explicitly test content,
+ * not real roster art moved into `public/units/`.
+ */
+export const ANIMATED_HERO_NAMES = ['luffy'] as const;
+
+/** Whether `unitName` has frame-based animated art (checked before the static `HERO_SPRITE_NAMES`). */
+export function isAnimatedHero(unitName: string): boolean {
+  return (ANIMATED_HERO_NAMES as readonly string[]).includes(unitName.toLowerCase());
+}
+
+/** Phaser atlas key a given animated hero's idle/run sheet loads under. */
+export function heroIdleRunAtlasKey(unitName: string): string {
+  return `hero-anim-${unitName.toLowerCase()}`;
+}
+
+/** Phaser atlas key a given animated hero's attack sheet loads under. */
+export function heroAttackAtlasKey(unitName: string): string {
+  return `hero-anim-${unitName.toLowerCase()}-attack`;
+}
+
+/**
  * Anonymous enemy-class art (`public/enemy/*.png`) — only ever applies to
  * enemy-team units with no name match above (heroes always render as
  * themselves, never as their class). Fighter and Spearfighter didn't become

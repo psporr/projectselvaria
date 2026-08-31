@@ -30,7 +30,15 @@ export type ClassName =
   | 'Priest'
   | 'Hero'
   | 'Berserker'
-  | 'Axe Master';
+  | 'Axe Master'
+  // Luffy test stage (2026-08-31) — a named-hero-only class backing the
+  // animated Luffy unit (heroArt.ts's ANIMATED_HERO_NAMES), used by both
+  // sides in maps.ts's LUFFY_TEST_STAGE. Not in ALL_CLASSES (no anonymous
+  // enemy art, and a random spawn drawing it would need a second Luffy
+  // sprite on screen at once, which the animated-hero pipeline was never
+  // meant to support) and not in PROMOTES_TO (the test stage has no
+  // leveling arc to promote through).
+  | 'Luffy';
 
 export interface ClassStats {
   maxHp: number;
@@ -94,6 +102,9 @@ export const CLASS_STATS: Record<ClassName, ClassStats> = {
   Hero: { maxHp: 25, atk: 10, def: 6, move: 3, range: 1, hit: 92, crit: 14 },
   Berserker: { maxHp: 30, atk: 13, def: 3, move: 3, range: 1, hit: 60, crit: 30 },
   'Axe Master': { maxHp: 29, atk: 11, def: 6, move: 3, range: 1, hit: 88, crit: 18 },
+  // A fast, hard-hitting melee brawler, fitting the animated punch attack —
+  // untuned test-stage numbers, not balanced against `npm run sim`.
+  Luffy: { maxHp: 26, atk: 11, def: 4, move: 4, range: 1, hit: 85, crit: 15 },
 };
 
 /**

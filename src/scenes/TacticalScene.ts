@@ -27,7 +27,11 @@ import {
   ENEMY_ART_CLASSES,
   enemyClassSpriteBasenames,
   enemyBasenameTextureKey,
+  ANIMATED_HERO_NAMES,
+  heroIdleRunAtlasKey,
+  heroAttackAtlasKey,
 } from '../ui/heroArt';
+import { ensureLuffyAnimations } from '../ui/heroAnimations';
 import { FONT_FAMILY } from '../ui/kit';
 import type { UIScene } from './UIScene';
 
@@ -128,6 +132,15 @@ export interface TacticalSceneData {
   chapterId?: string;
   carryOver?: CampaignCarryOver;
   baseLevel?: number;
+  /**
+   * Overrides the mode-based chapter lookup entirely with a specific
+   * ChapterDef — for a hidden dev route that needs a real battle without
+   * being reachable from ChapterSelectScene's real menu or added to
+   * TEST_MAP_2's live Roguelike roster (BootScene's `?luffyTest=1`,
+   * `LUFFY_TEST_STAGE`'s own doc comment in maps.ts). Every other caller
+   * (MainMenuScene, ChapterSelectScene) leaves this unset.
+   */
+  debugChapter?: ChapterDef;
 }
 
 /**
@@ -216,6 +229,15 @@ export class TacticalScene extends Scene {
         if (!this.textures.exists(key)) this.load.image(key, `enemy/${basename}.png`);
       }
     }
+    // Animated-hero atlases (2026-08-31) — still loaded from public/test/,
+    // same placeholder-art paths SpriteTestScene uses, since this is still
+    // explicitly test content (heroArt.ts's ANIMATED_HERO_NAMES doc comment).
+    for (const name of ANIMATED_HERO_NAMES) {
+      const idleRunKey = heroIdleRunAtlasKey(name);
+      if (!this.textures.exists(idleRunKey)) this.load.atlas(idleRunKey, `test/${name}-sheet.png`, `test/${name}-atlas.json`);
+      const attackKey = heroAttackAtlasKey(name);
+      if (!this.textures.exists(attackKey)) this.load.atlas(attackKey, `test/${name}-attack.png`, `test/${name}-attack-atlas.json`);
+    }
     for (const filename of new Set(Object.values(CHAPTERS_WITH_BACKGROUND_ART))) {
       const key = `${filename}-bg`;
       const imgPath = filename.includes('.') ? `maps/${filename}` : `maps/${filename}.png`;
@@ -257,12 +279,14 @@ export class TacticalScene extends Scene {
 
     const mode: GameMode = this.sceneData.mode ?? 'roguelike';
     const chapter: ChapterDef =
-      mode === 'campaign'
+      this.sceneData.debugChapter ??
+      (mode === 'campaign'
         ? (CAMPAIGN_CHAPTERS.find((candidate) => candidate.id === this.sceneData.chapterId) ?? CAMPAIGN_CHAPTERS[0])
-        : TEST_MAP_2;
+        : TEST_MAP_2);
     this.client = createGameClient(mode, chapter, this.sceneData.carryOver, this.sceneData.baseLevel);
     this.cameras.main.setBackgroundColor('#111318');
     applyDprZoom(this);
+    ensureLuffyAnimations(this);
 
     const { G } = this.client.getState()!;
     this.tileSize = Math.floor(Math.min(BOARD_AREA_WIDTH / G.width, BOARD_AREA_HEIGHT / G.height));
@@ -411,7 +435,7 @@ export class TacticalScene extends Scene {
         this.unitSprites.set(unit.id, sprite);
       } else {
         if (previous && (previous.x !== unit.x || previous.y !== unit.y)) {
-          this.tweens.add({ targets: sprite, x: px, y: py, duration: 180, ease: 'Quad.easeOut' });
+          sprite.walkTo(px, py, 180);
         } else {
           sprite.setPosition(px, py);
         }
@@ -519,6 +543,12 @@ export class TacticalScene extends Scene {
       };
 
       if (attacker && attacker.scene !== undefined && attacker !== defender) {
+        // Layers on top of the lunge tween below rather than replacing it —
+        // an animated attacker (e.g. Luffy) both physically lunges toward
+        // its target AND throws its own attack animation; reverts to idle
+        // once the animation finishes. No-op for every non-animated unit
+        // (playAttack's own fallback calls onComplete immediately).
+        attacker.playAttack(() => attacker.playIdle());
         const originX = attacker.x;
         const originY = attacker.y;
         this.tweens.add({
@@ -589,7 +619,7 @@ export class TacticalScene extends Scene {
     const sprite = this.unitSprites.get(unitId);
     if (!sprite) return;
     const { px, py } = this.tileCenter(x, y);
-    this.tweens.add({ targets: sprite, x: px, y: py, duration: 180, ease: 'Quad.easeOut' });
+    sprite.walkTo(px, py, 180);
   }
 
   // --- highlights -------------------------------------------------------
@@ -932,7 +962,7 @@ export class TacticalScene extends Scene {
     const sprite = this.unitSprites.get(unitId);
     if (unit && sprite) {
       const { px, py } = this.tileCenter(unit.x, unit.y);
-      this.tweens.add({ targets: sprite, x: px, y: py, duration: 150, ease: 'Quad.easeOut' });
+      sprite.walkTo(px, py, 150);
     }
     if (unit) this.selectUnit(unit.id);
     else this.finishSelection();
@@ -1204,7 +1234,7 @@ export class TacticalScene extends Scene {
     const sprite = unitId ? this.unitSprites.get(unitId) : undefined;
     if (unit && sprite) {
       const { px, py } = this.tileCenter(unit.x, unit.y);
-      this.tweens.add({ targets: sprite, x: px, y: py, duration: 150, ease: 'Quad.easeOut' });
+      sprite.walkTo(px, py, 150);
     }
     // Re-show the unit's real (unmoved-if-cancelled, or post-action if
     // confirmed) terrain — otherwise the panel keeps showing whatever

@@ -16,7 +16,7 @@
  *      cost and unit occupancy, since this is about map topology, not any
  *      one unit's move stat).
  */
-import { CAMPAIGN_CHAPTER_1, CAMPAIGN_CHAPTER_2, CHAPTER_1, TEST_MAP_1, TEST_MAP_1_DETAILED, TEST_MAP_2, type ChapterDef } from '../game/maps';
+import { CAMPAIGN_CHAPTER_1, CAMPAIGN_CHAPTER_2, CHAPTER_1, LUFFY_TEST_STAGE, TEST_MAP_1, TEST_MAP_1_DETAILED, TEST_MAP_2, type ChapterDef } from '../game/maps';
 import { TERRAIN, type TerrainType } from '../game/types';
 
 const LEGEND: Record<string, TerrainType> = { '.': 'plain', f: 'forest', '#': 'wall', w: 'water' };
@@ -119,7 +119,7 @@ function validateChapter(chapter: ChapterDef): string[] {
   return errors;
 }
 
-const CHAPTERS: ChapterDef[] = [CHAPTER_1, CAMPAIGN_CHAPTER_1, CAMPAIGN_CHAPTER_2, TEST_MAP_1, TEST_MAP_1_DETAILED, TEST_MAP_2];
+const CHAPTERS: ChapterDef[] = [CHAPTER_1, CAMPAIGN_CHAPTER_1, CAMPAIGN_CHAPTER_2, TEST_MAP_1, TEST_MAP_1_DETAILED, TEST_MAP_2, LUFFY_TEST_STAGE];
 
 let anyErrors = false;
 for (const chapter of CHAPTERS) {

@@ -582,3 +582,47 @@ export const TEST_MAP_2: ChapterDef = {
     { id: 'bandit-4', name: 'Bandit 4', team: 'enemy', randomClass: true, x: 4, y: 1 },
   ],
 };
+
+/**
+ * Luffy test stage (2026-08-31, per the repo owner) — a hidden dev-only
+ * battle (`?luffyTest=1`, BootScene's debug-redirect convention, same as
+ * `?spriteTest=1`) proving the animated-hero pipeline (idle/run/attack,
+ * `heroArt.ts`'s `ANIMATED_HERO_NAMES`) inside an actual battle instead of
+ * SpriteTestScene's standalone viewer — specifically, that the run
+ * animation plays correctly during real movement tweens and the attack
+ * animation during a real combat exchange, for both a player-controlled
+ * and an AI-controlled unit at once (one Luffy each side).
+ *
+ * Reuses TEST_MAP_2's River Crossing terrain (`rows`) rather than a new
+ * layout — the terrain isn't what's being tested here — but is its own
+ * separate `ChapterDef`, deliberately *not* added to `TEST_MAP_2`'s own
+ * `units` (that map is the live Roguelike ("Start Run") mode's actual
+ * roster, `game.ts`'s `ProjectSelvaria = createSelvariaGame('roguelike',
+ * TEST_MAP_2)` — real players use it) and *not* added to `CAMPAIGN_CHAPTERS`
+ * (that array is what populates ChapterSelectScene's real menu). `rout`
+ * (defeat all enemies) rather than `waves` — this is a one-off skirmish,
+ * not a survival run — the same objectiveType the real campaign chapters
+ * already use, so `mode: 'campaign'` behaves exactly as proven there
+ * (TacticalScene's new `debugChapter` scene-data field bypasses the
+ * `CAMPAIGN_CHAPTERS` id lookup that mode normally does). Spawn tiles
+ * reuse two of TEST_MAP_2's own confirmed-passable plain tiles (Marisa's
+ * and Bandit 2's) rather than re-verifying the ASCII map by eye.
+ *
+ * Known rough edge: since this chapter's id isn't in `CAMPAIGN_CHAPTERS`,
+ * winning it and hitting Continue clears any real in-progress campaign save
+ * (`finishCampaignContinue`'s `next` lookup misses, same as reaching the
+ * last real chapter) — harmless for a hidden dev route nobody but the repo
+ * owner reaches, but worth knowing before using this mid-campaign-testing.
+ */
+export const LUFFY_TEST_STAGE: ChapterDef = {
+  id: 'luffy-test-stage',
+  name: 'Luffy Test Stage',
+  shortName: 'Luffy Test',
+  objective: 'Defeat all enemies',
+  objectiveType: 'rout',
+  rows: TEST_MAP_2.rows,
+  units: [
+    { id: 'luffy-player', name: 'Luffy', team: 'player', className: 'Luffy', x: 0, y: 6 },
+    { id: 'luffy-enemy', name: 'Luffy', team: 'enemy', className: 'Luffy', x: 4, y: 0 },
+  ],
+};

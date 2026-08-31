@@ -1,7 +1,9 @@
 import { Scene } from 'phaser';
+import { LUFFY_TEST_STAGE } from '../game/maps';
 import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { GAME_VERSION } from '../version';
 import { FONT_FAMILY } from '../ui/kit';
+import type { TacticalSceneData } from './TacticalScene';
 
 const LOGO_KEY = 'boot-logo';
 
@@ -37,8 +39,20 @@ export class BootScene extends Scene {
             // ?spriteTest=1 boots straight into SpriteTestScene — a deliberately
             // hidden dev entry point (2026-08-31), not on MainMenuScene's own
             // menu, since it's testing placeholder art with no commission yet.
-            if (new URLSearchParams(location.search).get('spriteTest')) {
+            const params = new URLSearchParams(location.search);
+            if (params.get('spriteTest')) {
                 this.scene.start('SpriteTest');
+                return;
+            }
+            // ?luffyTest=1 boots straight into LUFFY_TEST_STAGE (2026-08-31) —
+            // same hidden-dev-route convention, proving idle/run/attack inside
+            // a real battle instead of SpriteTestScene's standalone viewer.
+            // See that chapter's own doc comment (game/maps.ts) for why it's a
+            // TacticalSceneData.debugChapter override rather than a real,
+            // menu-reachable chapter.
+            if (params.get('luffyTest')) {
+                const data: TacticalSceneData = { mode: 'campaign', debugChapter: LUFFY_TEST_STAGE };
+                this.scene.start('Tactical', data);
                 return;
             }
             this.scene.start('MainMenu');
