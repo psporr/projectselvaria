@@ -3,7 +3,7 @@ import type { Unit } from '../game/types';
 import { DPR } from '../systems/viewport';
 import { CLASS_LETTER } from '../ui/classIcons';
 import { enemyClassTextureKeyFor, heroIdleRunAtlasKey, heroTextureKey, isAnimatedHero } from '../ui/heroArt';
-import { LUFFY_ANIM_ATTACK, LUFFY_ANIM_IDLE, LUFFY_ANIM_RUN } from '../ui/heroAnimations';
+import { LUFFY_ANIM_IDLE } from '../ui/heroAnimations';
 import { FONT_FAMILY } from '../ui/kit';
 
 const TEAM_COLOR: Record<string, number> = { player: 0x4a90d9, enemy: 0xd9534f };
@@ -217,54 +217,29 @@ export class UnitSprite extends GameObjects.Container {
     this.scene.time.delayedCall(HIT_FLASH_ALPHA_DURATION_MS, () => this.circle!.setFillStyle(this.currentFill));
   }
 
-  /** Switches to the run loop — TacticalScene calls this around a movement tween (see walkTo()) so a unit actually looks like it's walking instead of sliding in its idle pose. No-op for a non-animated unit. */
-  playRun(): void {
-    this.animSprite?.play(LUFFY_ANIM_RUN);
-  }
-
-  /** Back to the idle loop — the default look, and where a movement tween or an attack leaves off. No-op for a non-animated unit. */
-  playIdle(): void {
-    this.animSprite?.play(LUFFY_ANIM_IDLE);
-  }
-
   /**
-   * Plays the attack animation once (its own default `repeat: 0` —
-   * `heroAnimations.ts`'s SpriteTestScene-only viewer is what asks for a
-   * continuous loop, not this) and calls `onComplete` when it finishes. A
-   * no-op that calls `onComplete` immediately for a non-animated unit, so a
-   * caller can always await it the same way regardless of which unit
-   * attacked.
-   */
-  playAttack(onComplete: () => void): void {
-    if (!this.animSprite) {
-      onComplete();
-      return;
-    }
-    this.animSprite.once('animationcomplete', onComplete);
-    this.animSprite.play(LUFFY_ANIM_ATTACK);
-  }
-
-  /**
-   * Tweens this sprite to a new board position, playing the run loop for
-   * the duration (idle again once it lands) — the one place TacticalScene
+   * Tweens this sprite to a new board position — the one place TacticalScene
    * should move a unit's sprite, so every movement (a confirmed move, the
-   * pre-confirm preview, a cancel snap-back, enemy AI stepping) gets the
-   * same animation switch instead of each call site remembering to do it.
-   * No-op animation switch for a non-animated unit (playRun/playIdle are
-   * themselves no-ops there).
+   * pre-confirm preview, a cancel snap-back, enemy AI stepping) shares one
+   * implementation instead of four copies of the same tween.
+   *
+   * Deliberately does NOT switch animation (2026-08-31, per the repo owner
+   * after seeing it live): an animated hero briefly played its run loop for
+   * the tween's duration, which read badly — at this sprite's on-board size
+   * a 150-180ms tween is a fraction of one 600ms run cycle, so it registered
+   * as a twitch rather than a stride. On-board sprites now hold their idle
+   * loop through everything; run/attack animation belongs to
+   * `CombatOverlayScene`'s full-screen cut-in, which has the screen space
+   * and the time budget to show it properly.
    */
   walkTo(px: number, py: number, duration: number, onComplete?: () => void): void {
-    this.playRun();
     this.scene.tweens.add({
       targets: this,
       x: px,
       y: py,
       duration,
       ease: 'Quad.easeOut',
-      onComplete: () => {
-        this.playIdle();
-        onComplete?.();
-      },
+      onComplete: () => onComplete?.(),
     });
   }
 }

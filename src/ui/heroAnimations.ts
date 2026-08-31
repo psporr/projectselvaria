@@ -8,6 +8,15 @@ export const LUFFY_ANIM_RUN = 'luffy-run';
 export const LUFFY_ANIM_ATTACK = 'luffy-attack';
 
 /**
+ * The frame the punch actually lands on — `CombatOverlayScene` watches for
+ * it (`animationupdate`) to time the defender's hit reaction, rather than a
+ * hardcoded delay that would silently drift out of sync the next time the
+ * ATTACK_*_DURATIONS below get retuned. Frame 8 is the first full-extension
+ * punch, before the flurry repeats.
+ */
+export const LUFFY_ATTACK_IMPACT_FRAME = 'attack-8';
+
+/**
  * Per-frame durations (ms) for `luffy-attack`, replacing a flat frameRate —
  * anticipation/snap/hold/ease: held longest at the windup's cocked-back
  * peak (index 3) and the frame-8 impact (max stretch), fast through the

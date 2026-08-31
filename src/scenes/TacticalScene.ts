@@ -12,6 +12,7 @@ import { canUseSkill, describeSkillEffect, novaBlastCoords, skillTargets, SKILLS
 import { isTriggerMet, type MapEvent } from '../game/story';
 import { TERRAIN, teamOf, type CombatBeat, type CombatResult, type GameMode, type GameState, type Team, type Unit } from '../game/types';
 import { UnitSprite } from '../entities/UnitSprite';
+import type { CombatOverlayData } from './CombatOverlayScene';
 import { createGameClient, type GameClient } from '../systems/gameClient';
 import { browserStorage } from '../systems/storage';
 import { applyDprZoom, DPR, LOGICAL_WIDTH } from '../systems/viewport';
@@ -84,6 +85,8 @@ const BLESSING_DELAY_MS = 700;
 const COMBAT_BEAT_DELAY_MS = 600;
 /** Beat of empty space between the attack move actually landing (the forecast panel closing, or an enemy AI action dispatching) and the combat sequence's first lunge starting — without it the cut from "Confirm" to the attack swinging read as instant/abrupt. */
 const COMBAT_SEQUENCE_START_DELAY_MS = 150;
+/** Failsafe ceiling on the combat overlay — see playCombatOverlay(). Comfortably past the ~6s a real two-animated-attack exchange takes; only a stalled overlay should ever reach it. */
+const OVERLAY_WATCHDOG_MS = 12000;
 
 /** Corner-bracket tile cursor — a classic tactics-RPG "you selected this square" reticle, distinct from the flat-color range/target overlays `highlightTiles` paints. See `showTileCursor`'s doc comment for exactly when it appears. */
 const CURSOR_COLOR = 0xff5a5a;
@@ -452,16 +455,29 @@ export class TacticalScene extends Scene {
       }
     }
 
+    // A unit that died in this exchange has to stay on the board until the
+    // presentation is finished with it — otherwise its sprite fades and
+    // destroys itself while the overlay is still on screen, and by the time
+    // the on-grid pass runs there's nothing left to play the killing blow
+    // on (playCombatSequence bails on a destroyed defender). HANDOFF.md §7's
+    // contract says the same thing: the tactical layer applies visible
+    // consequences — death removal included — *after* presentation signals
+    // completion. Everyone else (a unit removed for any other reason) still
+    // fades immediately.
+    const deferredRemovals: Array<() => void> = [];
     for (const [id, sprite] of this.unitSprites) {
       if (seen.has(id)) continue;
       this.unitSprites.delete(id);
-      this.tweens.add({
-        targets: sprite,
-        alpha: 0,
-        scale: 0.4,
-        duration: 300,
-        onComplete: () => sprite.destroy(),
-      });
+      const fadeOut = () =>
+        this.tweens.add({
+          targets: sprite,
+          alpha: 0,
+          scale: 0.4,
+          duration: 300,
+          onComplete: () => sprite.destroy(),
+        });
+      if (combatUnitIds?.has(id)) deferredRemovals.push(fadeOut);
+      else fadeOut();
     }
 
     if (pendingCombat) {
@@ -474,18 +490,27 @@ export class TacticalScene extends Scene {
       // attack"). Cleared, and everything that was waiting re-checked, only
       // once the last beat's own tween actually finishes.
       this.inputSuspended = true;
-      // A short beat of empty space before the first lunge, not an instant
-      // cut from the forecast panel closing straight into the swing — see
-      // COMBAT_SEQUENCE_START_DELAY_MS's own comment.
-      this.time.delayedCall(COMBAT_SEQUENCE_START_DELAY_MS, () => {
-        this.playCombatSequence(pendingCombat, combatSprites!, () => {
-          this.inputSuspended = false;
-          // Catches up a phase banner UIScene held off showing (isInputSuspended())
-          // if ctx.turn crossed a boundary while this sequence was playing.
-          this.ui.refreshHud();
-          this.scheduleAutoAdvance();
+      const combat = pendingCombat;
+      // Both presentations play, in order (2026-08-31, per the repo owner):
+      // the full-screen cut-in first, then the same result re-stated on the
+      // board once it closes — the overlay is the dramatic beat, the on-grid
+      // pass is what leaves the consequence visible in board context.
+      const playOnGrid = () => {
+        // A short beat of empty space before the first lunge, not an instant
+        // cut from the overlay closing straight into the swing — see
+        // COMBAT_SEQUENCE_START_DELAY_MS's own comment.
+        this.time.delayedCall(COMBAT_SEQUENCE_START_DELAY_MS, () => {
+          this.playCombatSequence(combat, combatSprites!, () => {
+            for (const removeSprite of deferredRemovals) removeSprite();
+            this.inputSuspended = false;
+            // Catches up a phase banner UIScene held off showing (isInputSuspended())
+            // if ctx.turn crossed a boundary while this sequence was playing.
+            this.ui.refreshHud();
+            this.scheduleAutoAdvance();
+          });
         });
-      });
+      };
+      this.playCombatOverlay(combat, playOnGrid);
       this.lastCombatSeq = pendingCombat.seq;
     }
 
@@ -518,6 +543,63 @@ export class TacticalScene extends Scene {
    * play out) — chained beat-to-beat rather than timed separately, so it
    * can't drift out of sync with what's actually still animating.
    */
+  /**
+   * Hands the exchange to `CombatOverlayScene`'s full-screen cut-in, calling
+   * `onComplete` once it closes (or is skipped). Pre-combat HP comes from
+   * `this.lastUnits` — the snapshot taken at the end of the previous sync,
+   * i.e. before this exchange landed — since `G.units` already carries the
+   * final HP by the time this runs and `CombatBeat` records damage without
+   * a before/after pair. If either unit somehow isn't in G anymore, the
+   * overlay is skipped rather than shown half-populated; the on-grid pass
+   * still plays.
+   */
+  private playCombatOverlay(result: CombatResult, onComplete: () => void): void {
+    const state = this.client.getState();
+    const attacker = state?.G.units[result.attack.attackerId];
+    const defender = state?.G.units[result.attack.defenderId];
+    if (!attacker || !defender) {
+      onComplete();
+      return;
+    }
+    // Everything downstream of the overlay — clearing inputSuspended, the
+    // deferred death fade, the enemy AI's next step — hangs off its
+    // onComplete. If the overlay ever failed to reach that (a missing
+    // animation whose 'animationcomplete' never fires, say), the battle
+    // would soft-lock with input suspended and no way back short of a page
+    // reload. This bounds that: past OVERLAY_WATCHDOG_MS the cut-in is torn
+    // down and the battle continues without it. It should never fire —
+    // a legitimate two-animated-attack exchange runs ~6s — so if it does,
+    // that's a real bug worth chasing, not a timing dial to widen.
+    let watchdog: Time.TimerEvent | null = null;
+    let completed = false;
+    const complete = () => {
+      if (completed) return;
+      completed = true;
+      watchdog?.remove();
+      onComplete();
+    };
+    watchdog = this.time.delayedCall(OVERLAY_WATCHDOG_MS, () => {
+      this.scene.stop('CombatOverlay');
+      // The overlay silences both scenes' input while it's up and restores
+      // it on the way out — a forced stop skips that, so undo it here too.
+      this.input.enabled = true;
+      const ui = this.scene.get('UI');
+      if (ui?.input) ui.input.enabled = true;
+      complete();
+    });
+
+    const data: CombatOverlayData = {
+      attacker,
+      defender,
+      attackerHpBefore: this.lastUnits[attacker.id]?.hp ?? attacker.hp,
+      defenderHpBefore: this.lastUnits[defender.id]?.hp ?? defender.hp,
+      result,
+      onComplete: complete,
+    };
+    this.scene.launch('CombatOverlay', data);
+    this.scene.bringToTop('CombatOverlay');
+  }
+
   private playCombatSequence(result: CombatResult, sprites: Map<string, UnitSprite | undefined>, onComplete: () => void): void {
     const playBeat = (beat: CombatBeat, onBeatDone: () => void) => {
       const attacker = sprites.get(beat.attackerId);
@@ -543,12 +625,6 @@ export class TacticalScene extends Scene {
       };
 
       if (attacker && attacker.scene !== undefined && attacker !== defender) {
-        // Layers on top of the lunge tween below rather than replacing it —
-        // an animated attacker (e.g. Luffy) both physically lunges toward
-        // its target AND throws its own attack animation; reverts to idle
-        // once the animation finishes. No-op for every non-animated unit
-        // (playAttack's own fallback calls onComplete immediately).
-        attacker.playAttack(() => attacker.playIdle());
         const originX = attacker.x;
         const originY = attacker.y;
         this.tweens.add({

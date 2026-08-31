@@ -1,3 +1,7 @@
+import type { Scene } from 'phaser';
+
+import type { Unit } from '../game/types';
+
 /**
  * Named-hero map sprites — one hand-drawn PNG per specific character
  * (`public/units/<name>128.png`), not the class-generic/team-tinted
@@ -141,6 +145,27 @@ export function enemyClassSpriteBasenames(className: string): readonly string[] 
 /** Phaser texture key one specific enemy-art basename loads under. */
 export function enemyBasenameTextureKey(basename: string): string {
   return `enemy-${basename}`;
+}
+
+/**
+ * The three-tier portrait fallback (bust portrait, then map sprite, then
+ * anonymous enemy-class art) shared by `CombatForecastPanel` and
+ * `CombatOverlayScene`. `UnitStatusBar` keeps its own copy — it reads
+ * `unit.team`/`unit.hasActed` extras these two don't need, and inlines the
+ * result into a texture swap on a long-lived Image rather than resolving a
+ * key up front. Returns undefined when a unit has no art at all, leaving the
+ * caller to fall back to its own class-letter placeholder.
+ */
+export function resolveBattlePortraitTexture(scene: Scene, unit: Unit): string | undefined {
+  const portraitKey = heroPortraitTextureKey(unit.name);
+  if (scene.textures.exists(portraitKey)) return portraitKey;
+  const heroKey = heroTextureKey(unit.name);
+  if (scene.textures.exists(heroKey)) return heroKey;
+  if (unit.team === 'enemy') {
+    const enemyKey = enemyClassTextureKeyFor(unit.className, unit.id);
+    if (enemyKey && scene.textures.exists(enemyKey)) return enemyKey;
+  }
+  return undefined;
 }
 
 /**

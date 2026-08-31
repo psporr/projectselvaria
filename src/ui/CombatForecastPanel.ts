@@ -6,7 +6,7 @@ import { terrainAt } from '../game/grid';
 import type { GameState, Unit } from '../game/types';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from './classIcons';
-import { enemyClassTextureKeyFor, heroPortraitTextureKey, heroTextureKey } from './heroArt';
+import { resolveBattlePortraitTexture } from './heroArt';
 import { Button, Card, COLORS, FONT_FAMILY } from './kit';
 
 const CARD_WIDTH = 420;
@@ -40,19 +40,6 @@ const HP_BAR_STROKE = 0x0a0d14;
 
 function hpColor(ratio: number): number {
   return ratio > 0.5 ? 0x5cb85c : ratio > 0.25 ? 0xf0ad4e : 0xd9534f;
-}
-
-/** Same three-tier fallback `UnitStatusBar`'s portrait slot already uses (bust portrait, then map sprite, then anonymous enemy-class art) — kept here rather than shared since `UnitStatusBar` reads off `unit.team`/`unit.hasActed` extras this panel doesn't need. */
-function resolvePortraitTexture(scene: Scene, unit: Unit): string | undefined {
-  const portraitKey = heroPortraitTextureKey(unit.name);
-  if (scene.textures.exists(portraitKey)) return portraitKey;
-  const heroKey = heroTextureKey(unit.name);
-  if (scene.textures.exists(heroKey)) return heroKey;
-  if (unit.team === 'enemy') {
-    const enemyKey = enemyClassTextureKeyFor(unit.className, unit.id);
-    if (enemyKey && scene.textures.exists(enemyKey)) return enemyKey;
-  }
-  return undefined;
 }
 
 /** The equipped weapon's display name, or the unit's class when unarmed — every enemy falls into the latter (`Unit.equipment` is only ever populated for player units, types.ts), which reads fine here since a class name is exactly what a named weapon would otherwise convey ("what are they fighting with"). */
@@ -265,7 +252,7 @@ export class CombatForecastPanel extends GameObjects.Container {
     side.portraitGfx.lineStyle(2, accent, 1);
     side.portraitGfx.strokeRoundedRect(portraitX - PORTRAIT_SIZE / 2, PORTRAIT_Y - PORTRAIT_SIZE / 2, PORTRAIT_SIZE, PORTRAIT_SIZE, 10);
 
-    const textureKey = resolvePortraitTexture(this.scene, unit);
+    const textureKey = resolveBattlePortraitTexture(this.scene, unit);
     if (textureKey) {
       side.portraitImage.setTexture(textureKey);
       const maxSize = PORTRAIT_SIZE - 10;

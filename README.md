@@ -141,6 +141,57 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-31 Claude: Built `CombatOverlayScene` — `HANDOFF.md` §7's
+  long-deferred "Phase 2" full-screen combat cut-in, GBA Fire Emblem style —
+  and pulled the on-map animation back to idle only. Per the repo owner after
+  seeing the on-map version live: a run cycle during a 150-180ms movement
+  tween read as a twitch, not a stride, at the board's small sprite size, so
+  `UnitSprite.walkTo()` no longer switches animation at all and
+  `playRun`/`playIdle`/`playAttack` came off `UnitSprite` entirely; an
+  on-board animated hero now just holds its idle loop through everything.
+  Run/attack belong to the cut-in, which has the screen space and time budget
+  to show them properly (and where the attack animation's ~1.8s length, an
+  awkward fit against the grid's ~130ms lunge, is finally the right size).
+  Both presentations play, in the order the repo owner asked for: confirm an
+  attack, the overlay takes the screen, and once it closes the existing
+  on-grid pass re-states the same result on the board. The overlay slots into
+  the §7 contract unchanged — combat still fully resolves first
+  (`G.lastCombat`), presentation only consumes that finished `CombatResult`,
+  and completion still comes back by callback with `inputSuspended` held for
+  the whole chain.
+  Layout is portrait-first (480x854): player always left, enemy always right
+  regardless of who's swinging, so a counter doesn't visually swap the two
+  units mid-exchange; name/class/HP-bar panels below, HP draining live per
+  beat with the number label and traffic-light color tweened in step. Per the
+  repo owner it covers **everyone**, not just animated heroes — a unit with
+  real frame animation plays it, and the whole rest of the cast falls back to
+  a static portrait (the same bust → map-sprite → enemy-class chain the
+  forecast panel uses, now shared out of `heroArt.ts` as
+  `resolveBattlePortraitTexture` rather than becoming a third copy) doing the
+  same lunge the on-grid version uses. Impact for an animated attacker is
+  pinned to the punch's own landing frame via `animationupdate`
+  (`LUFFY_ATTACK_IMPACT_FRAME`) rather than a hardcoded delay that would
+  silently desync the next time that animation's per-frame timing is retuned.
+  Tap anywhere to skip (with a 400ms grace so the confirming tap can't
+  instantly dismiss it), which snaps both bars to the units' real
+  post-combat HP.
+  Two correctness details worth knowing: a unit killed in the exchange now
+  has its board sprite's death fade **deferred** until the whole presentation
+  finishes — previously it faded and destroyed itself immediately, which was
+  survivable at ~300ms but with a multi-second overlay in front would have
+  left nothing on the board for the on-grid pass to play the killing blow on
+  (exactly what §7's contract already said: apply visible consequences after
+  presentation signals completion). And `playCombatOverlay()` holds a 12s
+  watchdog: everything downstream (clearing `inputSuspended`, the deferred
+  fade, the enemy AI's next step) hangs off the overlay's `onComplete`, so a
+  stall there would soft-lock the battle behind suspended input — the
+  watchdog bounds that into a pause instead. It should never fire.
+  `typecheck`/`build`/`validate-maps`/`sim -- --batch 30` clean, plus a
+  console-only boot check of `?luffyTest=1` (no screenshots — per the repo
+  owner, visual review is theirs): no errors from the overlay, the atlases,
+  or scene registration. Unrelated pre-existing finding from that check:
+  `public/maps/` only holds `river1.jpg`, so the `test-map1.png` background
+  in the chapter art table 404s on any chapter boot — left alone here.
 - 2026-08-31 Claude: Wired Luffy's idle/run/attack animations into the real
   battle scene, not just SpriteTestScene's standalone viewer — a new
   `LUFFY_TEST_STAGE` chapter (`?luffyTest=1`, same hidden-dev-route
