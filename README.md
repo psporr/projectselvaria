@@ -141,6 +141,26 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-31 Claude: Added a playback-speed selector to `SpriteTestScene`
+  (0.1x/0.25x/0.5x/1x/2x buttons, `sprite.anims.timeScale` — no need to
+  touch the animation definitions or re-`play()`), per the repo owner
+  after testing the idle loop themselves: the character's feet look like
+  they're sliding between frames. Confirmed the cause via 0.1x playback —
+  `idle-0` (30x46px) to `idle-1` (31x45px) visibly shifts the whole
+  character right/up, which is the known limitation `scanSpriteAtlas.ts`'s
+  doc comment already flags: `setOrigin(0.5, 1)` anchors each frame's
+  *own* tight bounding box (recomputed per frame), so the vertical anchor
+  (bottom = lowest ink pixel) is solid, but the horizontal anchor
+  (0.5 = that frame's own bbox center) drifts whenever a hat brim, hair,
+  or raised arm shifts which pixels are the tight-crop's left/right
+  extremes — the feet didn't move, the crop box's center of mass did.
+  Not fixed yet — needs a per-frame horizontal anchor (foot-region
+  centroid, or a shared untrimmed canvas per TexturePacker/Aseprite's
+  `trimmed: true` convention) rather than a bbox-center guess; flagging
+  as the next real step on this rather than shipping a guessed fix.
+  `typecheck`/`build` clean; Playwright confirmed the button row renders
+  without overlap and correctly highlights/updates the speed label on tap
+  (screenshots at default 1x and after selecting 0.1x).
 - 2026-08-31 Claude: Turned the sprite-sheet frame scanner from the
   `SpriteTestScene` work below into a real, reusable tool instead of a
   one-off Python script — the repo owner asked whether it could be re-run

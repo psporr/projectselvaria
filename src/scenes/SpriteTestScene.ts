@@ -6,6 +6,7 @@ import { Button, COLORS, FONT_FAMILY } from '../ui/kit';
 const ATLAS_KEY = 'luffy-test';
 const SCALE = 5;
 const GROUND_Y = 420;
+const SPEED_PRESETS = [0.1, 0.25, 0.5, 1, 2] as const;
 
 /**
  * Standalone sprite-sheet-animation test (2026-08-31, per the repo owner) —
@@ -34,7 +35,9 @@ const GROUND_Y = 420;
 export class SpriteTestScene extends Scene {
   private sprite!: GameObjects.Sprite;
   private currentAnim: 'idle' | 'run' = 'idle';
+  private currentSpeed: number = 1;
   private frameLabel!: GameObjects.Text;
+  private speedLabel!: GameObjects.Text;
 
   constructor() {
     super('SpriteTest');
@@ -85,6 +88,7 @@ export class SpriteTestScene extends Scene {
 
     this.sprite = this.add.sprite(LOGICAL_WIDTH / 2, GROUND_Y, ATLAS_KEY, 'idle-0').setOrigin(0.5, 1).setScale(SCALE);
     this.sprite.play('luffy-idle');
+    this.sprite.anims.timeScale = this.currentSpeed;
     this.sprite.on('animationupdate', () => {
       this.frameLabel.setText(`frame: ${this.sprite.frame.name}  (${this.sprite.frame.width}x${this.sprite.frame.height}px)`);
     });
@@ -93,7 +97,7 @@ export class SpriteTestScene extends Scene {
       .text(LOGICAL_WIDTH / 2, GROUND_Y + 40, '', { fontFamily: FONT_FAMILY, fontSize: '11px', color: COLORS.textDisabled, resolution: DPR })
       .setOrigin(0.5);
 
-    const buttonY = LOGICAL_HEIGHT - 140;
+    const buttonY = LOGICAL_HEIGHT - 180;
     const idleButton = new Button(this, LOGICAL_WIDTH / 2 - 74, buttonY, 130, 42, 'Idle', null);
     const runButton = new Button(this, LOGICAL_WIDTH / 2 + 74, buttonY, 130, 42, 'Run', null);
     idleButton.setOnTap(() => {
@@ -106,17 +110,53 @@ export class SpriteTestScene extends Scene {
     });
     this.refreshButtonAccents(idleButton, runButton);
 
-    const backButton = new Button(this, LOGICAL_WIDTH / 2, buttonY + 60, 130, 34, 'Back', () => this.scene.start('MainMenu'), '13px');
+    // Playback-speed selector (2026-08-31, per the repo owner) — added
+    // specifically to help diagnose a "feet look like they're sliding"
+    // report on the idle loop: at 1x it's hard to tell apart real per-frame
+    // horizontal drift (the tight-crop atlas anchors each frame's bounding
+    // box at its own center, not a fixed foot point — see scanSpriteAtlas.ts's
+    // doc comment) from a simple frame-rate/eye artifact. 0.1x plays each
+    // frame for ~1s at the idle rate, slow enough to step through by eye.
+    const speedLabelY = buttonY + 46;
+    this.speedLabel = this.add
+      .text(LOGICAL_WIDTH / 2, speedLabelY, '', { fontFamily: FONT_FAMILY, fontSize: '11px', color: COLORS.textDisabled, resolution: DPR })
+      .setOrigin(0.5);
+
+    const speedButtonY = speedLabelY + 24;
+    const speedButtonSpacing = 88;
+    const speedButtons = SPEED_PRESETS.map((speed, i) => {
+      const x = LOGICAL_WIDTH / 2 + (i - (SPEED_PRESETS.length - 1) / 2) * speedButtonSpacing;
+      return new Button(this, x, speedButtonY, 80, 34, `${speed}x`, null, '12px');
+    });
+    speedButtons.forEach((button, i) => {
+      button.setOnTap(() => {
+        this.currentSpeed = SPEED_PRESETS[i];
+        this.sprite.anims.timeScale = this.currentSpeed;
+        this.refreshSpeedButtonAccents(speedButtons);
+      });
+    });
+    this.refreshSpeedButtonAccents(speedButtons);
+
+    const backButton = new Button(this, LOGICAL_WIDTH / 2, speedButtonY + 50, 130, 34, 'Back', () => this.scene.start('MainMenu'), '13px');
     backButton.setAccent(COLORS.cancelFill, COLORS.buttonStroke);
   }
 
   private playAnim(anim: 'idle' | 'run'): void {
     this.currentAnim = anim;
     this.sprite.play(`luffy-${anim}`);
+    this.sprite.anims.timeScale = this.currentSpeed;
   }
 
   private refreshButtonAccents(idleButton: Button, runButton: Button): void {
     idleButton.setAccent(this.currentAnim === 'idle' ? COLORS.successFill : null, this.currentAnim === 'idle' ? COLORS.successStroke : null);
     runButton.setAccent(this.currentAnim === 'run' ? COLORS.successFill : null, this.currentAnim === 'run' ? COLORS.successStroke : null);
+  }
+
+  private refreshSpeedButtonAccents(speedButtons: Button[]): void {
+    speedButtons.forEach((button, i) => {
+      const active = SPEED_PRESETS[i] === this.currentSpeed;
+      button.setAccent(active ? COLORS.successFill : null, active ? COLORS.successStroke : null);
+    });
+    this.speedLabel.setText(`Speed: ${this.currentSpeed}x`);
   }
 }
