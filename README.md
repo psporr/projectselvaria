@@ -141,6 +141,29 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-31 Claude: Turned the sprite-sheet frame scanner from the
+  `SpriteTestScene` work below into a real, reusable tool instead of a
+  one-off Python script — the repo owner asked whether it could be re-run
+  cheaply on a future sheet, and it hadn't been saved anywhere. New
+  `npm run scan-atlas -- <input.png> <output.json> [--names=a,b,c,...]`
+  (`src/scripts/scanSpriteAtlas.ts`, new `pngjs`/`@types/pngjs` devDeps —
+  pure-JS PNG decode, no native bindings, keeping this a plain Node/tsx
+  script like `validate-maps`/`sim`): same transparent-pixel-gap scan as
+  before, ported from Python to TypeScript, writing the same
+  `trimmed: false` TexturePacker JSON-Hash shape `SpriteTestScene`
+  consumes. `--names` assigns frame names left-to-right (errors with the
+  detected rects printed if the count doesn't match); omit it for
+  sequential `frame-0`, `frame-1`, ... Verified byte-identical to the
+  committed `public/test/luffy-atlas.json` when re-run against
+  `luffy-sheet.png` with its original names. Documented in the script's
+  own header when to prefer this over Aseprite's native sprite-sheet
+  export (Aseprite when a `.aseprite` source exists — its `trimmed: true`
+  + `spriteSourceSize` offsets survive a frame whose ink genuinely sits at
+  a different height, e.g. a hop, which this tight-crop scan can't
+  distinguish from misalignment; this scanner when only a flattened,
+  non-uniform PNG exists with no source to re-export from).
+  `typecheck`/`build` clean. No Playwright pass (CLI tool, not a UI
+  change).
 - 2026-08-31 Claude: New standalone dev tool, `SpriteTestScene`
   (`src/scenes/SpriteTestScene.ts`), proving out frame-based sprite-sheet
   animation ahead of any real art commission. The repo owner's friend
