@@ -4,6 +4,7 @@ import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/vie
 import { Button, COLORS, FONT_FAMILY } from '../ui/kit';
 
 const ATLAS_KEY = 'luffy-test';
+const ATTACK_ATLAS_KEY = 'luffy-attack-test';
 const SCALE = 5;
 const GROUND_Y = 420;
 const SPEED_PRESETS = [0.1, 0.25, 0.5, 1, 2] as const;
@@ -31,10 +32,27 @@ const SPEED_PRESETS = [0.1, 0.25, 0.5, 1, 2] as const;
  * The ground line is here specifically to make that verifiable at a
  * glance: if trimming ever stops being tight (a future sheet with baked-in
  * padding), the feet will visibly float off it frame to frame.
+ *
+ * `luffy-attack.png` (2026-08-31) is a second, separate sheet the repo
+ * owner added the same way — a stretch-punch sequence long enough that
+ * it's laid out as two rows rather than one very wide strip, which is why
+ * scanSpriteAtlas.ts grew row-band detection (was single-row-only before).
+ * It also has a fist/speed-line motion trail that fades to fully-transparent
+ * for a column before resuming, which the tool's `--min-fragment-width`
+ * default now folds back into its real neighbor instead of reading as its
+ * own tiny frame — see that script's doc comment for how this was confirmed
+ * (rendered the actual pixels, didn't guess). Deliberately *not* run
+ * through `--stabilize`: a stretch punch has real, intentional horizontal
+ * travel as the fist extends, which is exactly the motion that flag can't
+ * tell apart from drift (documented the same way after --stabilize
+ * over-corrected this same sheet's `run` group during the idle-slide fix).
+ * A second Sprite isn't needed for this — Phaser's `sprite.play()` swaps
+ * texture to match whichever atlas an animation's frames belong to, so one
+ * Sprite plays animations from either atlas interchangeably.
  */
 export class SpriteTestScene extends Scene {
   private sprite!: GameObjects.Sprite;
-  private currentAnim: 'idle' | 'run' = 'idle';
+  private currentAnim: 'idle' | 'run' | 'attack' = 'idle';
   private currentSpeed: number = 1;
   private frameLabel!: GameObjects.Text;
   private speedLabel!: GameObjects.Text;
@@ -45,6 +63,7 @@ export class SpriteTestScene extends Scene {
 
   preload(): void {
     this.load.atlas(ATLAS_KEY, 'test/luffy-sheet.png', 'test/luffy-atlas.json');
+    this.load.atlas(ATTACK_ATLAS_KEY, 'test/luffy-attack.png', 'test/luffy-attack-atlas.json');
   }
 
   create(): void {
@@ -85,6 +104,12 @@ export class SpriteTestScene extends Scene {
       frameRate: 10,
       repeat: -1,
     });
+    this.anims.create({
+      key: 'luffy-attack',
+      frames: this.anims.generateFrameNames(ATTACK_ATLAS_KEY, { prefix: 'attack-', start: 0, end: 21 }),
+      frameRate: 15,
+      repeat: -1,
+    });
 
     this.sprite = this.add.sprite(LOGICAL_WIDTH / 2, GROUND_Y, ATLAS_KEY, 'idle-0').setOrigin(0.5, 1).setScale(SCALE);
     this.sprite.play('luffy-idle');
@@ -98,17 +123,21 @@ export class SpriteTestScene extends Scene {
       .setOrigin(0.5);
 
     const buttonY = LOGICAL_HEIGHT - 180;
-    const idleButton = new Button(this, LOGICAL_WIDTH / 2 - 74, buttonY, 130, 42, 'Idle', null);
-    const runButton = new Button(this, LOGICAL_WIDTH / 2 + 74, buttonY, 130, 42, 'Run', null);
-    idleButton.setOnTap(() => {
-      this.playAnim('idle');
-      this.refreshButtonAccents(idleButton, runButton);
+    const idleButton = new Button(this, LOGICAL_WIDTH / 2 - 120, buttonY, 110, 42, 'Idle', null, '13px');
+    const runButton = new Button(this, LOGICAL_WIDTH / 2, buttonY, 110, 42, 'Run', null, '13px');
+    const attackButton = new Button(this, LOGICAL_WIDTH / 2 + 120, buttonY, 110, 42, 'Attack', null, '13px');
+    const animButtons: Array<[Button, 'idle' | 'run' | 'attack']> = [
+      [idleButton, 'idle'],
+      [runButton, 'run'],
+      [attackButton, 'attack'],
+    ];
+    animButtons.forEach(([button, anim]) => {
+      button.setOnTap(() => {
+        this.playAnim(anim);
+        this.refreshButtonAccents(animButtons);
+      });
     });
-    runButton.setOnTap(() => {
-      this.playAnim('run');
-      this.refreshButtonAccents(idleButton, runButton);
-    });
-    this.refreshButtonAccents(idleButton, runButton);
+    this.refreshButtonAccents(animButtons);
 
     // Playback-speed selector (2026-08-31, per the repo owner) — added
     // specifically to help diagnose a "feet look like they're sliding"
@@ -141,15 +170,17 @@ export class SpriteTestScene extends Scene {
     backButton.setAccent(COLORS.cancelFill, COLORS.buttonStroke);
   }
 
-  private playAnim(anim: 'idle' | 'run'): void {
+  private playAnim(anim: 'idle' | 'run' | 'attack'): void {
     this.currentAnim = anim;
     this.sprite.play(`luffy-${anim}`);
     this.sprite.anims.timeScale = this.currentSpeed;
   }
 
-  private refreshButtonAccents(idleButton: Button, runButton: Button): void {
-    idleButton.setAccent(this.currentAnim === 'idle' ? COLORS.successFill : null, this.currentAnim === 'idle' ? COLORS.successStroke : null);
-    runButton.setAccent(this.currentAnim === 'run' ? COLORS.successFill : null, this.currentAnim === 'run' ? COLORS.successStroke : null);
+  private refreshButtonAccents(animButtons: Array<[Button, 'idle' | 'run' | 'attack']>): void {
+    animButtons.forEach(([button, anim]) => {
+      const active = anim === this.currentAnim;
+      button.setAccent(active ? COLORS.successFill : null, active ? COLORS.successStroke : null);
+    });
   }
 
   private refreshSpeedButtonAccents(speedButtons: Button[]): void {

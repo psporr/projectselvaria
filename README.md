@@ -141,6 +141,39 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-31 Claude: Added an attack animation to `SpriteTestScene`
+  (`public/test/luffy-attack.png`, a stretch-punch sequence, committed to
+  `main` directly by Gemini — also working this repo — then wired in here)
+  and generalized `scanSpriteAtlas.ts` to actually handle it, since neither
+  of its two real shapes fit the existing single-row-strip scanner. First:
+  the sheet is laid out as **two rows** (22 poses total, long enough that
+  one strip would've been unwieldy) — the tool now finds row bands the
+  same way it already found frame columns (a gap of fully-transparent rows
+  separates them), so a grid layout works with no new flag, reading
+  top-to-bottom then left-to-right. Second: several poses have a fist/
+  speed-line motion trail that fades to fully transparent for a column
+  before resuming, which the column scan read as its own throwaway 1px
+  "frame" — confirmed by actually rendering the pixels (a 3x crop) rather
+  than guessing, and confirmed which real pose each trail belongs to the
+  same way (visually, it's the *trailing* streak off the punch to its
+  left, not connected to the next pose at all). New `--min-fragment-width`
+  (default 8px, 0 disables) merges any run narrower than that into
+  whichever real neighbor sits closer, extending that neighbor's span —
+  ran a contact-sheet render of all 22 detected frames to confirm every
+  one is a complete pose with no stray slivers before wiring anything up.
+  Generated `public/test/luffy-attack-atlas.json` via the tool
+  (`--names=attack-0,attack-1,...`, **no `--stabilize`** — a stretch punch
+  has real, intentional horizontal travel as the fist extends, exactly
+  what that flag can't tell apart from drift, per its own doc comment).
+  `SpriteTestScene` gained an Attack button (idle/run/attack now a 3-up
+  row) playing `luffy-attack` at 15fps looped; one `Sprite` plays
+  animations from either atlas interchangeably since Phaser's
+  `sprite.play()` swaps texture to match whichever atlas the requested
+  animation's frames belong to — no second sprite needed.
+  Confirmed the single-row idle/run sheet still re-scans byte-identical
+  through the generalized detector (no regression). `typecheck`/`build`/
+  `validate-maps`/`sim -- --batch 30` clean. No Playwright pass — per the
+  repo owner, they're checking this one themselves in `?spriteTest=1`.
 - 2026-08-31 Claude: Fixed the idle-loop foot slide reported after the
   speed-selector work below, and taught `scanSpriteAtlas.ts` to fix this
   class of bug automatically going forward. Root cause, confirmed with

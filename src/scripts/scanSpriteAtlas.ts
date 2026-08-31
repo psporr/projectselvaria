@@ -61,21 +61,38 @@
  * those and use the printed frame rects to sanity-check by eye instead
  * (SpriteTestScene's 0.1x-2x speed buttons help for exactly this).
  *
+ * Multi-row sheets (2026-08-31, the Luffy attack sheet — a punch sequence
+ * long enough that it was laid out as two rows instead of one very wide
+ * strip): row bands are found the same way as frame columns, a gap of
+ * fully-transparent rows separating them, so this needs no flag — frames
+ * come out in top-to-bottom, then left-to-right order automatically.
+ *
+ * That same sheet also has a fist/speed-line motion trail drawn as a faint
+ * streak that fades to fully-transparent for a column before resuming,
+ * which the column scan reads as its own tiny "frame" otherwise (confirmed
+ * by rendering the actual pixels, not guessed: a 1px-wide "frame" showed up
+ * a couple pixels past a punch's fist — the tail of that punch's own speed
+ * lines, not a separate pose). `--min-fragment-width` (default 8) merges
+ * any run narrower than that into whichever real neighbor it sits closer
+ * to, extending that neighbor's span to include it. 0 disables merging, for
+ * a sheet where a real frame is legitimately that narrow.
+ *
  * Usage:
- *   npm run scan-atlas -- <input.png> <output.json> [--names=a,b,c,...] [--stabilize[=prefix,...]]
+ *   npm run scan-atlas -- <input.png> <output.json> [--names=a,b,c,...] [--stabilize[=prefix,...]] [--min-fragment-width=N]
  *
  * <input.png> is resolved relative to the repo's `public/` directory (or
  * pass an absolute/relative filesystem path). <output.json> is written
  * relative to the current working directory. --names assigns frame names
- * left-to-right, count must match the number of frames detected; omit it
- * to get sequential `frame-0`, `frame-1`, ... names (in which case
- * --stabilize treats the whole sheet as one group). --stabilize applies
- * the left-edge padding fix described above; bare --stabilize applies it to
- * every animation group, --stabilize=idle restricts it to groups whose name
- * prefix (e.g. "idle" for "idle-0", "idle-1", ...) is in the list — use
- * this for a sheet that mixes a stationary loop with real motion (a run,
- * dash, or attack lunge), since applying it to real motion misreads that
- * motion as drift. Confirm by eye first (SpriteTestScene's speed buttons).
+ * left-to-right (top row first, then next row, ...), count must match the
+ * number of frames detected; omit it to get sequential `frame-0`,
+ * `frame-1`, ... names (in which case --stabilize treats the whole sheet
+ * as one group). --stabilize applies the left-edge padding fix described
+ * above; bare --stabilize applies it to every animation group,
+ * --stabilize=idle restricts it to groups whose name prefix (e.g. "idle"
+ * for "idle-0", "idle-1", ...) is in the list — use this for a sheet that
+ * mixes a stationary loop with real motion (a run, dash, or attack lunge),
+ * since applying it to real motion misreads that motion as drift. Confirm
+ * by eye first (SpriteTestScene's speed buttons).
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
@@ -95,48 +112,119 @@ function resolveInputPath(input: string): string {
   return input;
 }
 
-function detectFrames(png: PNG): FrameRect[] {
+/** Finds contiguous runs of `true` in a boolean array, as [start, end] index pairs (inclusive). */
+function findRuns(hasContent: boolean[]): Array<{ start: number; end: number }> {
+  const runs: Array<{ start: number; end: number }> = [];
+  let runStart = -1;
+  for (let i = 0; i <= hasContent.length; i++) {
+    const has = i < hasContent.length && hasContent[i];
+    if (has && runStart === -1) {
+      runStart = i;
+    } else if (!has && runStart !== -1) {
+      runs.push({ start: runStart, end: i - 1 });
+      runStart = -1;
+    }
+  }
+  return runs;
+}
+
+/**
+ * Merges any run narrower than `minWidth` into whichever neighbor (previous
+ * or next) it sits closer to, extending that neighbor's span to cover it.
+ * Exists for sheets with a fist/weapon motion trail drawn as a faint streak
+ * that fades to fully-transparent for a column or two before resuming — the
+ * column scan reads that as its own tiny "frame" otherwise. A real frame is
+ * never a handful of pixels wide, so treating anything under `minWidth` as
+ * a stray fragment of its nearest real neighbor is a safe default. A
+ * fragment with no neighbor at all (the whole row is just fragments) is
+ * left as-is rather than silently dropped.
+ */
+function mergeNarrowFragments(runs: Array<{ start: number; end: number }>, minWidth: number): Array<{ start: number; end: number }> {
+  const result: Array<{ start: number; end: number }> = [];
+  const pending = runs.map((r) => ({ ...r }));
+  for (let i = 0; i < pending.length; i++) {
+    const run = pending[i];
+    const width = run.end - run.start + 1;
+    if (width >= minWidth) {
+      result.push(run);
+      continue;
+    }
+    const prev = result[result.length - 1];
+    const next = pending[i + 1];
+    const gapToPrev = prev ? run.start - prev.end - 1 : Infinity;
+    const gapToNext = next ? next.start - run.end - 1 : Infinity;
+    if (prev && gapToPrev <= gapToNext) {
+      prev.end = run.end;
+    } else if (next) {
+      next.start = run.start;
+    } else if (prev) {
+      prev.end = run.end;
+    } else {
+      result.push(run);
+    }
+  }
+  return result;
+}
+
+/**
+ * Detects frames across one or more rows. Row bands are found the same way
+ * as frame columns (a gap of fully-transparent rows separates them), so a
+ * sheet laid out as a grid of poses (common once a single strip gets long)
+ * works the same as a single-row strip — frames come out in top-to-bottom,
+ * then left-to-right reading order. `minFragmentWidth` feeds
+ * mergeNarrowFragments per row; 0 disables merging.
+ */
+function detectFrames(png: PNG, minFragmentWidth: number): FrameRect[] {
   const { width, height, data } = png;
   const alphaAt = (x: number, y: number): number => data[(width * y + x) * 4 + 3];
 
-  const columnHasContent: boolean[] = [];
-  for (let x = 0; x < width; x++) {
+  const rowHasContent: boolean[] = [];
+  for (let y = 0; y < height; y++) {
     let hasContent = false;
-    for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
       if (alphaAt(x, y) > 0) {
         hasContent = true;
         break;
       }
     }
-    columnHasContent.push(hasContent);
+    rowHasContent.push(hasContent);
   }
+  const rowBands = findRuns(rowHasContent);
 
-  const columnRuns: Array<{ start: number; end: number }> = [];
-  let runStart = -1;
-  for (let x = 0; x <= width; x++) {
-    const has = x < width && columnHasContent[x];
-    if (has && runStart === -1) {
-      runStart = x;
-    } else if (!has && runStart !== -1) {
-      columnRuns.push({ start: runStart, end: x - 1 });
-      runStart = -1;
-    }
-  }
-
-  return columnRuns.map(({ start, end }) => {
-    let minY = height;
-    let maxY = -1;
-    for (let y = 0; y < height; y++) {
-      for (let x = start; x <= end; x++) {
+  const frames: FrameRect[] = [];
+  for (const band of rowBands) {
+    const columnHasContent: boolean[] = [];
+    for (let x = 0; x < width; x++) {
+      let hasContent = false;
+      for (let y = band.start; y <= band.end; y++) {
         if (alphaAt(x, y) > 0) {
-          if (y < minY) minY = y;
-          if (y > maxY) maxY = y;
+          hasContent = true;
           break;
         }
       }
+      columnHasContent.push(hasContent);
     }
-    return { x: start, y: minY, w: end - start + 1, h: maxY - minY + 1 };
-  });
+
+    let columnRuns = findRuns(columnHasContent);
+    if (minFragmentWidth > 0) columnRuns = mergeNarrowFragments(columnRuns, minFragmentWidth);
+
+    for (const { start, end } of columnRuns) {
+      let minY = band.end + 1;
+      let maxY = band.start - 1;
+      for (let y = band.start; y <= band.end; y++) {
+        for (let x = start; x <= end; x++) {
+          if (alphaAt(x, y) > 0) {
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+            break;
+          }
+        }
+      }
+      frames.push({ x: start, y: minY, w: end - start + 1, h: maxY - minY + 1 });
+    }
+  }
+
+  return frames;
 }
 
 function isRegionTransparent(png: PNG, x0: number, x1: number, y0: number, y1: number): boolean {
@@ -220,9 +308,11 @@ function main(): void {
   const stabilizeArg = args.find((a) => a === '--stabilize' || a.startsWith('--stabilize='));
   const stabilize = stabilizeArg !== undefined;
   const stabilizePrefixes = stabilizeArg?.includes('=') ? new Set(stabilizeArg.slice('--stabilize='.length).split(',').map((s) => s.trim())) : null;
+  const minFragmentWidthArg = args.find((a) => a.startsWith('--min-fragment-width='));
+  const minFragmentWidth = minFragmentWidthArg ? Number(minFragmentWidthArg.slice('--min-fragment-width='.length)) : 8;
 
   if (positional.length < 2) {
-    console.error('Usage: npm run scan-atlas -- <input.png> <output.json> [--names=a,b,c,...] [--stabilize[=prefix,...]]');
+    console.error('Usage: npm run scan-atlas -- <input.png> <output.json> [--names=a,b,c,...] [--stabilize[=prefix,...]] [--min-fragment-width=N]');
     process.exit(1);
   }
 
@@ -234,7 +324,7 @@ function main(): void {
   }
 
   const png = PNG.sync.read(readFileSync(inputPath));
-  let frames = detectFrames(png);
+  let frames = detectFrames(png, minFragmentWidth);
 
   if (frames.length === 0) {
     console.error('No frames detected — every pixel in the sheet appears fully transparent.');
