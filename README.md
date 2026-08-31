@@ -141,6 +141,26 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-31 Claude: Replaced the attack animation's flat 15fps with
+  per-frame timing, per the repo owner's read of the 22 raw frames. Phaser
+  supports this natively — confirmed in its own type definitions before
+  writing anything, not assumed from memory —
+  `Types.Animations.AnimationFrame.duration` (ms) overrides the parent
+  animation's `frameRate` for just that one frame, so `SpriteTestScene`
+  now builds `luffy-attack`'s frame list explicitly (`buildAttackFrames()`)
+  instead of a bare `generateFrameNames()` call, tagging each with its own
+  duration: anticipation/snap/hold/ease shape — held longest at the
+  windup's cocked-back peak (frame 3) and the frame-8 impact (max
+  stretch), fast through the middle, slowing back down through the final
+  ease-out. Also: the repo owner read frames 11-17 as one full punch cycle
+  (arm re-coils compact at 11, extends to a peak at 15, starts retracting
+  by 17) rather than a single continuous motion, so that slice now repeats
+  3x (`ATTACK_FLURRY_REPEATS`) before continuing into the ease-out — the
+  same 7 frames playing three times over reads as a flurry of jabs instead
+  of one long reach, without needing new art or a second animation.
+  `typecheck`/`build`/`validate-maps`/`sim -- --batch 30` clean. No
+  Playwright — per the repo owner, checking this one themselves in
+  `?spriteTest=1`.
 - 2026-08-31 Claude: Added an attack animation to `SpriteTestScene`
   (`public/test/luffy-attack.png`, a stretch-punch sequence, committed to
   `main` directly by Gemini — also working this repo — then wired in here)

@@ -1,4 +1,4 @@
-import { GameObjects, Scene } from 'phaser';
+import { GameObjects, Scene, Types } from 'phaser';
 
 import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { Button, COLORS, FONT_FAMILY } from '../ui/kit';
@@ -8,6 +8,17 @@ const ATTACK_ATLAS_KEY = 'luffy-attack-test';
 const SCALE = 5;
 const GROUND_Y = 420;
 const SPEED_PRESETS = [0.1, 0.25, 0.5, 1, 2] as const;
+
+/**
+ * Per-frame durations (ms) for `luffy-attack`, replacing a flat frameRate —
+ * see the doc comment above `buildAttackFrames()` for the read behind these
+ * numbers and why frames 11-17 repeat instead of playing once.
+ */
+const ATTACK_WINDUP_DURATIONS = [90, 70, 60, 90, 50, 40, 35, 30]; // 0-7: anticipation, held longest at the cocked-back peak (index 3), snapping into the thrust
+const ATTACK_IMPACT_DURATIONS = [120, 40, 35]; // 8-10: first punch lands at max extension (held), then a brief recovery
+const ATTACK_PUNCH_CYCLE_DURATIONS = [35, 30, 30, 35, 50, 30, 30]; // 11-17: one punch (coiled -> extend -> begin retract), repeated for the flurry
+const ATTACK_EASE_DURATIONS = [60, 90, 120, 160]; // 18-21: settling back to guard, progressively slower
+const ATTACK_FLURRY_REPEATS = 3;
 
 /**
  * Standalone sprite-sheet-animation test (2026-08-31, per the repo owner) —
@@ -49,6 +60,23 @@ const SPEED_PRESETS = [0.1, 0.25, 0.5, 1, 2] as const;
  * A second Sprite isn't needed for this — Phaser's `sprite.play()` swaps
  * texture to match whichever atlas an animation's frames belong to, so one
  * Sprite plays animations from either atlas interchangeably.
+ *
+ * `luffy-attack`'s 22 frames read (by eye, frame-stepping through the raw
+ * scan) as: 0-7 a windup pulling the fist back, 8 the first punch landing
+ * at max stretch, 9-10 a brief recovery, 11-17 one full punch cycle (the
+ * arm re-coils compact at 11, extends out through a widening stretch,
+ * peaking at 15, then starts retracting again by 17), and 18-21 easing the
+ * arm back down into a resting guard. Per the repo owner: 11-17 reads as
+ * one jab, not a single continuous motion, so `buildAttackFrames()` repeats
+ * that slice (`ATTACK_FLURRY_REPEATS`) before continuing into the ease-out
+ * — same 7 frames playing several times over reads as a flurry of jabs
+ * instead of one long reach. Timing follows anticipation/snap/hold/ease:
+ * held longest at the windup's cocked-back peak and the punch-8 impact,
+ * fast through the flurry, slowing back down through the ease-out — see
+ * the ATTACK_*_DURATIONS constants above for the exact values, set as
+ * explicit per-frame `duration` (ms) rather than a flat frameRate (Phaser's
+ * `Types.Animations.AnimationFrame.duration` overrides the animation's
+ * frameRate for just that one frame).
  */
 export class SpriteTestScene extends Scene {
   private sprite!: GameObjects.Sprite;
@@ -106,8 +134,7 @@ export class SpriteTestScene extends Scene {
     });
     this.anims.create({
       key: 'luffy-attack',
-      frames: this.anims.generateFrameNames(ATTACK_ATLAS_KEY, { prefix: 'attack-', start: 0, end: 21 }),
-      frameRate: 15,
+      frames: this.buildAttackFrames(),
       repeat: -1,
     });
 
@@ -168,6 +195,22 @@ export class SpriteTestScene extends Scene {
 
     const backButton = new Button(this, LOGICAL_WIDTH / 2, speedButtonY + 50, 130, 34, 'Back', () => this.scene.start('MainMenu'), '13px');
     backButton.setAccent(COLORS.cancelFill, COLORS.buttonStroke);
+  }
+
+  /** See the doc comment above the class for the read behind this shape. */
+  private buildAttackFrames(): Types.Animations.AnimationFrame[] {
+    const all = this.anims.generateFrameNames(ATTACK_ATLAS_KEY, { prefix: 'attack-', start: 0, end: 21 });
+    const windup = all.slice(0, 8);
+    const impact = all.slice(8, 11);
+    const punchCycle = all.slice(11, 18);
+    const easeOut = all.slice(18, 22);
+
+    const withDurations = (slice: Types.Animations.AnimationFrame[], durations: number[]): Types.Animations.AnimationFrame[] =>
+      slice.map((f, i) => ({ ...f, duration: durations[i] }));
+
+    const flurry = Array.from({ length: ATTACK_FLURRY_REPEATS }, () => withDurations(punchCycle, ATTACK_PUNCH_CYCLE_DURATIONS)).flat();
+
+    return [...withDurations(windup, ATTACK_WINDUP_DURATIONS), ...withDurations(impact, ATTACK_IMPACT_DURATIONS), ...flurry, ...withDurations(easeOut, ATTACK_EASE_DURATIONS)];
   }
 
   private playAnim(anim: 'idle' | 'run' | 'attack'): void {
