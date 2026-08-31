@@ -1,7 +1,7 @@
 import { Scene } from 'phaser';
 
 import { PLAYER_START_LEVEL } from '../game/classes';
-import { CAMPAIGN_CHAPTERS } from '../game/maps';
+import { CAMPAIGN_CHAPTERS, LUFFY_TEST_STAGE } from '../game/maps';
 import { loadCampaignSave } from '../game/save';
 import { browserStorage } from '../systems/storage';
 import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
@@ -48,6 +48,13 @@ const LOGO_DISPLAY_SIZE = 132;
  * centered as one group so the layout doesn't read as "a few rows stuck at
  * the top of a mostly empty screen" the way the original did on a tall
  * phone viewport.
+ *
+ * A third section, DEV TESTS (2026-08-31, per the repo owner), surfaces
+ * `SpriteTestScene` and `LUFFY_TEST_STAGE` as real buttons instead of
+ * `?spriteTest=1`/`?luffyTest=1`-only routes — both URL params still work
+ * (BootScene), this is just a faster way in. Deliberately styled with no
+ * primary accent, unlike Start Run/New Game, so it doesn't read as a third
+ * real game mode.
  */
 export class MainMenuScene extends Scene {
   constructor() {
@@ -68,10 +75,12 @@ export class MainMenuScene extends Scene {
     // --- compute total content height so the logo+card block can be centered as one group ---
     const save = loadCampaignSave(browserStorage);
     const campaignRowCount = 2 + (save ? 1 : 0); // New Game + Chapter Select, plus Load Game when a save exists
+    const devRowCount = 2; // Sprite Test + Luffy Test Stage
     const roguelikeSectionHeight = HEADING_HEIGHT + ROW_HEIGHT;
     const campaignSectionHeight = HEADING_HEIGHT + campaignRowCount * ROW_HEIGHT + Math.max(0, campaignRowCount - 1) * ROW_GAP;
+    const devSectionHeight = HEADING_HEIGHT + devRowCount * ROW_HEIGHT + Math.max(0, devRowCount - 1) * ROW_GAP;
     const cardHeight =
-      CARD_PADDING_TOP + roguelikeSectionHeight + SECTION_GAP + campaignSectionHeight + CARD_PADDING_BOTTOM;
+      CARD_PADDING_TOP + roguelikeSectionHeight + SECTION_GAP + campaignSectionHeight + SECTION_GAP + devSectionHeight + CARD_PADDING_BOTTOM;
 
     const logoBlockHeight = LOGO_DISPLAY_SIZE + 12 + 20; // logo + gap + tagline
     const blockGap = 28;
@@ -133,6 +142,23 @@ export class MainMenuScene extends Scene {
       addRow(`Load Game — ${chapter?.shortName ?? save.chapterId}`, () => this.loadGame(), '13px');
     }
     addRow('Chapter Select', () => this.scene.start('ChapterSelect'), '13px');
+    y -= ROW_GAP;
+
+    const devDivider = this.add.graphics();
+    devDivider.lineStyle(1, DIVIDER_COLOR, 1);
+    const devDividerY = y + SECTION_GAP / 2;
+    devDivider.lineBetween(LOGICAL_WIDTH / 2 - ROW_WIDTH / 2, devDividerY, LOGICAL_WIDTH / 2 + ROW_WIDTH / 2, devDividerY);
+    y += SECTION_GAP;
+
+    // Animated-sprite dev tools (2026-08-31) — surfaced here per the repo
+    // owner rather than staying `?spriteTest=1`/`?luffyTest=1`-only, now that
+    // there are two of them and typing a URL param each time got old. Still
+    // placeholder art with no commission (SpriteTestScene's own doc comment),
+    // so this section stays visually distinct (muted heading, no primary
+    // accent on either row) rather than reading as a third real game mode.
+    addHeading('DEV TESTS');
+    addRow('Sprite Test', () => this.scene.start('SpriteTest'), '13px');
+    addRow('Luffy Test Stage', () => this.startLuffyTestStage(), '13px');
 
     this.add
       .text(LOGICAL_WIDTH - 12, LOGICAL_HEIGHT - 12, `v${GAME_VERSION}`, {
@@ -171,6 +197,12 @@ export class MainMenuScene extends Scene {
     const save = loadCampaignSave(browserStorage);
     if (!save) return;
     const data: TacticalSceneData = { mode: 'campaign', chapterId: save.chapterId, carryOver: save.carryOver };
+    this.scene.start('Tactical', data);
+  }
+
+  /** Same route `?luffyTest=1` gives BootScene — see LUFFY_TEST_STAGE's own doc comment (game/maps.ts) for why it's a debugChapter override rather than a real, CAMPAIGN_CHAPTERS-listed chapter. */
+  private startLuffyTestStage(): void {
+    const data: TacticalSceneData = { mode: 'campaign', debugChapter: LUFFY_TEST_STAGE };
     this.scene.start('Tactical', data);
   }
 }

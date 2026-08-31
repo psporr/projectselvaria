@@ -44,22 +44,37 @@
  * so nothing on the left side was actually moving.
  *
  * --stabilize fixes this per consecutive same-prefix frame group (i.e. one
- * named animation, e.g. all the `idle-N` frames run together) by treating
- * the group's *narrowest* frame as the balanced reference and padding every
- * wider frame's LEFT edge outward — never cropping, never touching the
- * right edge — just enough that the frame's own horizontal center again
- * lines up with a fixed point relative to the narrowest frame. Padding only
- * ever extends into pixels verified fully transparent for that frame's own
- * row range; a frame where that's not possible (the growth is genuinely on
- * the left, or there's no room before the previous frame) is left
- * un-adjusted with a warning printed, rather than guessed at. This assumes
- * the group's narrowest frame is already well-centered and growth is
- * one-sided — true often enough to be worth defaulting on for a stationary
- * loop (idle, a held guard pose), but a real, intentional horizontal
- * translation (a dash, a lunge, an attack with real forward motion) would
- * get incorrectly flattened by this same logic — leave --stabilize off for
- * those and use the printed frame rects to sanity-check by eye instead
- * (SpriteTestScene's 0.1x-2x speed buttons help for exactly this).
+ * named animation, e.g. all the `idle-N` frames run together), on both axes,
+ * with two structurally different techniques since the two axes don't share
+ * an invariant the same way:
+ *
+ * Horizontal: treats the group's *narrowest* frame as the balanced
+ * reference and pads every wider frame's LEFT edge outward — never
+ * cropping, never touching the right edge — just enough that the frame's
+ * own horizontal center again lines up with a fixed point relative to the
+ * narrowest frame. This is needed because there's no shared absolute X
+ * across the group (each frame occupies a different region of the strip).
+ *
+ * Vertical (2026-08-31, found the same way — checking a bounce in the
+ * on-grid render that the standalone viewer's bottom-anchored `setOrigin`
+ * never showed): unlike X, every frame in a single-row group already shares
+ * one absolute Y coordinate system, and on the Luffy idle frames the bottom
+ * edge (the feet) landed on the exact same row for all four even though
+ * frame.h varied 43-46px — only the top crept down as a hat shrank. So this
+ * pass just pads every shorter frame's TOP out to the group's *tallest*
+ * height, leaving each frame's own bottom edge exactly where it was — no
+ * offset formula needed, because matching heights while holding the bottom
+ * fixed does the job on its own.
+ *
+ * Both passes only ever extend into pixels verified fully transparent for
+ * that frame; a frame where that's not possible is left un-adjusted with a
+ * warning printed, rather than guessed at. Both also assume the motion is
+ * genuinely stationary (a plant that doesn't move, an idle sway, a held
+ * guard) — real intentional motion on either axis (a run's leg reach, an
+ * attack's forward lunge, a jump's real height change) would get incorrectly
+ * flattened by this same logic. Leave --stabilize off for those and use the
+ * printed frame rects to sanity-check by eye instead (SpriteTestScene's
+ * 0.1x-2x speed buttons help for exactly this).
  *
  * Multi-row sheets (2026-08-31, the Luffy attack sheet — a punch sequence
  * long enough that it was laid out as two rows instead of one very wide
@@ -293,8 +308,43 @@ function stabilizeFrames(frames: FrameRect[], names: string[], png: PNG, onlyPre
         continue;
       }
 
-      result[i] = { x: newX, y: f.y, w: newW, h: f.h };
+      result[i] = { ...result[i], x: newX, w: newW };
       notes.push(`  ~ ${names[i]}: x ${f.x} -> ${newX}, w ${f.w} -> ${newW}`);
+    }
+
+    // Vertical pass — a structurally different fix from the horizontal one
+    // above, not just X/Y-swapped copy-paste. The horizontal case has no
+    // group-wide shared value to lean on (each frame occupies a different
+    // region of the strip), so it derives a per-frame offset from the
+    // narrowest frame's own half-width. The vertical case is simpler: every
+    // frame in a single-row group sits in the same absolute Y coordinate
+    // system, and (confirmed on the Luffy idle frames — checking actual
+    // pixel rows, not assumed) the bottom edge landed on the *same* row for
+    // every frame even though frame.h varied 43-46px: the character's feet
+    // never moved, only the top of the frame crept down as content above the
+    // feet (a hat) shrank. So this just pads every shorter frame's TOP out
+    // to the group's tallest height, leaving each frame's own bottom edge
+    // exactly where it already was — no formula needed beyond "make the
+    // heights match," because holding the bottom fixed does that
+    // automatically regardless of whether frames share one absolute bottom
+    // row (this group) or not (still correct either way).
+    const baseH = Math.max(...group.map((i) => frames[i].h));
+    for (const i of group) {
+      const f = frames[i];
+      const pad = baseH - f.h;
+      if (pad <= 0) continue;
+
+      const newY = f.y - pad;
+      // Checked against the post-horizontal-pass x/w (result[i], not f) —
+      // if the frame was already widened above, the new top rows need to be
+      // clear across that full final width, not just its original narrower one.
+      if (newY < 0 || !isRegionTransparent(png, result[i].x, result[i].x + result[i].w - 1, newY, f.y - 1)) {
+        notes.push(`  ! ${names[i]}: needs ${pad}px top padding but that region isn't clear — left unchanged, check by hand`);
+        continue;
+      }
+
+      result[i] = { ...result[i], y: newY, h: baseH };
+      notes.push(`  ~ ${names[i]}: y ${f.y} -> ${newY}, h ${f.h} -> ${baseH}`);
     }
   }
 

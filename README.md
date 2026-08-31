@@ -141,6 +141,45 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-31 Claude: Fixed a real bug the repo owner spotted after shipping
+  the idle-only revert — Luffy's idle loop still looked "bouncy" on the grid
+  even though the standalone `SpriteTestScene` viewer looked fine, same
+  sheet, same animation. Root-caused with actual pixel data, not guessed:
+  every idle frame's bottom ink row sits on the exact same absolute row
+  (56) even though `frame.h` varies 43-46px — the feet never move, only the
+  top crept down as a hat shrank frame to frame. `UnitSprite`'s on-grid
+  render uses `setOrigin(0.5, 0.5)` (center-anchored, so it matches how the
+  circle/portrait placeholders render — see `CombatOverlayScene`'s own entry
+  below for why), and center-anchoring a *varying* height means the frame's
+  midpoint drifts even when the feet don't, which reads as the character
+  bobbing up and down. The viewer never showed this because it uses
+  `setOrigin(0.5, 1)` (bottom-anchored) instead, which is immune to a height
+  change by construction. This is the vertical sibling of the horizontal
+  drift bug fixed earlier the same day, but a *structurally different* fix,
+  not a copy-paste: the horizontal case has no shared value across the
+  group to anchor on (each frame sits in a different strip region), so it
+  derives an offset from the narrowest frame's own half-width; the vertical
+  case is simpler — every frame already shares one absolute Y coordinate
+  system, so padding every shorter frame's top out to the group's *tallest*
+  height (verified against real transparent pixels, same safety check as
+  the horizontal pass) does the whole job with no offset math needed, since
+  holding the bottom edge fixed is automatic once the heights match.
+  `scanSpriteAtlas.ts`'s `--stabilize` now runs both passes together;
+  regenerated `luffy-atlas.json` via the tool rather than hand-editing.
+  Confirmed the fix can't affect `SpriteTestScene`: the bottom edge
+  (`frame.y + frame.h`) is provably unchanged by a top-only pad, which is
+  exactly what that scene's own `setOrigin(0.5, 1)` reads.
+  Also added a **DEV TESTS** section to the main menu (`SpriteTestScene`
+  and `LUFFY_TEST_STAGE`, per the repo owner — typing `?spriteTest=1`/
+  `?luffyTest=1` each time got old now that there are two) — both URL params
+  still work unchanged (BootScene), this is just a faster way in. Styled
+  with no primary accent so it doesn't read as a third real game mode.
+  `typecheck`/`build`/`validate-maps`/`sim -- --batch 30` clean; Playwright
+  confirmed the resized main-menu card lays out with no overlap and both new
+  buttons actually navigate (Sprite Test screen, and a live Luffy Test Stage
+  battle) — the only console errors present were the two known pre-existing
+  ones unrelated to this change (a connection-reset on an unrelated asset,
+  and the already-flagged missing `test-map1.png` background).
 - 2026-08-31 Claude: Built `CombatOverlayScene` — `HANDOFF.md` §7's
   long-deferred "Phase 2" full-screen combat cut-in, GBA Fire Emblem style —
   and pulled the on-map animation back to idle only. Per the repo owner after
