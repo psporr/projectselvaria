@@ -227,7 +227,18 @@ export class UIScene extends Scene {
     if (!state) return;
     const { G, ctx } = state;
 
-    if (ctx.gameover) {
+    // Gated on isInputSuspended() for exactly the same reason the phase
+    // banner below is: the killing blow that ends a battle sets ctx.gameover
+    // in the same move whose presentation — the combat overlay, then the
+    // on-grid pass after it — is still visibly playing, so "VICTORY"/
+    // "CHAPTER CLEAR" would pop over a fight the player is still watching
+    // (found 2026-08-31, the repo owner hit this: "stage clear appears
+    // before battle overlay and on grid battle end"). Nothing consumes the
+    // gameover state here, so this simply stays hidden while suspended and
+    // shows itself the next time refreshHud() runs — which the combat
+    // sequence's own onComplete calls explicitly, right after clearing
+    // inputSuspended.
+    if (ctx.gameover && !this.tactical.isInputSuspended()) {
       const gameover = ctx.gameover as GameOver;
       const isVictory = gameover.winner === 'player';
       const isCampaignWin = isVictory && G.mode === 'campaign';

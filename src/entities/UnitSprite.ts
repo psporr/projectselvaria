@@ -3,7 +3,7 @@ import type { Unit } from '../game/types';
 import { DPR } from '../systems/viewport';
 import { CLASS_LETTER } from '../ui/classIcons';
 import { enemyClassTextureKeyFor, heroIdleRunAtlasKey, heroTextureKey, isAnimatedHero } from '../ui/heroArt';
-import { LUFFY_ANIM_IDLE } from '../ui/heroAnimations';
+import { LUFFY_ANIM_IDLE_MAP } from '../ui/heroAnimations';
 import { FONT_FAMILY } from '../ui/kit';
 
 const TEAM_COLOR: Record<string, number> = { player: 0x4a90d9, enemy: 0xd9534f };
@@ -65,13 +65,18 @@ function blendToward(color: number, target: number, amount: number): number {
  * SpriteTestScene's standalone viewer uses — this board draws every unit
  * (circle, static portrait, or animated sprite) centered in its tile, and
  * matching that here keeps a Luffy visually level with its teammates
- * instead of looking like it's standing at the tile's bottom edge. The
- * tradeoff: unlike the viewer's ground-line-verified foot anchor, a frame
- * whose height differs a lot from `ANIM_REFERENCE_FRAME_HEIGHT` (the
- * attack sheet's frames go up to 84x54px, vs idle's ~30x45px) will wobble
- * vertically a little rather than keep its feet pinned — acceptable for a
- * small on-board sprite, not something SpriteTestScene's much larger,
- * feet-focused view could get away with.
+ * instead of looking like it's standing at the tile's bottom edge. That's
+ * only safe because `scanSpriteAtlas.ts --stabilize` pads the idle frames
+ * to uniform size on both axes: with every frame the same rect, a
+ * center-anchored origin and the viewer's bottom-anchored one differ by a
+ * constant offset and nothing else. Before that, the varying frame height
+ * dragged the center-anchor around and the character visibly bobbed — the
+ * viewer never showed it, being immune to a height change by construction.
+ *
+ * It plays `LUFFY_ANIM_IDLE_MAP`, not the viewer's `LUFFY_ANIM_IDLE`: same
+ * frames, yoyo'd and slower, because the raw loop's snap back to frame 0
+ * still read as a bounce at this size even with the geometry fixed. See
+ * that constant's own doc comment in heroAnimations.ts.
  */
 export class UnitSprite extends GameObjects.Container {
   private readonly circle: GameObjects.Arc | null;
@@ -113,7 +118,7 @@ export class UnitSprite extends GameObjects.Container {
       this.portraitGrayscale = null;
       const animScale = (tileSize * 0.92) / ANIM_REFERENCE_FRAME_HEIGHT;
       this.animSprite = scene.add.sprite(0, 0, heroIdleRunAtlasKey(unit.name), 'idle-0').setOrigin(0.5, 0.5).setScale(animScale);
-      this.animSprite.play(LUFFY_ANIM_IDLE);
+      this.animSprite.play(LUFFY_ANIM_IDLE_MAP);
       this.animSprite.enableFilters();
       this.animGrayscale = this.animSprite.filters!.internal.addColorMatrix();
       this.animGrayscale.colorMatrix.grayscale(1);

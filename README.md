@@ -141,6 +141,37 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-31 Claude: Two fixes from the repo owner's testing.
+  **Stage clear appearing mid-battle**: `UIScene.refreshHud()`'s gameover
+  panel had no `isInputSuspended()` gate, so the killing blow that ends a
+  battle popped "VICTORY"/"CHAPTER CLEAR" the instant `ctx.gameover` flipped
+  — over the combat overlay and the on-grid pass still visibly playing.
+  Exactly the same bug class as the phase banner mid-attack one fixed
+  2026-08-28, and the same fix: gate the show, don't consume anything, and
+  let the combat sequence's own `onComplete` (which already clears
+  `inputSuspended` then calls `refreshHud()`) show it a moment later.
+  Verified the ordering holds — `onStateChange()` sets the flag inside
+  `syncUnits()` synchronously, and UIScene subscribes after TacticalScene,
+  so the flag is always set before the HUD refresh reads it.
+  **Idle still bouncy on the grid**: measured rather than re-guessed, and
+  the previous day's stabilization *had* worked — with the atlas uniform on
+  both axes, the feet sit a constant 22px below the render anchor in all
+  four frames, provably planted. What remained was the art's own motion: the
+  character's top squashes down 1px a frame, then the loop **snaps the full
+  3px back** to frame 0. That sawtooth is what reads as a bounce. The viewer
+  doesn't show it as badly because it draws at 5x, where the same motion has
+  the screen pixels to look like breathing; on the board at ~1.2x, with the
+  game's global `roundPixels`, those 1px steps quantize unevenly and the
+  reset lands as one hard jump. Fixed with a map-specific idle
+  (`LUFFY_ANIM_IDLE_MAP`) — same frames, `yoyo: true` and half the frame
+  rate, so the motion is a triangle wave (0,1,2,3,2,1,0) with no
+  discontinuity, at a breathing pace rather than a pulse. `SpriteTestScene`
+  deliberately keeps playing the raw un-yoyo'd `LUFFY_ANIM_IDLE`: showing
+  the frames exactly as authored is that scene's whole job. If it still
+  reads wrong at board size, the honest next step is a static map pose —
+  plenty of tactics games animate nothing on the map — rather than tuning
+  this further.
+  `typecheck`/`build`/`validate-maps`/`sim -- --batch 30` clean.
 - 2026-08-31 Claude: Fixed a real bug the repo owner spotted after shipping
   the idle-only revert — Luffy's idle loop still looked "bouncy" on the grid
   even though the standalone `SpriteTestScene` viewer looked fine, same

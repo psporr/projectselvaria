@@ -8,6 +8,29 @@ export const LUFFY_ANIM_RUN = 'luffy-run';
 export const LUFFY_ANIM_ATTACK = 'luffy-attack';
 
 /**
+ * The on-board idle (2026-08-31) — same four frames as `LUFFY_ANIM_IDLE`,
+ * but yoyo'd and slower, and it exists because the plain loop read as
+ * "bouncy" on the grid while looking fine in SpriteTestScene's viewer.
+ *
+ * Measured rather than guessed: with the atlas stabilized on both axes, the
+ * feet are provably planted (bottom ink sits a constant 22px below the
+ * render anchor in all four frames) — what moves is the character's *top*,
+ * squashing down 1px a frame, then snapping the full 3px back when the loop
+ * restarts. That sawtooth is the bounce. The viewer doesn't show it as
+ * badly because it draws at 5x, where the same motion has enough screen
+ * pixels to read as smooth breathing; on the board at roughly 1.2x, with
+ * the game's global `roundPixels`, those 1px steps quantize unevenly and
+ * the reset lands as one hard jump.
+ *
+ * Yoyo replaces that sawtooth with a triangle wave — 0,1,2,3,2,1,0 — so
+ * there's no discontinuity to read as a bounce, and the halved frame rate
+ * makes the remaining squash a slow breath rather than a pulse. The viewer
+ * deliberately keeps playing the raw, un-yoyo'd `LUFFY_ANIM_IDLE`: its
+ * whole job is showing the frames exactly as authored.
+ */
+export const LUFFY_ANIM_IDLE_MAP = 'luffy-idle-map';
+
+/**
  * The frame the punch actually lands on — `CombatOverlayScene` watches for
  * it (`animationupdate`) to time the defender's hit reaction, rather than a
  * hardcoded delay that would silently drift out of sync the next time the
@@ -67,6 +90,13 @@ export function ensureLuffyAnimations(scene: Scene): void {
     key: LUFFY_ANIM_IDLE,
     frames: scene.anims.generateFrameNames(idleRunAtlas, { prefix: 'idle-', start: 0, end: 3 }),
     frameRate: 6,
+    repeat: -1,
+  });
+  scene.anims.create({
+    key: LUFFY_ANIM_IDLE_MAP,
+    frames: scene.anims.generateFrameNames(idleRunAtlas, { prefix: 'idle-', start: 0, end: 3 }),
+    frameRate: 3,
+    yoyo: true,
     repeat: -1,
   });
   scene.anims.create({
