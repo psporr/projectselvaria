@@ -33,6 +33,15 @@ export class BootScene extends Scene {
             resolution: DPR
         }).setOrigin(0.5);
 
-        this.time.delayedCall(500, () => this.scene.start('MainMenu'));
+        this.time.delayedCall(500, () => {
+            // ?spriteTest=1 boots straight into SpriteTestScene — a deliberately
+            // hidden dev entry point (2026-08-31), not on MainMenuScene's own
+            // menu, since it's testing placeholder art with no commission yet.
+            if (new URLSearchParams(location.search).get('spriteTest')) {
+                this.scene.start('SpriteTest');
+                return;
+            }
+            this.scene.start('MainMenu');
+        });
     }
 }
