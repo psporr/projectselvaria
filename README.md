@@ -141,6 +141,35 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-31 Claude: Fixed the idle-loop foot slide reported after the
+  speed-selector work below, and taught `scanSpriteAtlas.ts` to fix this
+  class of bug automatically going forward. Root cause, confirmed with
+  direct pixel inspection (not guessed): in every `idle-N` frame the
+  leftmost foot pixel sat at exactly `frame.x` — zero drift there — but
+  something above the feet (arm/hair) grew the tight-crop bounding box by
+  1px to the right each frame (30/31/32/33px wide), and since
+  `setOrigin(0.5, ...)` anchors to *that frame's own* box-center, the
+  growing box dragged the center-anchor sideways even though the feet
+  never moved. New `--stabilize[=prefix,...]` flag: for each named,
+  consecutive-run animation group (e.g. all `idle-N` frames), treats the
+  group's narrowest frame as the balanced reference and pads every wider
+  frame's *left* edge outward (verified against the raw pixel data to
+  land only on fully-transparent columns — never crops, never guesses)
+  until each frame's own center re-aligns to a fixed point. Deliberately
+  scoped per-prefix rather than sheet-wide: running it against this same
+  sheet's `run-N` group first (a sanity check before touching anything)
+  inflated `run-0` from 38px to a nonsensical 50px, because a run cycle's
+  leg-reach is *real* intentional horizontal motion that this technique
+  can't tell apart from drift — confirms the technique is a real fix for
+  a stationary pose, not a general-purpose one; `--stabilize=idle` scopes
+  it correctly. Re-ran `npm run scan-atlas -- public/test/luffy-sheet.png
+  public/test/luffy-atlas.json --names=... --stabilize=idle` to regenerate
+  the committed atlas (`idle-1/2/3` shift left 1-3px, widen to 32/34/36px;
+  `idle-0` and all `run-N` frames unchanged) instead of hand-editing the
+  JSON, so the committed file and the tool that produces it never drift
+  apart. `typecheck`/`build`/`validate-maps`/`sim -- --batch 30` clean;
+  Playwright at 0.1x confirms `idle-1`/`idle-3` now hold the same stance
+  position instead of visibly shifting right/up frame to frame.
 - 2026-08-31 Claude: Added a playback-speed selector to `SpriteTestScene`
   (0.1x/0.25x/0.5x/1x/2x buttons, `sprite.anims.timeScale` — no need to
   touch the animation definitions or re-`play()`), per the repo owner

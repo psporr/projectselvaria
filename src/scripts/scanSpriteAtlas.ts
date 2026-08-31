@@ -31,14 +31,51 @@
  * misalignment. Reach for this scanner specifically when only a flattened,
  * non-uniform PNG exists and there's no source file to re-export from.
  *
+ * --stabilize (2026-08-31, found on the Luffy idle loop): tight-cropping
+ * each frame independently means `setOrigin(0.5, ...)` anchors to *that
+ * frame's own* bounding-box center — if one side of the pose (an arm, hair,
+ * a weapon) grows or shrinks frame to frame while the other side (e.g. feet
+ * planted for an idle loop) stays put, the varying box width drags the
+ * center-anchor sideways even though the "planted" side never moved. Reads
+ * as the character sliding in place. Root-caused on the Luffy idle frames
+ * (`idle-0..3`, widths 30/31/32/33px climbing 1px a frame purely from
+ * content growing on the right) by checking raw pixel columns: the left
+ * ink edge sat at exactly `frame.x` — zero offset — in all four frames,
+ * so nothing on the left side was actually moving.
+ *
+ * --stabilize fixes this per consecutive same-prefix frame group (i.e. one
+ * named animation, e.g. all the `idle-N` frames run together) by treating
+ * the group's *narrowest* frame as the balanced reference and padding every
+ * wider frame's LEFT edge outward — never cropping, never touching the
+ * right edge — just enough that the frame's own horizontal center again
+ * lines up with a fixed point relative to the narrowest frame. Padding only
+ * ever extends into pixels verified fully transparent for that frame's own
+ * row range; a frame where that's not possible (the growth is genuinely on
+ * the left, or there's no room before the previous frame) is left
+ * un-adjusted with a warning printed, rather than guessed at. This assumes
+ * the group's narrowest frame is already well-centered and growth is
+ * one-sided — true often enough to be worth defaulting on for a stationary
+ * loop (idle, a held guard pose), but a real, intentional horizontal
+ * translation (a dash, a lunge, an attack with real forward motion) would
+ * get incorrectly flattened by this same logic — leave --stabilize off for
+ * those and use the printed frame rects to sanity-check by eye instead
+ * (SpriteTestScene's 0.1x-2x speed buttons help for exactly this).
+ *
  * Usage:
- *   npm run scan-atlas -- <input.png> <output.json> [--names=a,b,c,...]
+ *   npm run scan-atlas -- <input.png> <output.json> [--names=a,b,c,...] [--stabilize[=prefix,...]]
  *
  * <input.png> is resolved relative to the repo's `public/` directory (or
  * pass an absolute/relative filesystem path). <output.json> is written
  * relative to the current working directory. --names assigns frame names
  * left-to-right, count must match the number of frames detected; omit it
- * to get sequential `frame-0`, `frame-1`, ... names.
+ * to get sequential `frame-0`, `frame-1`, ... names (in which case
+ * --stabilize treats the whole sheet as one group). --stabilize applies
+ * the left-edge padding fix described above; bare --stabilize applies it to
+ * every animation group, --stabilize=idle restricts it to groups whose name
+ * prefix (e.g. "idle" for "idle-0", "idle-1", ...) is in the list — use
+ * this for a sheet that mixes a stationary loop with real motion (a run,
+ * dash, or attack lunge), since applying it to real motion misreads that
+ * motion as drift. Confirm by eye first (SpriteTestScene's speed buttons).
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
@@ -102,13 +139,90 @@ function detectFrames(png: PNG): FrameRect[] {
   });
 }
 
+function isRegionTransparent(png: PNG, x0: number, x1: number, y0: number, y1: number): boolean {
+  const { width, data } = png;
+  for (let x = x0; x <= x1; x++) {
+    for (let y = y0; y <= y1; y++) {
+      if (data[(width * y + x) * 4 + 3] > 0) return false;
+    }
+  }
+  return true;
+}
+
+/** Groups consecutive indices sharing the same name prefix (name with any trailing "-<digits>" stripped) — animations are contiguous runs left-to-right on the sheet, so this is enough without needing explicit group boundaries from the caller. */
+function groupConsecutiveByPrefix(names: string[]): number[][] {
+  const prefixOf = (name: string): string => name.replace(/-\d+$/, '');
+  const groups: number[][] = [];
+  let current: number[] = [];
+  let currentPrefix = '';
+  names.forEach((name, i) => {
+    const prefix = prefixOf(name);
+    if (current.length > 0 && prefix !== currentPrefix) {
+      groups.push(current);
+      current = [];
+    }
+    current.push(i);
+    currentPrefix = prefix;
+  });
+  if (current.length > 0) groups.push(current);
+  return groups;
+}
+
+/**
+ * See the --stabilize doc comment above the file header for the technique
+ * and its assumptions. Mutates nothing — returns adjusted copies, plus
+ * console-ready notes about what changed or was skipped.
+ *
+ * `onlyPrefixes`, when non-empty, restricts stabilization to groups whose
+ * name prefix is in the set — necessary in practice, not just cautious:
+ * the technique assumes a stationary pose (idle, a held guard) and actively
+ * misreads real intentional horizontal motion (a run cycle's leg reach, a
+ * dash) as drift, inflating those frames instead of fixing anything. Pass
+ * only the prefixes you've confirmed by eye should hold still.
+ */
+function stabilizeFrames(frames: FrameRect[], names: string[], png: PNG, onlyPrefixes: Set<string> | null): { frames: FrameRect[]; notes: string[] } {
+  const result = frames.map((f) => ({ ...f }));
+  const notes: string[] = [];
+  const prefixOf = (name: string): string => name.replace(/-\d+$/, '');
+  const groups = groupConsecutiveByPrefix(names);
+
+  for (const group of groups) {
+    if (group.length < 2) continue;
+    const groupPrefix = prefixOf(names[group[0]]);
+    if (onlyPrefixes && !onlyPrefixes.has(groupPrefix)) continue;
+    const baseW = Math.min(...group.map((i) => frames[i].w));
+
+    for (const i of group) {
+      const f = frames[i];
+      const shift = f.w - baseW;
+      if (shift <= 0) continue;
+
+      const newW = Math.max(baseW, 2 * f.w - baseW);
+      const newX = f.x - shift;
+
+      if (newX < 0 || !isRegionTransparent(png, newX, f.x - 1, f.y, f.y + f.h - 1)) {
+        notes.push(`  ! ${names[i]}: needs ${shift}px left padding but that region isn't clear — left unchanged, check by hand`);
+        continue;
+      }
+
+      result[i] = { x: newX, y: f.y, w: newW, h: f.h };
+      notes.push(`  ~ ${names[i]}: x ${f.x} -> ${newX}, w ${f.w} -> ${newW}`);
+    }
+  }
+
+  return { frames: result, notes };
+}
+
 function main(): void {
   const args = process.argv.slice(2);
   const positional = args.filter((a) => !a.startsWith('--'));
   const namesArg = args.find((a) => a.startsWith('--names='));
+  const stabilizeArg = args.find((a) => a === '--stabilize' || a.startsWith('--stabilize='));
+  const stabilize = stabilizeArg !== undefined;
+  const stabilizePrefixes = stabilizeArg?.includes('=') ? new Set(stabilizeArg.slice('--stabilize='.length).split(',').map((s) => s.trim())) : null;
 
   if (positional.length < 2) {
-    console.error('Usage: npm run scan-atlas -- <input.png> <output.json> [--names=a,b,c,...]');
+    console.error('Usage: npm run scan-atlas -- <input.png> <output.json> [--names=a,b,c,...] [--stabilize[=prefix,...]]');
     process.exit(1);
   }
 
@@ -120,7 +234,7 @@ function main(): void {
   }
 
   const png = PNG.sync.read(readFileSync(inputPath));
-  const frames = detectFrames(png);
+  let frames = detectFrames(png);
 
   if (frames.length === 0) {
     console.error('No frames detected — every pixel in the sheet appears fully transparent.');
@@ -136,6 +250,13 @@ function main(): void {
       process.exit(1);
     }
     names = provided;
+  }
+
+  let stabilizeNotes: string[] = [];
+  if (stabilize) {
+    const stabilized = stabilizeFrames(frames, names, png, stabilizePrefixes);
+    frames = stabilized.frames;
+    stabilizeNotes = stabilized.notes;
   }
 
   const atlasFrames: Record<string, unknown> = {};
@@ -169,6 +290,10 @@ function main(): void {
     const f = frames[i];
     console.log(`  ${name.padEnd(12)} x:${f.x} y:${f.y} w:${f.w} h:${f.h}`);
   });
+  if (stabilize) {
+    console.log(stabilizeNotes.length > 0 ? 'Stabilization adjustments:' : 'Stabilization: no adjustments needed.');
+    stabilizeNotes.forEach((note) => console.log(note));
+  }
   console.log(`Wrote ${outputArg}`);
 }
 
