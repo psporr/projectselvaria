@@ -28,6 +28,22 @@
  * directly from data Aseprite already recorded, so there's no heuristic
  * to get wrong and no `--stabilize`-equivalent flag needed.
  *
+ * The union is taken **per animation group** (idle frames together, the
+ * attack frame(s) separately), not across all frames at once — a bug found
+ * 2026-09-01 in this script's first version (the repo owner: units were
+ * rendering shifted toward the left edge of their tile). A single global
+ * union let the attack pose's one-off rightward reach drag the shared crop
+ * window wide on the right side; the idle frames' own content, which never
+ * moves right that far, then sat in the left portion of that oversized box
+ * instead of centered in it. `scanSpriteAtlas.ts`'s `--stabilize` already
+ * scoped its correction per same-prefix group for exactly this reason (its
+ * own doc comment: real intentional motion in one animation shouldn't
+ * flatten into another's). Grouping the union the same way here keeps idle
+ * tightly self-consistent — the case that actually needs pixel-stable
+ * centering, since it's what plays continuously — while letting the attack
+ * pose keep its own natural extent without either group distorting the
+ * other.
+ *
  * Frame naming follows the convention `heroAnimations.ts` already consumes
  * via `generateFrameNames({ prefix, start, end })`: the first
  * `--idle-frames` frames become `idle-0..idle-(N-1)`, the remaining
@@ -113,14 +129,14 @@ interface Rect {
   h: number;
 }
 
-/** The smallest rect (in canvas coordinates) that contains every frame's actual cel content — see the module doc comment on why this, not a per-frame tight crop, is the correct shared window to cut every frame from. */
-function unionContentBounds(doc: Aseprite): Rect {
+/** The smallest rect (in canvas coordinates) that contains every listed frame's actual cel content — see the module doc comment on why this is scoped per animation group, not taken across every frame in the file at once. */
+function groupContentBounds(doc: Aseprite, frameIndices: number[]): Rect {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
-  for (const frame of doc.frames) {
-    for (const cel of frame.cels) {
+  for (const i of frameIndices) {
+    for (const cel of doc.frames[i].cels) {
       if (cel.celType === 1 || !cel.rawCelData) continue;
       minX = Math.min(minX, cel.xpos);
       minY = Math.min(minY, cel.ypos);
@@ -129,7 +145,7 @@ function unionContentBounds(doc: Aseprite): Rect {
     }
   }
   if (!Number.isFinite(minX)) {
-    throw new Error('No visible pixel content found in any frame — every cel was empty or linked.');
+    throw new Error('No visible pixel content found in this frame group — every cel was empty or linked.');
   }
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
@@ -171,30 +187,42 @@ function main(): void {
     process.exit(1);
   }
 
-  const names: string[] = [];
-  for (let i = 0; i < idleFrameCount; i++) names.push(`idle-${i}`);
-  for (let i = 0; i < attackFrameCount; i++) names.push(`attack-${i}`);
+  // Each animation gets its own name, its own frame-index range, and (per
+  // the module doc comment) its own independently-computed union crop —
+  // groups never share or influence each other's window.
+  const groups: Array<{ prefix: string; indices: number[] }> = [];
+  if (idleFrameCount > 0) groups.push({ prefix: 'idle', indices: Array.from({ length: idleFrameCount }, (_, i) => i) });
+  if (attackFrameCount > 0) groups.push({ prefix: 'attack', indices: Array.from({ length: attackFrameCount }, (_, i) => idleFrameCount + i) });
 
-  const crop = unionContentBounds(doc);
-  const strip = new PNG({ width: crop.w * doc.numFrames, height: crop.h });
+  const crops = groups.map((g) => groupContentBounds(doc, g.indices));
+  const stripWidth = groups.reduce((sum, g, gi) => sum + g.indices.length * crops[gi].w, 0);
+  const stripHeight = Math.max(...crops.map((c) => c.h));
+  const strip = new PNG({ width: stripWidth, height: stripHeight });
   const atlasFrames: Record<string, AtlasFrameEntry> = {};
+  const names: string[] = [];
 
-  for (let i = 0; i < doc.numFrames; i++) {
-    const pixels = compositeFrame(doc, i);
-    const destX = i * crop.w;
-    for (let y = 0; y < crop.h; y++) {
-      const srcRowStart = ((crop.y + y) * doc.width + crop.x) * 4;
-      const destRowStart = (y * strip.width + destX) * 4;
-      pixels.copy(strip.data, destRowStart, srcRowStart, srcRowStart + crop.w * 4);
-    }
-    atlasFrames[names[i]] = {
-      frame: { x: destX, y: 0, w: crop.w, h: crop.h },
-      rotated: false,
-      trimmed: false,
-      spriteSourceSize: { x: 0, y: 0, w: crop.w, h: crop.h },
-      sourceSize: { w: crop.w, h: crop.h },
-    };
-  }
+  let destX = 0;
+  groups.forEach((group, gi) => {
+    const crop = crops[gi];
+    group.indices.forEach((frameIndex, iInGroup) => {
+      const frameName = `${group.prefix}-${iInGroup}`;
+      names.push(frameName);
+      const pixels = compositeFrame(doc, frameIndex);
+      for (let y = 0; y < crop.h; y++) {
+        const srcRowStart = ((crop.y + y) * doc.width + crop.x) * 4;
+        const destRowStart = (y * strip.width + destX) * 4;
+        pixels.copy(strip.data, destRowStart, srcRowStart, srcRowStart + crop.w * 4);
+      }
+      atlasFrames[frameName] = {
+        frame: { x: destX, y: 0, w: crop.w, h: crop.h },
+        rotated: false,
+        trimmed: false,
+        spriteSourceSize: { x: 0, y: 0, w: crop.w, h: crop.h },
+        sourceSize: { w: crop.w, h: crop.h },
+      };
+      destX += crop.w;
+    });
+  });
 
   const atlas = {
     frames: atlasFrames,
@@ -214,10 +242,10 @@ function main(): void {
   writeFileSync(pngPath, PNG.sync.write(strip));
   writeFileSync(jsonPath, JSON.stringify(atlas, null, 2));
 
-  console.log(`Wrote ${names.length} frames (${crop.w}x${crop.h} each, cropped from a ${doc.width}x${doc.height} canvas) to:`);
+  console.log(`Wrote ${names.length} frames to:`);
   console.log(`  ${pngPath}`);
   console.log(`  ${jsonPath}`);
-  console.log(`Frame names: ${names.join(', ')}`);
+  groups.forEach((g, gi) => console.log(`  ${g.prefix}-*: ${crops[gi].w}x${crops[gi].h} (${g.indices.length} frame${g.indices.length === 1 ? '' : 's'})`));
 }
 
 main();

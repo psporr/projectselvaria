@@ -141,6 +141,24 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-09-01 Claude: Fixed animated heroes rendering off-center (shifted
+  toward the left edge of their tile, per the repo owner's screenshot —
+  Luffy's foot sitting right on the grid line). `extractAseprite.ts`'s
+  first version unioned *every* frame's content bounds together — idle and
+  attack alike — to compute one shared crop window. The attack pose's
+  fist/sword reaching well to the right widened that window asymmetrically,
+  so the idle frames' own content (which never reaches that far) ended up
+  sitting in the left portion of the resulting box instead of centered in
+  it — exactly what the screenshot showed. The extractor now unions each
+  animation group separately (idle frames together, the attack frame on
+  its own), the same per-group scoping `scanSpriteAtlas.ts`'s `--stabilize`
+  already used and for the same reason: real motion in one animation
+  shouldn't distort another's. Confirmed by rendering each extracted frame
+  with a center-line marker before and after — idle content now sits on
+  the frame's own midline for both Luffy and Zoro. Regenerated both
+  heroes' atlases; no code outside the extractor needed to change, since
+  atlas frames were already allowed to have independent sizes per name.
+
 - 2026-09-01 Claude: Replaced the hand-cut-PNG animated-hero pipeline with
   an Aseprite-source one, per the repo owner (commissioning full animation
   for the whole roster costs too much — the plan going forward is a cheap

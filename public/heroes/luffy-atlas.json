@@ -4,7 +4,7 @@
       "frame": {
         "x": 0,
         "y": 0,
-        "w": 53,
+        "w": 33,
         "h": 46
       },
       "rotated": false,
@@ -12,19 +12,19 @@
       "spriteSourceSize": {
         "x": 0,
         "y": 0,
-        "w": 53,
+        "w": 33,
         "h": 46
       },
       "sourceSize": {
-        "w": 53,
+        "w": 33,
         "h": 46
       }
     },
     "idle-1": {
       "frame": {
-        "x": 53,
+        "x": 33,
         "y": 0,
-        "w": 53,
+        "w": 33,
         "h": 46
       },
       "rotated": false,
@@ -32,19 +32,19 @@
       "spriteSourceSize": {
         "x": 0,
         "y": 0,
-        "w": 53,
+        "w": 33,
         "h": 46
       },
       "sourceSize": {
-        "w": 53,
+        "w": 33,
         "h": 46
       }
     },
     "idle-2": {
       "frame": {
-        "x": 106,
+        "x": 66,
         "y": 0,
-        "w": 53,
+        "w": 33,
         "h": 46
       },
       "rotated": false,
@@ -52,19 +52,19 @@
       "spriteSourceSize": {
         "x": 0,
         "y": 0,
-        "w": 53,
+        "w": 33,
         "h": 46
       },
       "sourceSize": {
-        "w": 53,
+        "w": 33,
         "h": 46
       }
     },
     "idle-3": {
       "frame": {
-        "x": 159,
+        "x": 99,
         "y": 0,
-        "w": 53,
+        "w": 33,
         "h": 46
       },
       "rotated": false,
@@ -72,20 +72,20 @@
       "spriteSourceSize": {
         "x": 0,
         "y": 0,
-        "w": 53,
+        "w": 33,
         "h": 46
       },
       "sourceSize": {
-        "w": 53,
+        "w": 33,
         "h": 46
       }
     },
     "attack-0": {
       "frame": {
-        "x": 212,
+        "x": 132,
         "y": 0,
         "w": 53,
-        "h": 46
+        "h": 40
       },
       "rotated": false,
       "trimmed": false,
@@ -93,11 +93,11 @@
         "x": 0,
         "y": 0,
         "w": 53,
-        "h": 46
+        "h": 40
       },
       "sourceSize": {
         "w": 53,
-        "h": 46
+        "h": 40
       }
     }
   },
@@ -107,7 +107,7 @@
     "image": "luffy-atlas.png",
     "format": "RGBA8888",
     "size": {
-      "w": 265,
+      "w": 185,
       "h": 46
     },
     "scale": "1"

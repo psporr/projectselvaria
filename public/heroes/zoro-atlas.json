@@ -4,88 +4,88 @@
       "frame": {
         "x": 0,
         "y": 0,
-        "w": 69,
-        "h": 57
+        "w": 50,
+        "h": 56
       },
       "rotated": false,
       "trimmed": false,
       "spriteSourceSize": {
         "x": 0,
         "y": 0,
-        "w": 69,
-        "h": 57
+        "w": 50,
+        "h": 56
       },
       "sourceSize": {
-        "w": 69,
-        "h": 57
+        "w": 50,
+        "h": 56
       }
     },
     "idle-1": {
       "frame": {
-        "x": 69,
+        "x": 50,
         "y": 0,
-        "w": 69,
-        "h": 57
+        "w": 50,
+        "h": 56
       },
       "rotated": false,
       "trimmed": false,
       "spriteSourceSize": {
         "x": 0,
         "y": 0,
-        "w": 69,
-        "h": 57
+        "w": 50,
+        "h": 56
       },
       "sourceSize": {
-        "w": 69,
-        "h": 57
+        "w": 50,
+        "h": 56
       }
     },
     "idle-2": {
       "frame": {
-        "x": 138,
+        "x": 100,
         "y": 0,
-        "w": 69,
-        "h": 57
+        "w": 50,
+        "h": 56
       },
       "rotated": false,
       "trimmed": false,
       "spriteSourceSize": {
         "x": 0,
         "y": 0,
-        "w": 69,
-        "h": 57
+        "w": 50,
+        "h": 56
       },
       "sourceSize": {
-        "w": 69,
-        "h": 57
+        "w": 50,
+        "h": 56
       }
     },
     "idle-3": {
       "frame": {
-        "x": 207,
+        "x": 150,
         "y": 0,
-        "w": 69,
-        "h": 57
+        "w": 50,
+        "h": 56
       },
       "rotated": false,
       "trimmed": false,
       "spriteSourceSize": {
         "x": 0,
         "y": 0,
-        "w": 69,
-        "h": 57
+        "w": 50,
+        "h": 56
       },
       "sourceSize": {
-        "w": 69,
-        "h": 57
+        "w": 50,
+        "h": 56
       }
     },
     "attack-0": {
       "frame": {
-        "x": 276,
+        "x": 200,
         "y": 0,
         "w": 69,
-        "h": 57
+        "h": 48
       },
       "rotated": false,
       "trimmed": false,
@@ -93,11 +93,11 @@
         "x": 0,
         "y": 0,
         "w": 69,
-        "h": 57
+        "h": 48
       },
       "sourceSize": {
         "w": 69,
-        "h": 57
+        "h": 48
       }
     }
   },
@@ -107,8 +107,8 @@
     "image": "zoro-atlas.png",
     "format": "RGBA8888",
     "size": {
-      "w": 345,
-      "h": 57
+      "w": 269,
+      "h": 56
     },
     "scale": "1"
   }
