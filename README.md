@@ -141,6 +141,38 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-31 Claude: Added a **Battle Style** setting to the main menu, per
+  the repo owner — choose between combat playing **On Grid** (the on-board
+  lunge, floating damage, particles, crit shake) or on the **Battle Screen**
+  (`CombatOverlayScene`'s full-screen cut-in). New `src/systems/settings.ts`
+  persists it through the same injected `KeyValueStorage` seam `game/save.ts`
+  uses (nothing reads `localStorage` directly — storage.ts's rule), stored as
+  one JSON object read back merged over defaults so a blob written by an
+  older build can't come back half-undefined. It lives in `systems/` rather
+  than `game/` because it changes how a battle is *shown*, never what it
+  resolves to — the headless simulator neither reads nor needs it.
+  The menu gained a SETTINGS section holding a single two-state toggle row
+  that relabels itself on tap, matching the in-battle "Danger: OFF" dock
+  button rather than spawning a whole settings screen for one choice; the
+  hand-rolled section dividers were folded into an `addDivider()` helper
+  while adding the fourth one. `TacticalScene` reads the setting once per
+  battle in `create()` (there's no in-battle settings screen, so it can't
+  change mid-fight) and `syncUnits()`'s combat branch now routes to one
+  presentation or the other, with the shared tail — deferred death fades,
+  the input unlock, the HUD/auto-advance re-check — factored into a single
+  `finishPresentation()` both paths reach.
+  **Note:** the previous behavior of playing *both* back-to-back is gone;
+  the setting replaced it rather than joining it as a third option, which is
+  what was asked for. Re-adding "Both" is a small change if it's wanted.
+  Default is Battle Screen.
+  Verified both modes end-to-end in the browser rather than assuming:
+  in On Grid the board stays visible and the exchange resolves in ~400ms
+  with no cut-in; in Battle Screen the cut-in plays and no on-grid pass
+  follows; both return to a playable board with no stuck input suspension
+  (checked through to a Chapter Clear with a working Continue). Also
+  confirmed the toggle writes `{"battleStyle":"grid"}` / `"overlay"` on
+  alternate taps, relabels, and survives a reload.
+  `typecheck`/`build`/`validate-maps`/`sim -- --batch 30` clean.
 - 2026-08-31 Claude: Fixed the combat overlay being skipped for any killing
   blow — "combat overlay is not show for the last fight", and the chapter
   clear arriving "instantly after confirm attack" as a direct consequence.

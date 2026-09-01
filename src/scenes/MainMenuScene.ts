@@ -4,6 +4,7 @@ import { PLAYER_START_LEVEL } from '../game/classes';
 import { CAMPAIGN_CHAPTERS, LUFFY_TEST_STAGE } from '../game/maps';
 import { loadCampaignSave } from '../game/save';
 import { browserStorage } from '../systems/storage';
+import { battleStyleLabel, loadSettings, nextBattleStyle, saveSettings } from '../systems/settings';
 import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { GAME_VERSION } from '../version';
 import { Button, Card, COLORS, FONT_FAMILY } from '../ui/kit';
@@ -49,7 +50,14 @@ const LOGO_DISPLAY_SIZE = 132;
  * the top of a mostly empty screen" the way the original did on a tall
  * phone viewport.
  *
- * A third section, DEV TESTS (2026-08-31, per the repo owner), surfaces
+ * SETTINGS (2026-08-31, per the repo owner) holds one row so far: a
+ * two-state Battle Style toggle (on-grid effects vs. the full-screen
+ * `CombatOverlayScene` cut-in), written straight to storage on tap and read
+ * once per battle by `TacticalScene.create()`. A toggle row rather than its
+ * own settings screen, matching the in-battle "Danger: OFF" dock button —
+ * worth revisiting if a second or third setting ever lands here.
+ *
+ * A fourth section, DEV TESTS (2026-08-31, per the repo owner), surfaces
  * `SpriteTestScene` and `LUFFY_TEST_STAGE` as real buttons instead of
  * `?spriteTest=1`/`?luffyTest=1`-only routes — both URL params still work
  * (BootScene), this is just a faster way in. Deliberately styled with no
@@ -79,8 +87,17 @@ export class MainMenuScene extends Scene {
     const roguelikeSectionHeight = HEADING_HEIGHT + ROW_HEIGHT;
     const campaignSectionHeight = HEADING_HEIGHT + campaignRowCount * ROW_HEIGHT + Math.max(0, campaignRowCount - 1) * ROW_GAP;
     const devSectionHeight = HEADING_HEIGHT + devRowCount * ROW_HEIGHT + Math.max(0, devRowCount - 1) * ROW_GAP;
+    const settingsSectionHeight = HEADING_HEIGHT + ROW_HEIGHT;
     const cardHeight =
-      CARD_PADDING_TOP + roguelikeSectionHeight + SECTION_GAP + campaignSectionHeight + SECTION_GAP + devSectionHeight + CARD_PADDING_BOTTOM;
+      CARD_PADDING_TOP +
+      roguelikeSectionHeight +
+      SECTION_GAP +
+      campaignSectionHeight +
+      SECTION_GAP +
+      settingsSectionHeight +
+      SECTION_GAP +
+      devSectionHeight +
+      CARD_PADDING_BOTTOM;
 
     const logoBlockHeight = LOGO_DISPLAY_SIZE + 12 + 20; // logo + gap + tagline
     const blockGap = 28;
@@ -119,21 +136,24 @@ export class MainMenuScene extends Scene {
         .setOrigin(0.5);
       y += HEADING_HEIGHT;
     };
-    const addRow = (label: string, onTap: () => void, fontSize = '14px', primary = false) => {
+    const addRow = (label: string, onTap: (() => void) | null, fontSize = '14px', primary = false): Button => {
       const button = new Button(this, LOGICAL_WIDTH / 2, y + ROW_HEIGHT / 2, ROW_WIDTH, ROW_HEIGHT, label, onTap, fontSize);
       if (primary) button.setAccent(COLORS.successFill, COLORS.successStroke);
       y += ROW_HEIGHT + ROW_GAP;
+      return button;
+    };
+    const addDivider = () => {
+      y -= ROW_GAP;
+      const gfx = this.add.graphics();
+      gfx.lineStyle(1, DIVIDER_COLOR, 1);
+      const dividerY = y + SECTION_GAP / 2;
+      gfx.lineBetween(LOGICAL_WIDTH / 2 - ROW_WIDTH / 2, dividerY, LOGICAL_WIDTH / 2 + ROW_WIDTH / 2, dividerY);
+      y += SECTION_GAP;
     };
 
     addHeading('ROGUELIKE');
     addRow('Start Run', () => this.startRoguelike(), '15px', true);
-    y -= ROW_GAP;
-
-    const divider = this.add.graphics();
-    divider.lineStyle(1, DIVIDER_COLOR, 1);
-    const dividerY = y + SECTION_GAP / 2;
-    divider.lineBetween(LOGICAL_WIDTH / 2 - ROW_WIDTH / 2, dividerY, LOGICAL_WIDTH / 2 + ROW_WIDTH / 2, dividerY);
-    y += SECTION_GAP;
+    addDivider();
 
     addHeading('CAMPAIGN');
     addRow('New Game', () => this.startNewCampaign(), '14px', true);
@@ -142,13 +162,22 @@ export class MainMenuScene extends Scene {
       addRow(`Load Game — ${chapter?.shortName ?? save.chapterId}`, () => this.loadGame(), '13px');
     }
     addRow('Chapter Select', () => this.scene.start('ChapterSelect'), '13px');
-    y -= ROW_GAP;
+    addDivider();
 
-    const devDivider = this.add.graphics();
-    devDivider.lineStyle(1, DIVIDER_COLOR, 1);
-    const devDividerY = y + SECTION_GAP / 2;
-    devDivider.lineBetween(LOGICAL_WIDTH / 2 - ROW_WIDTH / 2, devDividerY, LOGICAL_WIDTH / 2 + ROW_WIDTH / 2, devDividerY);
-    y += SECTION_GAP;
+    // One row, two states, relabelling itself on tap — the same toggle
+    // shape the in-battle "Danger: OFF" dock button already uses, rather
+    // than a whole settings screen for a single choice. Written straight
+    // to storage so it survives the scene change into a battle (and a
+    // reload); TacticalScene reads it once per battle in create().
+    addHeading('SETTINGS');
+    const settings = loadSettings(browserStorage);
+    const styleRow = addRow(`Battle Style: ${battleStyleLabel(settings.battleStyle)}`, null, '13px');
+    styleRow.setOnTap(() => {
+      settings.battleStyle = nextBattleStyle(settings.battleStyle);
+      saveSettings(browserStorage, settings);
+      styleRow.setLabel(`Battle Style: ${battleStyleLabel(settings.battleStyle)}`);
+    });
+    addDivider();
 
     // Animated-sprite dev tools (2026-08-31) — surfaced here per the repo
     // owner rather than staying `?spriteTest=1`/`?luffyTest=1`-only, now that

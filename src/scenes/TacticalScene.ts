@@ -14,6 +14,7 @@ import { TERRAIN, teamOf, type CombatBeat, type CombatResult, type GameMode, typ
 import { UnitSprite } from '../entities/UnitSprite';
 import type { CombatOverlayData } from './CombatOverlayScene';
 import { createGameClient, type GameClient } from '../systems/gameClient';
+import { loadSettings, type BattleStyle } from '../systems/settings';
 import { browserStorage } from '../systems/storage';
 import { applyDprZoom, DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import type { ActionMenuChoice, ActionMenuOption } from '../ui/ActionMenu';
@@ -208,6 +209,8 @@ export class TacticalScene extends Scene {
   private firedStoryEventIds = new Set<string>();
   /** Guards against re-opening a story event's dialogue on every state change while it's already up — same pattern as blessingPickerOpen/promotionPickerOpen. */
   private storyDialogueOpen = false;
+  /** Which combat presentation to play, read once per battle from the main menu's Battle Style setting — see syncUnits()'s combat branch. Read in create() rather than per-exchange since it can't change while a battle is running (there's no in-battle settings screen). */
+  private battleStyle: BattleStyle = 'overlay';
 
   constructor() {
     super('Tactical');
@@ -290,6 +293,7 @@ export class TacticalScene extends Scene {
     this.cameras.main.setBackgroundColor('#111318');
     applyDprZoom(this);
     ensureLuffyAnimations(this);
+    this.battleStyle = loadSettings(browserStorage).battleStyle;
 
     const { G } = this.client.getState()!;
     this.tileSize = Math.floor(Math.min(BOARD_AREA_WIDTH / G.width, BOARD_AREA_HEIGHT / G.height));
@@ -491,26 +495,34 @@ export class TacticalScene extends Scene {
       // once the last beat's own tween actually finishes.
       this.inputSuspended = true;
       const combat = pendingCombat;
-      // Both presentations play, in order (2026-08-31, per the repo owner):
-      // the full-screen cut-in first, then the same result re-stated on the
-      // board once it closes — the overlay is the dramatic beat, the on-grid
-      // pass is what leaves the consequence visible in board context.
+      // Whichever presentation ran, this is the tail every path has to
+      // reach: the death fades held back for it, the input unlock, and the
+      // re-check of everything that was waiting on the unlock.
+      const finishPresentation = () => {
+        for (const removeSprite of deferredRemovals) removeSprite();
+        this.inputSuspended = false;
+        // Catches up a phase banner (and the gameover panel) UIScene held
+        // off showing while isInputSuspended() — a killing blow can cross a
+        // turn boundary, or end the battle outright, in the same move whose
+        // presentation was still playing.
+        this.ui.refreshHud();
+        this.scheduleAutoAdvance();
+      };
       const playOnGrid = () => {
         // A short beat of empty space before the first lunge, not an instant
-        // cut from the overlay closing straight into the swing — see
+        // cut from the forecast panel closing straight into the swing — see
         // COMBAT_SEQUENCE_START_DELAY_MS's own comment.
         this.time.delayedCall(COMBAT_SEQUENCE_START_DELAY_MS, () => {
-          this.playCombatSequence(combat, combatSprites!, () => {
-            for (const removeSprite of deferredRemovals) removeSprite();
-            this.inputSuspended = false;
-            // Catches up a phase banner UIScene held off showing (isInputSuspended())
-            // if ctx.turn crossed a boundary while this sequence was playing.
-            this.ui.refreshHud();
-            this.scheduleAutoAdvance();
-          });
+          this.playCombatSequence(combat, combatSprites!, finishPresentation);
         });
       };
-      this.playCombatOverlay(combat, playOnGrid);
+      // One or the other, per the main menu's Battle Style setting
+      // (2026-08-31, per the repo owner). Both ran back-to-back for one
+      // build before the setting existed; the choice replaced that rather
+      // than joining it as a third option, so there's deliberately no
+      // "play the cut-in and then re-state it on the board" path here now.
+      if (this.battleStyle === 'grid') playOnGrid();
+      else this.playCombatOverlay(combat, finishPresentation);
       this.lastCombatSeq = pendingCombat.seq;
     }
 
