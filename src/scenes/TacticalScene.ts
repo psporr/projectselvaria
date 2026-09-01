@@ -555,8 +555,26 @@ export class TacticalScene extends Scene {
    */
   private playCombatOverlay(result: CombatResult, onComplete: () => void): void {
     const state = this.client.getState();
-    const attacker = state?.G.units[result.attack.attackerId];
-    const defender = state?.G.units[result.attack.defenderId];
+    // A unit killed by this exchange is already gone from G.units by the
+    // time this runs (game.ts removes it within the same move), so looking
+    // both sides up live skipped the cut-in for exactly the fight that most
+    // deserves one — any killing blow, which on a rout map is the last
+    // fight of the battle (found 2026-08-31, the repo owner: "combat
+    // overlay is not show for the last fight", and the chapter-clear panel
+    // arriving "instantly" straight after, since skipping the multi-second
+    // overlay left only the ~400ms on-grid pass to sit through).
+    // `lastUnits` is still the pre-combat snapshot at this point — it's the
+    // same source the HP-before values below read — so a dead unit falls
+    // back to that, with hp zeroed so the overlay's own closing snap lands
+    // on 0 rather than resurrecting it to its pre-hit HP.
+    const unitFor = (id: string): Unit | undefined => {
+      const live = state?.G.units[id];
+      if (live) return live;
+      const before = this.lastUnits[id];
+      return before ? { ...before, hp: 0 } : undefined;
+    };
+    const attacker = unitFor(result.attack.attackerId);
+    const defender = unitFor(result.attack.defenderId);
     if (!attacker || !defender) {
       onComplete();
       return;

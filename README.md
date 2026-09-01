@@ -141,6 +141,31 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-31 Claude: Fixed the combat overlay being skipped for any killing
+  blow — "combat overlay is not show for the last fight", and the chapter
+  clear arriving "instantly after confirm attack" as a direct consequence.
+  One root cause for both: `playCombatOverlay()` looked both combatants up
+  in `G.units`, but a unit killed by the exchange is already removed from
+  there by the same move, so the `!attacker || !defender` guard fired and
+  skipped the cut-in for exactly the fight that most deserves one. With the
+  multi-second overlay gone, only the ~400ms on-grid pass stood between
+  Confirm and the panel — hence "instantly"; the gating added earlier was
+  working, there was just almost nothing left to gate. Now a missing unit
+  falls back to the pre-combat snapshot `lastUnits` already keeps for the
+  HP-before values, with `hp` zeroed so the overlay's closing snap lands on
+  0 rather than resurrecting it.
+  Verified by actually driving a killing blow in the browser rather than
+  reasoning about it — worth noting because two earlier passes at this area
+  looked conclusive and weren't. Temporary instrumentation (since removed)
+  traced the real sequence: on the lethal exchange the overlay now reaches
+  `create()` and runs a full 2.4s before `finish()`, and a screenshot 1.0s
+  in shows the cut-in mid-punch with the defender's HP bar draining 4/26
+  toward 0 and **no** chapter-clear panel — it appears only once the
+  presentation completes. The same instrumentation also caught two of my
+  own earlier screenshots being mistimed (the kill had happened during an
+  auto-advanced enemy phase, not the tap I thought), which is why the
+  previous round read as "still broken".
+  `typecheck`/`build`/`validate-maps`/`sim -- --batch 30` clean.
 - 2026-08-31 Claude: Two fixes from the repo owner's testing.
   **Stage clear appearing mid-battle**: `UIScene.refreshHud()`'s gameover
   panel had no `isInputSuspended()` gate, so the killing blow that ends a
