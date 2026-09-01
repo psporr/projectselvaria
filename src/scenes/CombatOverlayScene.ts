@@ -4,7 +4,7 @@ import type { CombatBeat, CombatResult, Unit } from '../game/types';
 import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from '../ui/classIcons';
 import { heroIdleRunAtlasKey, isAnimatedHero, resolveBattlePortraitTexture } from '../ui/heroArt';
-import { LUFFY_ANIM_ATTACK, LUFFY_ANIM_IDLE, LUFFY_ATTACK_IMPACT_FRAME } from '../ui/heroAnimations';
+import { luffyFlipX, LUFFY_ANIM_ATTACK, LUFFY_ANIM_IDLE, LUFFY_ATTACK_IMPACT_FRAME } from '../ui/heroAnimations';
 import { COLORS, FONT_FAMILY } from '../ui/kit';
 
 /** Everything the overlay needs to play an exchange back. Assembled by `TacticalScene.syncUnits()` at the moment it detects a new `G.lastCombat`, since that's the only place that still has both the pre-combat HP (its own `lastUnits` snapshot) and the post-combat units. */
@@ -54,6 +54,8 @@ interface Fighter {
   offscreenX: number;
   /** +1 lunges right, -1 lunges left — always toward the other side. */
   lungeSign: 1 | -1;
+  /** True for the left-hand fighter: it should face right, toward its opponent. Re-read on every animation change, since the idle and attack sheets face opposite ways (heroAnimations.ts's luffyFlipX). */
+  faceRight: boolean;
   hp: number;
   hpFill: GameObjects.Rectangle;
   hpText: GameObjects.Text;
@@ -184,9 +186,7 @@ export class CombatOverlayScene extends Scene {
         .setOrigin(0.5, 1)
         .setScale(FIGHTER_HEIGHT / ANIM_REFERENCE_FRAME_HEIGHT);
       sprite.play(LUFFY_ANIM_IDLE);
-      // The art is drawn facing right, so only the right-hand side needs
-      // mirroring for the two to face each other.
-      sprite.setFlipX(lungeSign === -1);
+      sprite.setFlipX(luffyFlipX(LUFFY_ANIM_IDLE, lungeSign === 1));
       root.add(sprite);
     } else {
       const textureKey = resolveBattlePortraitTexture(this, unit);
@@ -235,7 +235,7 @@ export class CombatOverlayScene extends Scene {
       })
       .setOrigin(0.5);
 
-    return { unit, root, sprite, image, circle, homeX, offscreenX, lungeSign, hp: hpBefore, hpFill, hpText };
+    return { unit, root, sprite, image, circle, homeX, offscreenX, lungeSign, faceRight: lungeSign === 1, hp: hpBefore, hpFill, hpText };
   }
 
   private hpRatio(hp: number, maxHp: number): number {
@@ -291,8 +291,10 @@ export class CombatOverlayScene extends Scene {
         // its hit reaction having played.
         impact();
         sprite.play(LUFFY_ANIM_IDLE);
+        sprite.setFlipX(luffyFlipX(LUFFY_ANIM_IDLE, attacker.faceRight));
         onDone();
       });
+      sprite.setFlipX(luffyFlipX(LUFFY_ANIM_ATTACK, attacker.faceRight));
       sprite.play(LUFFY_ANIM_ATTACK);
       return;
     }

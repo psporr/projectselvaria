@@ -40,6 +40,27 @@ export const LUFFY_ANIM_IDLE_MAP = 'luffy-idle-map';
 export const LUFFY_ATTACK_IMPACT_FRAME = 'attack-8';
 
 /**
+ * The two Luffy sheets are drawn facing *opposite* directions — the
+ * idle/run sheet points left, the attack sheet points right (they're
+ * placeholder art from different sources, so there was never a reason for
+ * them to agree). That means "make this fighter face right" isn't one flip
+ * flag: it's a flip on one sheet and no flip on the other.
+ *
+ * Left unnoticed until the repo owner spotted it in the battle screen
+ * (2026-08-31): flipping purely by which side a fighter stood on made the
+ * attack read correctly but left both fighters *idling* turned away from
+ * each other, since idle is what plays for most of the cut-in.
+ *
+ * Callers state the direction they want and this works out the flag, so a
+ * future sheet only needs its own entry here rather than every call site
+ * learning which way its art happens to point.
+ */
+export function luffyFlipX(animKey: string, faceRight: boolean): boolean {
+  const artFacesRight = animKey === LUFFY_ANIM_ATTACK;
+  return faceRight !== artFacesRight;
+}
+
+/**
  * Per-frame durations (ms) for `luffy-attack`, replacing a flat frameRate —
  * anticipation/snap/hold/ease: held longest at the windup's cocked-back
  * peak (index 3) and the frame-8 impact (max stretch), fast through the

@@ -141,6 +141,34 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-08-31 Claude: Fixed the battle screen's fighters facing **away** from
+  each other, and made **On Grid** the default battle style, both per the
+  repo owner. The facing bug had a non-obvious cause: Luffy's two sprite
+  sheets are drawn pointing *opposite* ways — the idle/run sheet faces
+  **left**, the attack sheet faces **right** (placeholder art from different
+  sources, so nothing ever made them agree). Confirmed by rendering `idle-0`
+  and `attack-0` at 6x and looking, rather than assuming. The overlay had
+  been flipping purely on which side a fighter stood (`setFlipX(lungeSign
+  === -1)`), which happened to make the *attack* read correctly and left
+  both fighters *idling* turned away — and idle is what plays for most of
+  the cut-in, so that's what you notice. The fix inverts the relationship:
+  `heroAnimations.ts` gained `luffyFlipX(animKey, faceRight)`, so call sites
+  state the direction they want and the helper works out the flag from which
+  way that particular sheet's art points. A future sheet only needs its own
+  entry there instead of every call site learning its orientation.
+  `Fighter` now carries `faceRight`, and the flip is re-applied at all three
+  points the animation changes (build, attack-play, return-to-idle) — the
+  return-to-idle one is the one that was actually missing. Note this
+  necessarily corrects the enemy side too: fixing only the player would
+  leave the enemy idling turned away, which is the same bug mirrored.
+  Separately, `DEFAULT_SETTINGS.battleStyle` flipped `'overlay'` →
+  `'grid'` (with `TacticalScene`'s field initializer now reading
+  `DEFAULT_SETTINGS.battleStyle` rather than repeating the literal, so the
+  two can't drift) — an exchange resolves on the board in a fraction of the
+  cut-in's few seconds, so the battle screen is now the deliberate choice
+  rather than what you get without asking. Anyone who already toggled the
+  setting keeps their saved choice; only fresh installs see the change.
+
 - 2026-08-31 Claude: Added a **Battle Style** setting to the main menu, per
   the repo owner — choose between combat playing **On Grid** (the on-board
   lunge, floating damage, particles, crit shake) or on the **Battle Screen**

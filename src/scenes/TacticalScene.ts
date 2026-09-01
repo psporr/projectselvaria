@@ -14,7 +14,7 @@ import { TERRAIN, teamOf, type CombatBeat, type CombatResult, type GameMode, typ
 import { UnitSprite } from '../entities/UnitSprite';
 import type { CombatOverlayData } from './CombatOverlayScene';
 import { createGameClient, type GameClient } from '../systems/gameClient';
-import { loadSettings, type BattleStyle } from '../systems/settings';
+import { DEFAULT_SETTINGS, loadSettings, type BattleStyle } from '../systems/settings';
 import { browserStorage } from '../systems/storage';
 import { applyDprZoom, DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import type { ActionMenuChoice, ActionMenuOption } from '../ui/ActionMenu';
@@ -210,7 +210,7 @@ export class TacticalScene extends Scene {
   /** Guards against re-opening a story event's dialogue on every state change while it's already up — same pattern as blessingPickerOpen/promotionPickerOpen. */
   private storyDialogueOpen = false;
   /** Which combat presentation to play, read once per battle from the main menu's Battle Style setting — see syncUnits()'s combat branch. Read in create() rather than per-exchange since it can't change while a battle is running (there's no in-battle settings screen). */
-  private battleStyle: BattleStyle = 'overlay';
+  private battleStyle: BattleStyle = DEFAULT_SETTINGS.battleStyle;
 
   constructor() {
     super('Tactical');

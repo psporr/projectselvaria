@@ -35,7 +35,11 @@ export interface GameSettings {
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
-  battleStyle: 'overlay',
+  // On-grid by default (2026-08-31, per the repo owner) — it keeps the
+  // player looking at the board and resolves an exchange in a fraction of
+  // the cut-in's few seconds. The battle screen is the deliberate choice,
+  // not what you get without asking.
+  battleStyle: 'grid',
 };
 
 export function loadSettings(storage: KeyValueStorage): GameSettings {
