@@ -8,8 +8,8 @@ import type { TacticalSceneData } from './TacticalScene';
 const LOGO_KEY = 'boot-logo';
 
 // A brief title beat before handing off to MainMenuScene (2026-08-27;
-// used to hand off straight to TacticalScene, back when Roguelike/
-// TEST_MAP_2 was the only reachable mode). Shows the real game logo (same
+// used to hand off straight to TacticalScene, back when Roguelike was the
+// only reachable mode). Shows the real game logo (same
 // asset MainMenuScene uses) rather than plain text — since it's on
 // screen so briefly, it's preloaded here and just re-requested (cached, a
 // no-op fetch) by MainMenuScene's own preload().

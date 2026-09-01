@@ -5,7 +5,7 @@ import type { CampaignCarryOver, ChapterDef } from './maps';
 import type { ClassName } from './classes';
 import type { CombatBeat, GameMode, GameState, ItemSlot, Team, Unit } from './types';
 import { PLAYER_ID, teamOf } from './types';
-import { buildGameState, CAMPAIGN_CHAPTER_1, CHAPTER_1, TEST_MAP_2, type ShuffleAPI } from './maps';
+import { buildGameState, CAMPAIGN_CHAPTER_1, RIVER_CROSSING, type ShuffleAPI } from './maps';
 import { computeReachable, manhattan, tileKey, unitsOf } from './grid';
 import {
   canCounter,
@@ -971,7 +971,8 @@ export function createSelvariaGame(
 const SelvariaGameBase: Game<GameState> = {
   name: 'project-selvaria',
 
-  setup: ({ random }) => buildGameState(CHAPTER_1, 'roguelike', random),
+  // Always overridden by createSelvariaGame()'s own setup ({...SelvariaGameBase, setup: ...}) — this base object is never used directly, so RIVER_CROSSING here is just a placeholder ChapterDef to satisfy the type.
+  setup: ({ random }) => buildGameState(RIVER_CROSSING, 'roguelike', random),
 
   // Two sides: '0' is the player's army, '1' is the CPU army.
   minPlayers: 2,
@@ -1017,16 +1018,13 @@ const SelvariaGameBase: Game<GameState> = {
 };
 
 /**
- * The endless wave-survival run.
- *
- * Temporarily pointed at TEST_MAP_2 (the first map generated straight from
- * MAP_BRIEF.md's Gemini prompt) instead of CHAPTER_1, to playtest it —
- * there's no chapter-select UI, so swapping the one active roguelike
- * chapter is the only way to make a new map reachable. Was TEST_MAP_1
- * before this; swap back to CHAPTER_1 once testing's done. CHAPTER_1
- * itself is untouched.
+ * The endless wave-survival run, on `RIVER_CROSSING` — its permanent map
+ * (2026-09-01, per the repo owner). There's no chapter-select UI for
+ * Roguelike, so this is the one active chapter; `CHAPTER_1`, `TEST_MAP_1`,
+ * and `TEST_MAP_1_DETAILED` (the earlier concept-test maps this superseded)
+ * were removed rather than left as dead code once the decision was final.
  */
-export const ProjectSelvaria = createSelvariaGame('roguelike', TEST_MAP_2);
+export const ProjectSelvaria = createSelvariaGame('roguelike', RIVER_CROSSING);
 
 /** Campaign chapter 1, a fixed-composition rout on its own map. */
 export const ProjectSelvariaCampaign = createSelvariaGame('campaign', CAMPAIGN_CHAPTER_1);

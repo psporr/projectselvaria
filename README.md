@@ -136,10 +136,32 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
   rendering integration is a contained follow-up once files exist.
   Terrain art now has two supported paths going forward, not one
   replacing the other — a hand-authored tileset (`ART_BRIEF.md` §2) or a
-  painted map image classified into terrain data (proven this session,
-  `TEST_MAP_1` in `src/game/maps.ts`) — a chapter picks whichever fits it.
+  painted map image classified into terrain data (`RIVER_CROSSING` in
+  `src/game/maps.ts`) — a chapter picks whichever fits it.
 
 ### Recent changes
+
+- 2026-09-01 Claude: Removed the dead/unwired concept-test maps, per the
+  repo owner — `CHAPTER_1` (`frozen-pass`), `TEST_MAP_1` (`test-map1`), and
+  `TEST_MAP_1_DETAILED` (`test-map1-detailed`). `CHAPTER_1` had been
+  entirely unreferenced since Roguelike moved onto `TEST_MAP_2` a few
+  sessions back (its own doc comment still said "swap back to CHAPTER_1
+  once testing's done" — that swap was never coming); `TEST_MAP_1`/
+  `TEST_MAP_1_DETAILED` were never routed anywhere reachable, and their
+  shared background image (`public/maps/test-map1.png`) never actually
+  existed — the 404 flagged in an earlier session's changelog entry.
+  Removing them resolves that for good rather than leaving it as a known
+  issue.
+  `TEST_MAP_2` — the map this all along that was Roguelike's real board —
+  is promoted from a concept test to the permanent one: renamed
+  `RIVER_CROSSING` (id `river-crossing`, display name "River Crossing",
+  dropping the "Concept Test:"/"(Test)" branding that no longer fit once
+  it stopped being a test). No terrain, unit roster, or gameplay changed —
+  `npm run sim -- --batch 30` comes back numerically identical to before.
+  `game.ts`'s `ProjectSelvaria` and every place that referenced
+  `TEST_MAP_2`/`CHAPTER_1` (`TacticalScene.ts`'s board-sizing doc comments,
+  `CHAPTERS_WITH_BACKGROUND_ART`, `validateMaps.ts`'s chapter list) updated
+  to match — down to one background-art entry now instead of three.
 
 - 2026-09-01 Claude: Fixed animated heroes rendering off-center (shifted
   toward the left edge of their tile, per the repo owner's screenshot —

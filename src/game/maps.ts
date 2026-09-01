@@ -255,41 +255,6 @@ export function playerStartPositions(chapter: ChapterDef): Record<string, { x: n
 }
 
 /**
- * 7x8 portrait grid — one column wider than a 6x8 standard, added as an open
- * flanking lane on the right. Tile size is meant to stay responsive so this
- * fits a mobile viewport without horizontal scrolling.
- */
-export const CHAPTER_1: ChapterDef = {
-  id: 'frozen-pass',
-  name: 'The Frozen Pass',
-  shortName: 'The Frozen Pass',
-  objective: 'Survive as many waves as you can',
-  objectiveType: 'waves',
-  rows: [
-    '..##...',
-    '.......',
-    '.ff.ww.',
-    '...ff..',
-    '.ww.ff.',
-    '...ww..',
-    '.......',
-    '..##...',
-  ],
-  units: [
-    { id: 'marisa', name: 'Marisa', team: 'player', className: 'Thief', x: 1, y: 6 },
-    { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Archer', x: 0, y: 6 },
-    { id: 'solen', name: 'Solen', team: 'player', className: 'Mage', x: 6, y: 6 },
-    { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 0, y: 7 },
-    { id: 'jill', name: 'Jill', team: 'player', className: 'Fighter', x: 5, y: 7 },
-    { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 6, y: 7 },
-    { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 1, y: 0 },
-    { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 4, y: 0 },
-    { id: 'bandit-3', name: 'Bandit 3', team: 'enemy', randomClass: true, x: 1, y: 1 },
-    { id: 'bandit-4', name: 'Bandit 4', team: 'enemy', randomClass: true, x: 4, y: 1 },
-  ],
-};
-
-/**
  * First campaign chapter. Unlike the roguelike map, enemy classes are fixed
  * rather than drawn at random — a campaign encounter is hand-balanced, so
  * the player can plan around a known composition. The wall band across the
@@ -444,32 +409,15 @@ export const CAMPAIGN_CHAPTER_2: ChapterDef = {
 export const CAMPAIGN_CHAPTERS: ChapterDef[] = [CAMPAIGN_CHAPTER_1, CAMPAIGN_CHAPTER_2];
 
 /**
- * Concept-test maps: terrain read off a user-generated painted map image
- * (`public/maps/test-map1.png`) via a per-pixel color-clustering pass, not
- * hand-authored ASCII like the other chapters. TacticalScene renders that
- * same image as the board background for both chapter ids below instead of
- * flat terrain-color tiles (see `CHAPTERS_WITH_BACKGROUND_ART` there) — the
- * point is to prove that pipeline end-to-end, not to be a balanced
- * encounter.
- *
- * Two resolutions, kept side by side on purpose (not one replacing the
- * other): `TEST_MAP_1` at 6x8 is the one actually wired into
- * `ProjectSelvaria` below — its tiles land at a full 64px (same as
- * CHAPTER_1), which the 9x12 version's ~42px tiles turned out too small to
- * tap reliably on a phone. `TEST_MAP_1_DETAILED` keeps the original finer
- * read of the image, unwired for now (no chapter-select exists yet to
- * reach a second roguelike chapter) but around for whenever that changes,
- * or for a non-mobile-constrained context.
- *
- * Terrain classification: per-pixel k-means over the whole image (not a
- * per-cell color average, which washed out small rock outcrops into their
- * surrounding grass when tried at 90px cells) produces `TEST_MAP_1_DETAILED`'s
- * 9x12 grid directly; `TEST_MAP_1`'s 6x8 grid is that same classification
- * downsampled, with any wall-cell vote given priority over its neighbors so
- * a mountain still blocks its whole coarse tile even as a minority of that
- * tile's area — matching FE's convention that an obstacle's tile is fully
- * impassable, not partially. Both are confirmed fully connected (BFS over
- * passable tiles).
+ * The Roguelike ("Start Run") mode's permanent map (2026-09-01, per the
+ * repo owner — promoted from a concept test to the real thing, replacing
+ * `CHAPTER_1`/`TEST_MAP_1`/`TEST_MAP_1_DETAILED`, all removed). Terrain
+ * generated directly from `MAP_BRIEF.md`'s prompt (Gemini, 7x8,
+ * `public/maps/river1.jpg`) via per-cell color clustering — TacticalScene
+ * renders that image as the board background instead of flat terrain-color
+ * tiles (`CHAPTERS_WITH_BACKGROUND_ART`) — a clean result, every wall/
+ * forest cell lines up with visible rock/tree art, no ambiguous cells
+ * needed a second pass. Confirmed connected (BFS over passable tiles).
  *
  * Mountain tiles are `wall` (impassable to everyone) rather than a new
  * flying-only terrain type — there's no flying unit class yet, so that's
@@ -479,84 +427,10 @@ export const CAMPAIGN_CHAPTERS: ChapterDef[] = [CAMPAIGN_CHAPTER_1, CAMPAIGN_CHA
  * when a flying class actually gets built (HANDOFF.md's class roster has
  * none yet).
  */
-export const TEST_MAP_1: ChapterDef = {
-  id: 'test-map1',
-  name: 'Concept Test: Riverlands',
-  shortName: 'Riverlands (Test)',
-  objective: 'Survive as many waves as you can',
-  objectiveType: 'waves',
-  rows: [
-    '.#...f',
-    '.....#',
-    'w#f...',
-    'f#w.ww',
-    '....ff',
-    '.f....',
-    '.#....',
-    'f....f',
-  ],
-  units: [
-    { id: 'marisa', name: 'Marisa', team: 'player', className: 'Thief', x: 0, y: 6 },
-    { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Archer', x: 2, y: 7 },
-    { id: 'solen', name: 'Solen', team: 'player', className: 'Mage', x: 3, y: 7 },
-    { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 0, y: 7 },
-    { id: 'jill', name: 'Jill', team: 'player', className: 'Fighter', x: 5, y: 7 },
-    { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 2, y: 5 },
-    { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 0, y: 0 },
-    { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 4, y: 0 },
-    { id: 'bandit-3', name: 'Bandit 3', team: 'enemy', randomClass: true, x: 1, y: 1 },
-    { id: 'bandit-4', name: 'Bandit 4', team: 'enemy', randomClass: true, x: 4, y: 1 },
-  ],
-};
-
-/** See `TEST_MAP_1`'s doc comment — the finer, unwired sibling of that chapter. */
-export const TEST_MAP_1_DETAILED: ChapterDef = {
-  id: 'test-map1-detailed',
-  name: 'Concept Test: Riverlands (Detailed)',
-  shortName: 'Riverlands (Detailed)',
-  objective: 'Survive as many waves as you can',
-  objectiveType: 'waves',
-  rows: [
-    '..#.....f',
-    '.........',
-    '........#',
-    'ww#f.....',
-    'fww......',
-    '.#www.www',
-    '......ff.',
-    '..f....f.',
-    '.ff......',
-    '..#......',
-    '..f......',
-    'f......ff',
-  ],
-  units: [
-    { id: 'marisa', name: 'Marisa', team: 'player', className: 'Thief', x: 3, y: 10 },
-    { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Archer', x: 0, y: 10 },
-    { id: 'solen', name: 'Solen', team: 'player', className: 'Mage', x: 1, y: 10 },
-    { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 4, y: 10 },
-    { id: 'jill', name: 'Jill', team: 'player', className: 'Fighter', x: 6, y: 10 },
-    { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 7, y: 10 },
-    { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 1, y: 0 },
-    { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 7, y: 0 },
-    { id: 'bandit-3', name: 'Bandit 3', team: 'enemy', randomClass: true, x: 1, y: 1 },
-    { id: 'bandit-4', name: 'Bandit 4', team: 'enemy', randomClass: true, x: 7, y: 1 },
-  ],
-};
-
-/**
- * First map generated directly from `MAP_BRIEF.md`'s prompt (Gemini, 7x8,
- * `public/maps/river1.jpg`) rather than sourced from the user and
- * classified after the fact like `TEST_MAP_1`. Terrain read off the image
- * via per-cell color clustering (`src/game/maps.ts`'s classification notes
- * above `TEST_MAP_1` apply the same way here) — clean result, every
- * wall/forest cell lines up with visible rock/tree art, no ambiguous
- * cells needed a second pass this time. Confirmed connected.
- */
-export const TEST_MAP_2: ChapterDef = {
-  id: 'test-map2',
-  name: 'Concept Test: River Crossing',
-  shortName: 'River Crossing (Test)',
+export const RIVER_CROSSING: ChapterDef = {
+  id: 'river-crossing',
+  name: 'River Crossing',
+  shortName: 'River Crossing',
   objective: 'Survive as many waves as you can',
   objectiveType: 'waves',
   rows: [
@@ -595,19 +469,19 @@ export const TEST_MAP_2: ChapterDef = {
  * AI-controlled unit on each side, and that two different heroes' art
  * render distinctly side by side rather than just proving one.
  *
- * Reuses TEST_MAP_2's River Crossing terrain (`rows`) rather than a new
- * layout — the terrain isn't what's being tested here — but is its own
- * separate `ChapterDef`, deliberately *not* added to `TEST_MAP_2`'s own
- * `units` (that map is the live Roguelike ("Start Run") mode's actual
- * roster, `game.ts`'s `ProjectSelvaria = createSelvariaGame('roguelike',
- * TEST_MAP_2)` — real players use it) and *not* added to `CAMPAIGN_CHAPTERS`
- * (that array is what populates ChapterSelectScene's real menu). `rout`
- * (defeat all enemies) rather than `waves` — this is a one-off skirmish,
- * not a survival run — the same objectiveType the real campaign chapters
- * already use, so `mode: 'campaign'` behaves exactly as proven there
- * (TacticalScene's new `debugChapter` scene-data field bypasses the
- * `CAMPAIGN_CHAPTERS` id lookup that mode normally does). Spawn tiles reuse
- * four of TEST_MAP_2's own confirmed-passable plain tiles (`npm run
+ * Reuses `RIVER_CROSSING`'s terrain (`rows`) rather than a new layout — the
+ * terrain isn't what's being tested here — but is its own separate
+ * `ChapterDef`, deliberately *not* added to `RIVER_CROSSING`'s own `units`
+ * (that's the live Roguelike ("Start Run") mode's actual roster, `game.ts`'s
+ * `ProjectSelvaria = createSelvariaGame('roguelike', RIVER_CROSSING)` — real
+ * players use it) and *not* added to `CAMPAIGN_CHAPTERS` (that array is what
+ * populates ChapterSelectScene's real menu). `rout` (defeat all enemies)
+ * rather than `waves` — this is a one-off skirmish, not a survival run —
+ * the same objectiveType the real campaign chapters already use, so
+ * `mode: 'campaign'` behaves exactly as proven there (TacticalScene's new
+ * `debugChapter` scene-data field bypasses the `CAMPAIGN_CHAPTERS` id
+ * lookup that mode normally does). Spawn tiles reuse four of
+ * `RIVER_CROSSING`'s own confirmed-passable plain tiles (`npm run
  * validate-maps` checks every unit spawn is reachable, same as every real
  * chapter) rather than re-verifying the ASCII map by eye.
  *
@@ -623,7 +497,7 @@ export const ANIMATED_HERO_TEST_STAGE: ChapterDef = {
   shortName: 'Hero Anim Test',
   objective: 'Defeat all enemies',
   objectiveType: 'rout',
-  rows: TEST_MAP_2.rows,
+  rows: RIVER_CROSSING.rows,
   units: [
     { id: 'luffy-player', name: 'Luffy', team: 'player', className: 'Luffy', x: 0, y: 6 },
     { id: 'luffy-enemy', name: 'Luffy', team: 'enemy', className: 'Luffy', x: 4, y: 0 },

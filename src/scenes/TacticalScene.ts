@@ -6,7 +6,7 @@ import { canPromote, PROMOTES_TO } from '../game/classes';
 import { forecastCombat } from '../game/combat';
 import { computeReachable, computeThreatTiles, quickAttackPositions, targetsFrom, terrainAt, tileKey, unitsOf } from '../game/grid';
 import { ITEMS } from '../game/equipment';
-import { CAMPAIGN_CHAPTERS, TEST_MAP_2, type CampaignCarryOver, type ChapterDef } from '../game/maps';
+import { CAMPAIGN_CHAPTERS, RIVER_CROSSING, type CampaignCarryOver, type ChapterDef } from '../game/maps';
 import { saveCampaign, clearCampaignSave } from '../game/save';
 import { canUseSkill, describeSkillEffect, novaBlastCoords, skillTargets, SKILLS, type SkillDef } from '../game/skills';
 import { isTriggerMet, type MapEvent } from '../game/story';
@@ -41,15 +41,15 @@ import type { UIScene } from './UIScene';
 // viewport, this only has to lay out inside the fixed base canvas. Tile size
 // isn't a fixed constant: it's computed per-chapter in create() so any
 // chapter's board fits the same reserved area, rather than assuming every
-// map is CHAPTER_1's 7x8 (previously a hardcoded 64px tile broke down the
-// moment a wider/taller chapter — see TEST_MAP_1 — was loaded). The board
-// area is BOARD_AREA_WIDTH x BOARD_AREA_HEIGHT starting at (BOARD_ORIGIN_X
-// computed to center it, BOARD_ORIGIN_Y). BOARD_AREA_HEIGHT's lower bound
-// must stay <= UnitStatusBar's fixed BAR_Y (664) minus half its BAR_HEIGHT
-// (180) minus a small gap — that bar sits at a constant position regardless
-// of board height (src/ui/UnitStatusBar.ts's own note on this), so a board
-// taller than CHAPTER_1's 8 rows must shrink its tiles to still clear it
-// rather than running underneath it.
+// map is RIVER_CROSSING's 7x8 (previously a hardcoded 64px tile broke down
+// the moment a wider/taller chapter — e.g. Chapter 2's 11x14 — was loaded).
+// The board area is BOARD_AREA_WIDTH x BOARD_AREA_HEIGHT starting at
+// (BOARD_ORIGIN_X computed to center it, BOARD_ORIGIN_Y). BOARD_AREA_HEIGHT's
+// lower bound must stay <= UnitStatusBar's fixed BAR_Y (664) minus half its
+// BAR_HEIGHT (180) minus a small gap — that bar sits at a constant position
+// regardless of board height (src/ui/UnitStatusBar.ts's own note on this),
+// so a board taller than RIVER_CROSSING's 8 rows must shrink its tiles to
+// still clear it rather than running underneath it.
 const BOARD_ORIGIN_Y = 56;
 const BOARD_AREA_WIDTH = LOGICAL_WIDTH - 2 * 16;
 const BOARD_AREA_HEIGHT = 568 - BOARD_ORIGIN_Y;
@@ -62,18 +62,14 @@ const TERRAIN_COLOR: Record<string, number> = {
 };
 
 /**
- * Chapters with a painted background image (proving out the "read terrain
- * off a generated map image" concept — see TEST_MAP_1/TEST_MAP_1_DETAILED
- * in maps.ts) instead of flat terrain-color tiles. Maps chapter id to the
- * image's basename under `public/maps/<basename>.png` — not always the same
- * as the chapter id, since TEST_MAP_1 and TEST_MAP_1_DETAILED are two
- * different terrain readings of the same source image and share one file.
- * Loaded under the `<basename>-bg` texture key.
+ * Chapters with a painted background image (the "read terrain off a
+ * generated map image" concept — `RIVER_CROSSING`'s own doc comment in
+ * maps.ts) instead of flat terrain-color tiles. Maps chapter id to the
+ * image's basename under `public/maps/<basename>.png`. Loaded under the
+ * `<basename>-bg` texture key.
  */
 const CHAPTERS_WITH_BACKGROUND_ART: Record<string, string> = {
-  'test-map1': 'test-map1.png',
-  'test-map1-detailed': 'test-map1.png',
-  'test-map2': 'river1.jpg',
+  'river-crossing': 'river1.jpg',
 };
 
 const MOVE_HIGHLIGHT = 0x4a90d9;
@@ -127,7 +123,7 @@ type UiMode = 'idle' | 'unit-selected' | 'action-menu' | 'awaiting-target' | 'sk
  * Every field is optional and defaults to today's original behavior when
  * omitted entirely — booting with no data at all (BootScene's old direct
  * hand-off, and anything else that doesn't know about chapter selection)
- * still lands on the roguelike default, TEST_MAP_2, unchanged.
+ * still lands on the roguelike default, RIVER_CROSSING, unchanged.
  */
 export interface TacticalSceneData {
   mode?: GameMode;
@@ -139,7 +135,7 @@ export interface TacticalSceneData {
    * Overrides the mode-based chapter lookup entirely with a specific
    * ChapterDef — for a hidden dev route that needs a real battle without
    * being reachable from ChapterSelectScene's real menu or added to
-   * TEST_MAP_2's live Roguelike roster (BootScene's `?luffyTest=1`,
+   * RIVER_CROSSING's live Roguelike roster (BootScene's `?luffyTest=1`,
    * `ANIMATED_HERO_TEST_STAGE`'s own doc comment in maps.ts). Every other caller
    * (MainMenuScene, ChapterSelectScene) leaves this unset.
    */
@@ -284,7 +280,7 @@ export class TacticalScene extends Scene {
       this.sceneData.debugChapter ??
       (mode === 'campaign'
         ? (CAMPAIGN_CHAPTERS.find((candidate) => candidate.id === this.sceneData.chapterId) ?? CAMPAIGN_CHAPTERS[0])
-        : TEST_MAP_2);
+        : RIVER_CROSSING);
     this.client = createGameClient(mode, chapter, this.sceneData.carryOver, this.sceneData.baseLevel);
     this.cameras.main.setBackgroundColor('#111318');
     applyDprZoom(this);
