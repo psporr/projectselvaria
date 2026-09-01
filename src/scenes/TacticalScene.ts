@@ -90,6 +90,12 @@ const TERRAIN_TILE_KEY: Record<TerrainType, string> = {
  */
 const CHAPTERS_WITH_BACKGROUND_ART: Record<string, string> = {
   'river-crossing': 'river1.jpg',
+  // Shares river1.jpg rather than getting the generic tile art (2026-09-01,
+  // per the repo owner) — ANIMATED_HERO_TEST_STAGE already reuses
+  // RIVER_CROSSING's own `rows` (maps.ts), so its board should look like
+  // River Crossing too, not switch art styles for reasons unrelated to
+  // what it's actually testing (the animated-hero pipeline, not terrain).
+  'animated-hero-test-stage': 'river1.jpg',
 };
 
 const MOVE_HIGHLIGHT = 0x4a90d9;

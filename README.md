@@ -141,6 +141,15 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-09-01 Claude: Switched the Hero Animation Test stage back to
+  `river1.jpg`'s painted background, per the repo owner — it had picked up
+  the new generic tile art for free when that shipped a moment earlier,
+  but since `ANIMATED_HERO_TEST_STAGE` already reuses `RIVER_CROSSING`'s
+  own `rows` (maps.ts), its board should look like River Crossing too
+  rather than switch art styles for reasons unrelated to what it's
+  actually testing (the animated-hero pipeline, not terrain art). One
+  line added to `TacticalScene.ts`'s `CHAPTERS_WITH_BACKGROUND_ART`.
+
 - 2026-09-01 Claude: Wired in a real terrain tileset, filling `ART_BRIEF.md`
   §2's long-open gap — per the repo owner, picked a free third-party set
   rather than waiting on a commission (see that section and CREDITS.md for
