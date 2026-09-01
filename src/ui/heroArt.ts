@@ -91,6 +91,27 @@ export function heroPortraitTextureKey(unitName: string): string {
  */
 export const ANIMATED_HERO_NAMES = ['luffy'] as const;
 
+/**
+ * Every static art source in this file — `HERO_SPRITE_NAMES` map sprites,
+ * `HERO_PORTRAIT_NAMES` busts, and the anonymous enemy-class art — is drawn
+ * facing left (confirmed by the repo owner, 2026-08-31). Luffy's animated
+ * sheets are the opposite (`heroAnimations.ts`'s `LUFFY_ART_FACES_RIGHT`),
+ * which is why "which way does this art face" has to be a fact each art
+ * source states rather than one flip rule for the whole roster.
+ */
+export const STATIC_ART_FACES_RIGHT = false;
+
+/**
+ * Works out whether a sprite/image needs `setFlipX` to face a wanted
+ * direction, given which way its art is actually drawn — shared by every
+ * caller in `CombatOverlayScene` (static portraits here, Luffy's animated
+ * sheets via `heroAnimations.ts`'s `luffyFlipX`) so a future art source only
+ * has to state its own `artFacesRight`, not re-derive the boolean logic.
+ */
+export function artFlipX(artFacesRight: boolean, faceRight: boolean): boolean {
+  return faceRight !== artFacesRight;
+}
+
 /** Whether `unitName` has frame-based animated art (checked before the static `HERO_SPRITE_NAMES`). */
 export function isAnimatedHero(unitName: string): boolean {
   return (ANIMATED_HERO_NAMES as readonly string[]).includes(unitName.toLowerCase());

@@ -141,6 +141,24 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-09-01 Claude: Corrected the previous entry's root cause for the
+  battle-screen facing bug, per the repo owner. Both Luffy's sheets — idle/run
+  and attack — are drawn facing **right**; they were never mismatched with
+  each other. The actual bug was the *static*-portrait branch (every other
+  hero, `heroArt.ts`'s `HERO_SPRITE_NAMES`/bust portraits/enemy-class art,
+  all drawn facing **left**) never getting a flip at all, so a static
+  fighter placed on the left side of the overlay stood facing away from
+  its opponent regardless of which side it was on.
+  `heroAnimations.ts`'s `luffyFlipX` is now a one-argument helper
+  (`faceRight`) wrapping a new shared `heroArt.ts` primitive,
+  `artFlipX(artFacesRight, faceRight)`, that both the animated and static
+  branches call with their own art's known orientation
+  (`LUFFY_ART_FACES_RIGHT = true`, `STATIC_ART_FACES_RIGHT = false`) —
+  so a future art source states which way it's drawn once, rather than
+  re-deriving the flip boolean per call site. `CombatOverlayScene`'s static
+  branch (`buildFighter`'s `image` path) now calls `setFlipX` the same way
+  the animated branch always did.
+
 - 2026-08-31 Claude: Fixed the battle screen's fighters facing **away** from
   each other, and made **On Grid** the default battle style, both per the
   repo owner. The facing bug had a non-obvious cause: Luffy's two sprite

@@ -3,7 +3,7 @@ import { GameObjects, Scene, TintModes } from 'phaser';
 import type { CombatBeat, CombatResult, Unit } from '../game/types';
 import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from '../ui/classIcons';
-import { heroIdleRunAtlasKey, isAnimatedHero, resolveBattlePortraitTexture } from '../ui/heroArt';
+import { artFlipX, heroIdleRunAtlasKey, isAnimatedHero, resolveBattlePortraitTexture, STATIC_ART_FACES_RIGHT } from '../ui/heroArt';
 import { luffyFlipX, LUFFY_ANIM_ATTACK, LUFFY_ANIM_IDLE, LUFFY_ATTACK_IMPACT_FRAME } from '../ui/heroAnimations';
 import { COLORS, FONT_FAMILY } from '../ui/kit';
 
@@ -54,7 +54,7 @@ interface Fighter {
   offscreenX: number;
   /** +1 lunges right, -1 lunges left — always toward the other side. */
   lungeSign: 1 | -1;
-  /** True for the left-hand fighter: it should face right, toward its opponent. Re-read on every animation change, since the idle and attack sheets face opposite ways (heroAnimations.ts's luffyFlipX). */
+  /** True for the left-hand fighter: it should face right, toward its opponent. Which way that means flipping depends on how the fighter's own art is drawn (heroArt.ts's artFlipX / heroAnimations.ts's luffyFlipX) — Luffy's animated sheets face right by default, every static art source faces left. */
   faceRight: boolean;
   hp: number;
   hpFill: GameObjects.Rectangle;
@@ -186,7 +186,7 @@ export class CombatOverlayScene extends Scene {
         .setOrigin(0.5, 1)
         .setScale(FIGHTER_HEIGHT / ANIM_REFERENCE_FRAME_HEIGHT);
       sprite.play(LUFFY_ANIM_IDLE);
-      sprite.setFlipX(luffyFlipX(LUFFY_ANIM_IDLE, lungeSign === 1));
+      sprite.setFlipX(luffyFlipX(lungeSign === 1));
       root.add(sprite);
     } else {
       const textureKey = resolveBattlePortraitTexture(this, unit);
@@ -194,6 +194,7 @@ export class CombatOverlayScene extends Scene {
         image = this.add.image(0, 0, textureKey).setOrigin(0.5, 1);
         const fit = FIGHTER_HEIGHT / image.height;
         image.setScale(fit);
+        image.setFlipX(artFlipX(STATIC_ART_FACES_RIGHT, lungeSign === 1));
         root.add(image);
       } else {
         circle = this.add.circle(0, -FIGHTER_HEIGHT / 2, FIGHTER_HEIGHT * 0.32, unit.team === 'enemy' ? 0xd9534f : 0x4a90d9).setStrokeStyle(3, 0x000000, 0.4);
@@ -291,10 +292,10 @@ export class CombatOverlayScene extends Scene {
         // its hit reaction having played.
         impact();
         sprite.play(LUFFY_ANIM_IDLE);
-        sprite.setFlipX(luffyFlipX(LUFFY_ANIM_IDLE, attacker.faceRight));
+        sprite.setFlipX(luffyFlipX(attacker.faceRight));
         onDone();
       });
-      sprite.setFlipX(luffyFlipX(LUFFY_ANIM_ATTACK, attacker.faceRight));
+      sprite.setFlipX(luffyFlipX(attacker.faceRight));
       sprite.play(LUFFY_ANIM_ATTACK);
       return;
     }

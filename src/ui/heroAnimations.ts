@@ -1,6 +1,6 @@
 import { Scene, Types } from 'phaser';
 
-import { heroAttackAtlasKey, heroIdleRunAtlasKey } from './heroArt';
+import { artFlipX, heroAttackAtlasKey, heroIdleRunAtlasKey } from './heroArt';
 
 /** Phaser animation keys for Luffy's three animated-sprite states — shared between SpriteTestScene (the standalone viewer) and the real game (UnitSprite), so both play the exact same tuned frames instead of two copies drifting apart. */
 export const LUFFY_ANIM_IDLE = 'luffy-idle';
@@ -40,24 +40,19 @@ export const LUFFY_ANIM_IDLE_MAP = 'luffy-idle-map';
 export const LUFFY_ATTACK_IMPACT_FRAME = 'attack-8';
 
 /**
- * The two Luffy sheets are drawn facing *opposite* directions — the
- * idle/run sheet points left, the attack sheet points right (they're
- * placeholder art from different sources, so there was never a reason for
- * them to agree). That means "make this fighter face right" isn't one flip
- * flag: it's a flip on one sheet and no flip on the other.
- *
- * Left unnoticed until the repo owner spotted it in the battle screen
- * (2026-08-31): flipping purely by which side a fighter stood on made the
- * attack read correctly but left both fighters *idling* turned away from
- * each other, since idle is what plays for most of the cut-in.
- *
- * Callers state the direction they want and this works out the flag, so a
- * future sheet only needs its own entry here rather than every call site
- * learning which way its art happens to point.
+ * Both Luffy sheets — idle/run and attack — are drawn facing **right**
+ * (confirmed by the repo owner, 2026-08-31, correcting an earlier guess in
+ * this file that had them facing opposite ways). `CombatOverlayScene`'s
+ * fighters idling turned away from each other was never a per-sheet
+ * mismatch; the actual bug was the static-portrait branch (`heroArt.ts`'s
+ * `STATIC_ART_FACES_RIGHT`) needing a flip it never got, which is fixed
+ * separately.
  */
-export function luffyFlipX(animKey: string, faceRight: boolean): boolean {
-  const artFacesRight = animKey === LUFFY_ANIM_ATTACK;
-  return faceRight !== artFacesRight;
+export const LUFFY_ART_FACES_RIGHT = true;
+
+/** Whether a Luffy sprite needs `setFlipX` to face `faceRight` — see `heroArt.ts`'s `artFlipX`, which this wraps with Luffy's known orientation. */
+export function luffyFlipX(faceRight: boolean): boolean {
+  return artFlipX(LUFFY_ART_FACES_RIGHT, faceRight);
 }
 
 /**
