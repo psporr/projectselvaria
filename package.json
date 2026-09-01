@@ -1,7 +1,7 @@
 {
   "name": "project-selvaria",
   "private": true,
-  "version": "0.34.2",
+  "version": "0.35.0",
   "description": "A 2D tactical RPG in the Fire Emblem lineage, built on Phaser 4 + TypeScript + Vite + boardgame.io.",
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
     "build": "vite build --config vite/config.prod.mjs",
     "sim": "tsx src/scripts/simulate.ts",
     "validate-maps": "tsx src/scripts/validateMaps.ts",
-    "scan-atlas": "tsx src/scripts/scanSpriteAtlas.ts",
+    "extract-aseprite": "tsx src/scripts/extractAseprite.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@types/pngjs": "^6.0.5",
+    "ase-parser": "^0.0.18",
     "pngjs": "^7.0.0",
     "tsx": "^4.23.12",
     "typescript": "~5.7.2",

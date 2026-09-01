@@ -1,129 +1,90 @@
-import { Scene, Types } from 'phaser';
+import { Scene } from 'phaser';
 
-import { artFlipX, heroAttackAtlasKey, heroIdleRunAtlasKey } from './heroArt';
-
-/** Phaser animation keys for Luffy's three animated-sprite states — shared between SpriteTestScene (the standalone viewer) and the real game (UnitSprite), so both play the exact same tuned frames instead of two copies drifting apart. */
-export const LUFFY_ANIM_IDLE = 'luffy-idle';
-export const LUFFY_ANIM_RUN = 'luffy-run';
-export const LUFFY_ANIM_ATTACK = 'luffy-attack';
+import { artFlipX, heroAnimAtlasKey } from './heroArt';
 
 /**
- * The on-board idle (2026-08-31) — same four frames as `LUFFY_ANIM_IDLE`,
- * but yoyo'd and slower, and it exists because the plain loop read as
- * "bouncy" on the grid while looking fine in SpriteTestScene's viewer.
+ * Animated-hero playback (2026-09-01 pipeline: `extractAseprite.ts`,
+ * replacing the earlier hand-cut-PNG one this file used to hold). Every
+ * animated hero (`heroArt.ts`'s `ANIMATED_HERO_NAMES`) shares this same
+ * shape now — a 4-frame idle loop plus one static attack pose, both frames
+ * of one merged atlas (`heroAnimAtlasKey`) — so nothing here is keyed to a
+ * specific hero name; a name is a runtime parameter throughout, not part of
+ * a constant.
  *
- * Measured rather than guessed: with the atlas stabilized on both axes, the
- * feet are provably planted (bottom ink sits a constant 22px below the
- * render anchor in all four frames) — what moves is the character's *top*,
- * squashing down 1px a frame, then snapping the full 3px back when the loop
- * restarts. That sawtooth is the bounce. The viewer doesn't show it as
- * badly because it draws at 5x, where the same motion has enough screen
- * pixels to read as smooth breathing; on the board at roughly 1.2x, with
- * the game's global `roundPixels`, those 1px steps quantize unevenly and
- * the reset lands as one hard jump.
- *
- * Yoyo replaces that sawtooth with a triangle wave — 0,1,2,3,2,1,0 — so
- * there's no discontinuity to read as a bounce, and the halved frame rate
- * makes the remaining squash a slow breath rather than a pulse. The viewer
- * deliberately keeps playing the raw, un-yoyo'd `LUFFY_ANIM_IDLE`: its
- * whole job is showing the frames exactly as authored.
+ * That single shape is also why there's no more per-frame attack timing
+ * (windup/impact/flurry durations, `Types.Animations.AnimationFrame`
+ * overrides) or a `LUFFY_ATTACK_IMPACT_FRAME` to watch for: the earlier
+ * pipeline's ~20-frame commissioned punch sequence made that machinery
+ * worth having, but a single attack pose is just a texture-frame swap,
+ * timed by whatever's driving it (a lunge tween), not a played animation.
  */
-export const LUFFY_ANIM_IDLE_MAP = 'luffy-idle-map';
 
-/**
- * The frame the punch actually lands on — `CombatOverlayScene` watches for
- * it (`animationupdate`) to time the defender's hit reaction, rather than a
- * hardcoded delay that would silently drift out of sync the next time the
- * ATTACK_*_DURATIONS below get retuned. Frame 8 is the first full-extension
- * punch, before the flurry repeats.
- */
-export const LUFFY_ATTACK_IMPACT_FRAME = 'attack-8';
-
-/**
- * Both Luffy sheets — idle/run and attack — are drawn facing **right**
- * (confirmed by the repo owner, 2026-08-31, correcting an earlier guess in
- * this file that had them facing opposite ways). `CombatOverlayScene`'s
- * fighters idling turned away from each other was never a per-sheet
- * mismatch; the actual bug was the static-portrait branch (`heroArt.ts`'s
- * `STATIC_ART_FACES_RIGHT`) needing a flip it never got, which is fixed
- * separately.
- */
-export const LUFFY_ART_FACES_RIGHT = true;
-
-/** Whether a Luffy sprite needs `setFlipX` to face `faceRight` — see `heroArt.ts`'s `artFlipX`, which this wraps with Luffy's known orientation. */
-export function luffyFlipX(faceRight: boolean): boolean {
-  return artFlipX(LUFFY_ART_FACES_RIGHT, faceRight);
+/** Registered idle-loop animation key for a hero's frames. */
+export function heroIdleAnimKey(unitName: string): string {
+  return `${unitName.toLowerCase()}-idle`;
 }
 
 /**
- * Per-frame durations (ms) for `luffy-attack`, replacing a flat frameRate —
- * anticipation/snap/hold/ease: held longest at the windup's cocked-back
- * peak (index 3) and the frame-8 impact (max stretch), fast through the
- * flurry, slowing back down through the final ease-out. Frames 11-17 read
- * (by eye, frame-stepping through the raw scan) as one full punch cycle —
- * the arm re-coils compact at 11, extends to a peak at 15, starts
- * retracting by 17 — so that slice repeats (`LUFFY_ATTACK_FLURRY_REPEATS`)
- * before continuing into the ease-out: the same 7 frames playing several
- * times over reads as a flurry of jabs instead of one long reach.
+ * The on-board idle (2026-08-31, carried over from the previous pipeline) —
+ * same four frames as `heroIdleAnimKey`, but yoyo'd and slower. Kept even
+ * though the new Aseprite-sourced frames are already provably alignment-
+ * stable (`extractAseprite.ts`'s union-bounds crop, unlike the old
+ * transparent-pixel-scanned sheet this was originally worked around) —
+ * a raw loop's hard snap back to frame 0 can still read as a tiny pulse at
+ * on-board scale, and yoyo's smooth triangle wave costs nothing to keep.
  */
-const ATTACK_WINDUP_DURATIONS = [90, 70, 60, 90, 50, 40, 35, 30]; // 0-7
-const ATTACK_IMPACT_DURATIONS = [120, 40, 35]; // 8-10
-const ATTACK_PUNCH_CYCLE_DURATIONS = [35, 30, 30, 35, 50, 30, 30]; // 11-17
-const ATTACK_EASE_DURATIONS = [60, 90, 120, 160]; // 18-21
-const LUFFY_ATTACK_FLURRY_REPEATS = 3;
+export function heroIdleMapAnimKey(unitName: string): string {
+  return `${unitName.toLowerCase()}-idle-map`;
+}
 
-function buildLuffyAttackFrames(scene: Scene): Types.Animations.AnimationFrame[] {
-  const all = scene.anims.generateFrameNames(heroAttackAtlasKey('luffy'), { prefix: 'attack-', start: 0, end: 21 });
-  const windup = all.slice(0, 8);
-  const impact = all.slice(8, 11);
-  const punchCycle = all.slice(11, 18);
-  const easeOut = all.slice(18, 22);
+/** The single attack-pose frame name every hero's atlas has, per `extractAseprite.ts`'s default `--attack-frames=1`. */
+export const HERO_ATTACK_FRAME = 'attack-0';
 
-  const withDurations = (slice: Types.Animations.AnimationFrame[], durations: number[]): Types.Animations.AnimationFrame[] =>
-    slice.map((f, i) => ({ ...f, duration: durations[i] }));
+/**
+ * Every animated hero's frames face **right** — confirmed 2026-09-01 by
+ * rendering both `luffy.aseprite` and `zoro.aseprite`'s extracted idle-0
+ * and attack-0 frames, not assumed (an earlier guess in this file, before
+ * that check, had the two source sheets facing opposite ways). Every
+ * static art source (`heroArt.ts`'s `STATIC_ART_FACES_RIGHT`) faces the
+ * other way — the two constants exist separately because there's no reason
+ * to expect a future art source to agree with either.
+ */
+export const ANIMATED_ART_FACES_RIGHT = true;
 
-  const flurry = Array.from({ length: LUFFY_ATTACK_FLURRY_REPEATS }, () => withDurations(punchCycle, ATTACK_PUNCH_CYCLE_DURATIONS)).flat();
-
-  return [...withDurations(windup, ATTACK_WINDUP_DURATIONS), ...withDurations(impact, ATTACK_IMPACT_DURATIONS), ...flurry, ...withDurations(easeOut, ATTACK_EASE_DURATIONS)];
+/** Whether an animated hero's sprite needs `setFlipX` to face `faceRight` — wraps `heroArt.ts`'s `artFlipX` with the known orientation above. */
+export function heroFlipX(faceRight: boolean): boolean {
+  return artFlipX(ANIMATED_ART_FACES_RIGHT, faceRight);
 }
 
 /**
- * Registers Luffy's three animations on `scene.anims` (Phaser's animation
- * registry is global across every Scene, not per-scene, so this only needs
- * to run once per game session — guarded on `luffy-idle` already existing
- * so a second call, from a second scene, or a `create()` re-run via
- * `TacticalScene.restartBattle()`, is a safe no-op). `luffy-attack` defaults
- * to `repeat: 0` (play once) here, the sensible default for a real combat
- * hit — SpriteTestScene's standalone viewer asks for continuous looping
- * itself at play time (`sprite.play({ key: LUFFY_ANIM_ATTACK, repeat: -1 })`)
- * rather than that being baked into the shared definition.
+ * Scale factor to render `unitName`'s animated sprite at `desiredHeight`
+ * (display pixels), read from its own atlas frame rather than a hand-tuned
+ * per-hero constant — safe because `extractAseprite.ts` crops every frame
+ * (idle and attack alike) to one shared union-bounds size, so any frame's
+ * height is the right reference for the whole hero. Call once the atlas is
+ * loaded (after `preload()`, e.g. in `create()`).
  */
-export function ensureLuffyAnimations(scene: Scene): void {
-  if (scene.anims.exists(LUFFY_ANIM_IDLE)) return;
+export function heroAnimScale(scene: Scene, unitName: string, desiredHeight: number): number {
+  const frame = scene.textures.getFrame(heroAnimAtlasKey(unitName), 'idle-0');
+  return desiredHeight / frame.height;
+}
 
-  const idleRunAtlas = heroIdleRunAtlasKey('luffy');
-  scene.anims.create({
-    key: LUFFY_ANIM_IDLE,
-    frames: scene.anims.generateFrameNames(idleRunAtlas, { prefix: 'idle-', start: 0, end: 3 }),
-    frameRate: 6,
-    repeat: -1,
-  });
-  scene.anims.create({
-    key: LUFFY_ANIM_IDLE_MAP,
-    frames: scene.anims.generateFrameNames(idleRunAtlas, { prefix: 'idle-', start: 0, end: 3 }),
-    frameRate: 3,
-    yoyo: true,
-    repeat: -1,
-  });
-  scene.anims.create({
-    key: LUFFY_ANIM_RUN,
-    frames: scene.anims.generateFrameNames(idleRunAtlas, { prefix: 'run-', start: 0, end: 5 }),
-    frameRate: 10,
-    repeat: -1,
-  });
-  scene.anims.create({
-    key: LUFFY_ANIM_ATTACK,
-    frames: buildLuffyAttackFrames(scene),
-    repeat: 0,
-  });
+/**
+ * Registers `unitName`'s idle animations on `scene.anims` (Phaser's
+ * animation registry is global across every Scene, not per-scene, so this
+ * only needs to run once per game session per hero — guarded on that
+ * hero's idle key already existing, so a second call from a second scene,
+ * or a `create()` re-run via `TacticalScene.restartBattle()`, is a safe
+ * no-op). No attack animation is registered — `HERO_ATTACK_FRAME` is a
+ * plain `setFrame()` target, not something `anims.create()` needs to know
+ * about.
+ */
+export function ensureHeroAnimations(scene: Scene, unitName: string): void {
+  const idleKey = heroIdleAnimKey(unitName);
+  if (scene.anims.exists(idleKey)) return;
+
+  const atlas = heroAnimAtlasKey(unitName);
+  const idleFrames = scene.anims.generateFrameNames(atlas, { prefix: 'idle-', start: 0, end: 3 });
+  scene.anims.create({ key: idleKey, frames: idleFrames, frameRate: 6, repeat: -1 });
+  scene.anims.create({ key: heroIdleMapAnimKey(unitName), frames: idleFrames, frameRate: 3, yoyo: true, repeat: -1 });
 }

@@ -2,8 +2,8 @@ import { Filters, GameObjects, Scene, TintModes } from 'phaser';
 import type { Unit } from '../game/types';
 import { DPR } from '../systems/viewport';
 import { CLASS_LETTER } from '../ui/classIcons';
-import { enemyClassTextureKeyFor, heroIdleRunAtlasKey, heroTextureKey, isAnimatedHero } from '../ui/heroArt';
-import { LUFFY_ANIM_IDLE_MAP } from '../ui/heroAnimations';
+import { enemyClassTextureKeyFor, heroAnimAtlasKey, heroTextureKey, isAnimatedHero } from '../ui/heroArt';
+import { HERO_ATTACK_FRAME, heroAnimScale, heroFlipX, heroIdleMapAnimKey } from '../ui/heroAnimations';
 import { FONT_FAMILY } from '../ui/kit';
 
 const TEAM_COLOR: Record<string, number> = { player: 0x4a90d9, enemy: 0xd9534f };
@@ -12,8 +12,8 @@ const ACTED_GRAY = 0x6b7280;
 const ACTED_BLEND = 0.55;
 /** How long flash()'s hit-tint holds before reverting. */
 const HIT_FLASH_ALPHA_DURATION_MS = 160;
-/** Roughly the idle sheet's average frame height (43-48px across idle-0..3) — animScale below is sized off this so an animated hero reads at about the same visual footprint as everyone else's tileSize*0.92 art, not its own raw pixel size. */
-const ANIM_REFERENCE_FRAME_HEIGHT = 45;
+/** The on-board display height an animated hero's sprite is scaled to — matches everyone else's `tileSize*0.92` art footprint, not its own raw pixel size. `heroAnimScale()` reads the actual loaded frame height at construction time rather than a hand-tuned constant, since `extractAseprite.ts` now guarantees a stable frame size per hero but that size differs hero to hero. */
+const ANIM_DISPLAY_HEIGHT_FACTOR = 0.92;
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -39,10 +39,11 @@ function blendToward(color: number, target: number, amount: number): number {
  * ever gets told what to show (HANDOFF.md §5/§7).
  *
  * Three render modes, chosen once at construction (a unit's name/art doesn't
- * change mid-match): an animated hero (`heroArt.ts`'s `ANIMATED_HERO_NAMES`,
- * 2026-08-31 — currently just Luffy) gets a `Sprite` playing idle/run/attack
- * frame animations instead of a static image; failing that, a named hero
- * with real static art (`HERO_SPRITE_NAMES`) gets that PNG; an enemy with no
+ * change mid-match): an animated hero (`heroArt.ts`'s `ANIMATED_HERO_NAMES`)
+ * gets a `Sprite` playing its idle loop, swapped to a held attack pose for a
+ * combat lunge (`playAttackPose()`/`resumeIdlePose()`) instead of a static
+ * image; failing that, a named hero with real static art (`HERO_SPRITE_NAMES`)
+ * gets that PNG; an enemy with no
  * name match falls back to anonymous class art (`ENEMY_ART_CLASSES`) if its
  * class has any (2026-08-26); everyone else — a player unit with no hero
  * art, or an enemy whose class has none — keeps the original
@@ -64,19 +65,17 @@ function blendToward(color: number, target: number, amount: number): number {
  * 0.5)`) rather than the bottom-anchored `setOrigin(0.5, 1)`
  * SpriteTestScene's standalone viewer uses — this board draws every unit
  * (circle, static portrait, or animated sprite) centered in its tile, and
- * matching that here keeps a Luffy visually level with its teammates
- * instead of looking like it's standing at the tile's bottom edge. That's
- * only safe because `scanSpriteAtlas.ts --stabilize` pads the idle frames
- * to uniform size on both axes: with every frame the same rect, a
- * center-anchored origin and the viewer's bottom-anchored one differ by a
- * constant offset and nothing else. Before that, the varying frame height
- * dragged the center-anchor around and the character visibly bobbed — the
- * viewer never showed it, being immune to a height change by construction.
+ * matching that here keeps an animated hero visually level with its
+ * teammates instead of looking like it's standing at the tile's bottom
+ * edge. That's safe because `extractAseprite.ts` crops every frame (idle
+ * and attack alike) to one shared union-bounds rect: with every frame the
+ * same size, a center-anchored origin and the viewer's bottom-anchored one
+ * differ by a constant offset and nothing else — no per-frame bob.
  *
- * It plays `LUFFY_ANIM_IDLE_MAP`, not the viewer's `LUFFY_ANIM_IDLE`: same
- * frames, yoyo'd and slower, because the raw loop's snap back to frame 0
- * still read as a bounce at this size even with the geometry fixed. See
- * that constant's own doc comment in heroAnimations.ts.
+ * It plays `heroIdleMapAnimKey()`, not the viewer's plain idle loop: same
+ * frames, yoyo'd and slower, because a raw loop's snap back to frame 0 can
+ * still read as a tiny bounce at this size. See that function's own doc
+ * comment in heroAnimations.ts.
  */
 export class UnitSprite extends GameObjects.Container {
   private readonly circle: GameObjects.Arc | null;
@@ -87,6 +86,8 @@ export class UnitSprite extends GameObjects.Container {
   private readonly animSprite: GameObjects.Sprite | null;
   /** Same grayscale-filter approach as portraitGrayscale, for animSprite. */
   private readonly animGrayscale: Filters.ColorMatrix | null;
+  /** `heroIdleMapAnimKey(unit.name)` — cached so `resumeIdlePose()` doesn't need the unit's name passed back in. Null outside animated mode. */
+  private readonly idleAnimKey: string | null;
   private readonly hpBar: GameObjects.Rectangle;
   private readonly hpBarWidth: number;
   private readonly baseColor: number;
@@ -116,9 +117,10 @@ export class UnitSprite extends GameObjects.Container {
       this.circle = null;
       this.portrait = null;
       this.portraitGrayscale = null;
-      const animScale = (tileSize * 0.92) / ANIM_REFERENCE_FRAME_HEIGHT;
-      this.animSprite = scene.add.sprite(0, 0, heroIdleRunAtlasKey(unit.name), 'idle-0').setOrigin(0.5, 0.5).setScale(animScale);
-      this.animSprite.play(LUFFY_ANIM_IDLE_MAP);
+      this.idleAnimKey = heroIdleMapAnimKey(unit.name);
+      const animScale = heroAnimScale(scene, unit.name, tileSize * ANIM_DISPLAY_HEIGHT_FACTOR);
+      this.animSprite = scene.add.sprite(0, 0, heroAnimAtlasKey(unit.name), 'idle-0').setOrigin(0.5, 0.5).setScale(animScale);
+      this.animSprite.play(this.idleAnimKey);
       this.animSprite.enableFilters();
       this.animGrayscale = this.animSprite.filters!.internal.addColorMatrix();
       this.animGrayscale.colorMatrix.grayscale(1);
@@ -128,6 +130,7 @@ export class UnitSprite extends GameObjects.Container {
       this.circle = null;
       this.animSprite = null;
       this.animGrayscale = null;
+      this.idleAnimKey = null;
       this.portrait = scene.add.image(0, 0, textureKey).setDisplaySize(tileSize * 0.92, tileSize * 0.92);
       this.portrait.enableFilters();
       this.portraitGrayscale = this.portrait.filters!.internal.addColorMatrix();
@@ -139,6 +142,7 @@ export class UnitSprite extends GameObjects.Container {
       this.portraitGrayscale = null;
       this.animSprite = null;
       this.animGrayscale = null;
+      this.idleAnimKey = null;
       this.circle = scene.add.circle(0, 0, radius, this.baseColor).setStrokeStyle(2, 0x000000, 0.4);
       const label = scene.add
         .text(0, 0, CLASS_LETTER[unit.className] ?? '?', {
@@ -229,13 +233,12 @@ export class UnitSprite extends GameObjects.Container {
    * implementation instead of four copies of the same tween.
    *
    * Deliberately does NOT switch animation (2026-08-31, per the repo owner
-   * after seeing it live): an animated hero briefly played its run loop for
+   * after seeing it live): an animated hero briefly played a run loop for
    * the tween's duration, which read badly — at this sprite's on-board size
    * a 150-180ms tween is a fraction of one 600ms run cycle, so it registered
-   * as a twitch rather than a stride. On-board sprites now hold their idle
-   * loop through everything; run/attack animation belongs to
-   * `CombatOverlayScene`'s full-screen cut-in, which has the screen space
-   * and the time budget to show it properly.
+   * as a twitch rather than a stride. On-board sprites hold their idle loop
+   * through a move; see `playAttackPose()` below for the one on-board
+   * moment that does change what's showing.
    */
   walkTo(px: number, py: number, duration: number, onComplete?: () => void): void {
     this.scene.tweens.add({
@@ -246,5 +249,30 @@ export class UnitSprite extends GameObjects.Container {
       ease: 'Quad.easeOut',
       onComplete: () => onComplete?.(),
     });
+  }
+
+  /**
+   * Swaps an animated hero to its held attack pose, facing `faceRight` —
+   * meant to be called right as `TacticalScene.playCombatSequence()` starts
+   * its lunge tween, so the pose reads as the moment of the swing rather
+   * than an idle character being flung forward. A single-frame pose swap
+   * (not a played animation, per `heroAnimations.ts`'s doc comment) is
+   * cheap enough to show on-board where a full run/attack cycle wasn't —
+   * there's no cycle to run out of sync with a 130ms tween. No-op outside
+   * animated mode (a static portrait or the placeholder circle has no
+   * separate attack pose).
+   */
+  playAttackPose(faceRight: boolean): void {
+    if (!this.animSprite) return;
+    this.animSprite.anims.stop();
+    this.animSprite.setFrame(HERO_ATTACK_FRAME);
+    this.animSprite.setFlipX(heroFlipX(faceRight));
+  }
+
+  /** Reverts `playAttackPose()` back to the idle loop, unflipped — pair the two calls around one lunge. No-op outside animated mode. */
+  resumeIdlePose(): void {
+    if (!this.animSprite || !this.idleAnimKey) return;
+    this.animSprite.setFlipX(false);
+    this.animSprite.play(this.idleAnimKey);
   }
 }

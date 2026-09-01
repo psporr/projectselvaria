@@ -3,8 +3,8 @@ import { GameObjects, Scene, TintModes } from 'phaser';
 import type { CombatBeat, CombatResult, Unit } from '../game/types';
 import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from '../ui/classIcons';
-import { artFlipX, heroIdleRunAtlasKey, isAnimatedHero, resolveBattlePortraitTexture, STATIC_ART_FACES_RIGHT } from '../ui/heroArt';
-import { luffyFlipX, LUFFY_ANIM_ATTACK, LUFFY_ANIM_IDLE, LUFFY_ATTACK_IMPACT_FRAME } from '../ui/heroAnimations';
+import { artFlipX, heroAnimAtlasKey, isAnimatedHero, resolveBattlePortraitTexture, STATIC_ART_FACES_RIGHT } from '../ui/heroArt';
+import { HERO_ATTACK_FRAME, heroAnimScale, heroFlipX, heroIdleAnimKey } from '../ui/heroAnimations';
 import { COLORS, FONT_FAMILY } from '../ui/kit';
 
 /** Everything the overlay needs to play an exchange back. Assembled by `TacticalScene.syncUnits()` at the moment it detects a new `G.lastCombat`, since that's the only place that still has both the pre-combat HP (its own `lastUnits` snapshot) and the post-combat units. */
@@ -23,8 +23,6 @@ const LEFT_X = 132;
 const RIGHT_X = LOGICAL_WIDTH - 132;
 /** How tall a combatant is drawn, whatever its source art's own pixel size. */
 const FIGHTER_HEIGHT = 168;
-/** Matches UnitSprite's own reference — the idle sheet's ~45px average frame height, so an animated hero scales to FIGHTER_HEIGHT the same way a static portrait does. */
-const ANIM_REFERENCE_FRAME_HEIGHT = 45;
 
 const SLIDE_MS = 320;
 const HOLD_BEFORE_FIRST_BEAT_MS = 280;
@@ -54,7 +52,16 @@ interface Fighter {
   offscreenX: number;
   /** +1 lunges right, -1 lunges left — always toward the other side. */
   lungeSign: 1 | -1;
-  /** True for the left-hand fighter: it should face right, toward its opponent. Which way that means flipping depends on how the fighter's own art is drawn (heroArt.ts's artFlipX / heroAnimations.ts's luffyFlipX) — Luffy's animated sheets face right by default, every static art source faces left. */
+  /**
+   * True for the left-hand fighter: it should face right, toward its
+   * opponent. Only used at `buildFighter()` time, alongside `lungeSign`
+   * (they always agree) — an animated sprite's idle and attack frames come
+   * from the same atlas and face the same way, so unlike the old per-sheet
+   * pipeline the flip never needs revisiting once built. Kept as its own
+   * field (rather than re-deriving from `lungeSign` at each use) since
+   * "should face its opponent" reads clearer at call sites than the sign
+   * of a lunge direction.
+   */
   faceRight: boolean;
   hp: number;
   hpFill: GameObjects.Rectangle;
@@ -182,11 +189,11 @@ export class CombatOverlayScene extends Scene {
 
     if (isAnimatedHero(unit.name)) {
       sprite = this.add
-        .sprite(0, 0, heroIdleRunAtlasKey(unit.name), 'idle-0')
+        .sprite(0, 0, heroAnimAtlasKey(unit.name), 'idle-0')
         .setOrigin(0.5, 1)
-        .setScale(FIGHTER_HEIGHT / ANIM_REFERENCE_FRAME_HEIGHT);
-      sprite.play(LUFFY_ANIM_IDLE);
-      sprite.setFlipX(luffyFlipX(lungeSign === 1));
+        .setScale(heroAnimScale(this, unit.name, FIGHTER_HEIGHT));
+      sprite.play(heroIdleAnimKey(unit.name));
+      sprite.setFlipX(heroFlipX(lungeSign === 1));
       root.add(sprite);
     } else {
       const textureKey = resolveBattlePortraitTexture(this, unit);
@@ -263,12 +270,13 @@ export class CombatOverlayScene extends Scene {
   }
 
   /**
-   * One swing. The attacking side animates (its real attack animation, or a
-   * lunge for a unit without one) and the defending side reacts at the moment
-   * of impact — which for an animated attacker is pinned to the punch's own
-   * landing frame (`LUFFY_ATTACK_IMPACT_FRAME`) rather than a guessed delay,
-   * so retuning that animation's per-frame timing can't silently desync the
-   * hit reaction from the visible hit.
+   * One swing: the attacker's `root` lunges toward the defender and back,
+   * impact landing at the lunge's peak (`onYoyo`, not a guessed delay).
+   * Every fighter shares this one tween now — an animated attacker just
+   * additionally swaps to its held attack pose (`HERO_ATTACK_FRAME`) for
+   * the lunge's duration, since (unlike the old per-frame-timed punch
+   * animation this replaced) a single-frame pose swap has no timing of its
+   * own to pin the impact to.
    */
   private playBeat(beat: CombatBeat, onDone: () => void): void {
     const attacker = this.fighterFor(beat.attackerId);
@@ -281,23 +289,8 @@ export class CombatOverlayScene extends Scene {
     };
 
     if (attacker.sprite) {
-      const sprite = attacker.sprite;
-      const onFrame = (_anim: unknown, frame: { textureFrame: string }) => {
-        if (frame.textureFrame === LUFFY_ATTACK_IMPACT_FRAME) impact();
-      };
-      sprite.on('animationupdate', onFrame);
-      sprite.once('animationcomplete', () => {
-        sprite.off('animationupdate', onFrame);
-        // Whatever happened to frame timing, the beat never resolves without
-        // its hit reaction having played.
-        impact();
-        sprite.play(LUFFY_ANIM_IDLE);
-        sprite.setFlipX(luffyFlipX(attacker.faceRight));
-        onDone();
-      });
-      sprite.setFlipX(luffyFlipX(attacker.faceRight));
-      sprite.play(LUFFY_ANIM_ATTACK);
-      return;
+      attacker.sprite.anims.stop();
+      attacker.sprite.setFrame(HERO_ATTACK_FRAME);
     }
 
     this.tweens.add({
@@ -307,7 +300,10 @@ export class CombatOverlayScene extends Scene {
       ease: 'Quad.easeOut',
       yoyo: true,
       onYoyo: impact,
-      onComplete: onDone,
+      onComplete: () => {
+        if (attacker.sprite) attacker.sprite.play(heroIdleAnimKey(attacker.unit.name));
+        onDone();
+      },
     });
   }
 

@@ -31,14 +31,16 @@ export type ClassName =
   | 'Hero'
   | 'Berserker'
   | 'Axe Master'
-  // Luffy test stage (2026-08-31) — a named-hero-only class backing the
-  // animated Luffy unit (heroArt.ts's ANIMATED_HERO_NAMES), used by both
-  // sides in maps.ts's LUFFY_TEST_STAGE. Not in ALL_CLASSES (no anonymous
-  // enemy art, and a random spawn drawing it would need a second Luffy
-  // sprite on screen at once, which the animated-hero pipeline was never
-  // meant to support) and not in PROMOTES_TO (the test stage has no
-  // leveling arc to promote through).
-  | 'Luffy';
+  // Animated hero test stage (2026-08-31, Zoro added 2026-09-01) —
+  // named-hero-only classes backing the two animated units (heroArt.ts's
+  // ANIMATED_HERO_NAMES), used by both sides in maps.ts's
+  // ANIMATED_HERO_TEST_STAGE. Neither is in ALL_CLASSES (no anonymous enemy
+  // art, and a random spawn drawing one would need a second copy of that
+  // same animated sprite on screen at once, which the pipeline was never
+  // meant to support) or PROMOTES_TO (the test stage has no leveling arc to
+  // promote through).
+  | 'Luffy'
+  | 'Zoro';
 
 export interface ClassStats {
   maxHp: number;
@@ -105,6 +107,10 @@ export const CLASS_STATS: Record<ClassName, ClassStats> = {
   // A fast, hard-hitting melee brawler, fitting the animated punch attack —
   // untuned test-stage numbers, not balanced against `npm run sim`.
   Luffy: { maxHp: 26, atk: 11, def: 4, move: 4, range: 1, hit: 85, crit: 15 },
+  // A bladed duelist, fitting the animated sword-slash attack — same
+  // untuned-test-stage caveat as Luffy above, tuned for visual contrast
+  // (a bit less durable, more crit-leaning) rather than balance.
+  Zoro: { maxHp: 23, atk: 12, def: 3, move: 4, range: 1, hit: 88, crit: 20 },
 };
 
 /**

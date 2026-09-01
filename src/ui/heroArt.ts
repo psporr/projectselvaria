@@ -80,33 +80,36 @@ export function heroPortraitTextureKey(unitName: string): string {
 }
 
 /**
- * Frame-based animated map art (2026-08-31) — idle/run/attack, a separate
- * category from the single-PNG `HERO_SPRITE_NAMES` above. Only `luffy` has
- * this so far (`SpriteTestScene.ts`'s proof-of-concept, still placeholder
- * art from a friend's drawing, not a commission). `UnitSprite` checks this
- * list *before* `HERO_SPRITE_NAMES` — an animated name takes priority if a
- * unit somehow matched both. Both atlases load from `public/test/` (see
- * `TacticalScene.preload()`) since this is still explicitly test content,
- * not real roster art moved into `public/units/`.
+ * Frame-based animated map art (2026-08-31, source pipeline replaced
+ * 2026-09-01) — idle/attack, a separate category from the single-PNG
+ * `HERO_SPRITE_NAMES` above. Each name here has a `public/aseprite/
+ * <name>.aseprite` source file (a handful of poses on one fixed canvas —
+ * cheap to produce, unlike a full commissioned animation set) run through
+ * `npm run extract-aseprite` to produce `public/heroes/<name>-atlas.png`/
+ * `.json` (see that script's own doc comment for the extraction method).
+ * `UnitSprite` checks this list *before* `HERO_SPRITE_NAMES` — an animated
+ * name takes priority if a unit somehow matched both.
  */
-export const ANIMATED_HERO_NAMES = ['luffy'] as const;
+export const ANIMATED_HERO_NAMES = ['luffy', 'zoro'] as const;
 
 /**
  * Every static art source in this file — `HERO_SPRITE_NAMES` map sprites,
  * `HERO_PORTRAIT_NAMES` busts, and the anonymous enemy-class art — is drawn
- * facing left (confirmed by the repo owner, 2026-08-31). Luffy's animated
- * sheets are the opposite (`heroAnimations.ts`'s `LUFFY_ART_FACES_RIGHT`),
- * which is why "which way does this art face" has to be a fact each art
- * source states rather than one flip rule for the whole roster.
+ * facing left (confirmed by the repo owner, 2026-08-31). The animated
+ * sources are the opposite (`heroAnimations.ts`'s `ANIMATED_ART_FACES_RIGHT`
+ * — confirmed 2026-09-01 by rendering both `luffy.aseprite` and
+ * `zoro.aseprite`'s extracted frames), which is why "which way does this
+ * art face" has to be a fact each art source states rather than one flip
+ * rule for the whole roster.
  */
 export const STATIC_ART_FACES_RIGHT = false;
 
 /**
  * Works out whether a sprite/image needs `setFlipX` to face a wanted
  * direction, given which way its art is actually drawn — shared by every
- * caller in `CombatOverlayScene` (static portraits here, Luffy's animated
- * sheets via `heroAnimations.ts`'s `luffyFlipX`) so a future art source only
- * has to state its own `artFacesRight`, not re-derive the boolean logic.
+ * caller in `CombatOverlayScene` (static portraits here, animated heroes via
+ * `heroAnimations.ts`'s `heroFlipX`) so a future art source only has to
+ * state its own `artFacesRight`, not re-derive the boolean logic.
  */
 export function artFlipX(artFacesRight: boolean, faceRight: boolean): boolean {
   return faceRight !== artFacesRight;
@@ -117,14 +120,16 @@ export function isAnimatedHero(unitName: string): boolean {
   return (ANIMATED_HERO_NAMES as readonly string[]).includes(unitName.toLowerCase());
 }
 
-/** Phaser atlas key a given animated hero's idle/run sheet loads under. */
-export function heroIdleRunAtlasKey(unitName: string): string {
+/**
+ * Phaser atlas key a given animated hero's idle+attack frames load under —
+ * one merged atlas per hero (`public/heroes/<name>-atlas.png`/`.json`),
+ * unlike the old two-sheet split (idle/run sheet plus a separate attack
+ * sheet) that pipeline needed when idle and attack came from two different
+ * source images. A single `.aseprite` file holds every pose on one canvas,
+ * so there's only ever one atlas to load per hero now.
+ */
+export function heroAnimAtlasKey(unitName: string): string {
   return `hero-anim-${unitName.toLowerCase()}`;
-}
-
-/** Phaser atlas key a given animated hero's attack sheet loads under. */
-export function heroAttackAtlasKey(unitName: string): string {
-  return `hero-anim-${unitName.toLowerCase()}-attack`;
 }
 
 /**

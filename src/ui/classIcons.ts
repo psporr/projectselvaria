@@ -36,8 +36,10 @@ export const CLASS_LETTER: Record<ClassName, string> = {
   Hero: 'H',
   Berserker: 'Z',
   'Axe Master': 'U',
-  // Luffy test stage (2026-08-31) — only ever shown as a fallback if the
-  // animated sprite atlas fails to load; the unit otherwise always renders
-  // its real animated art (heroArt.ts's ANIMATED_HERO_NAMES).
+  // Animated hero test stage (2026-08-31, Zoro added 2026-09-01) — only
+  // ever shown as a fallback if the animated sprite atlas fails to load;
+  // the unit otherwise always renders its real animated art (heroArt.ts's
+  // ANIMATED_HERO_NAMES).
   Luffy: 'Y',
+  Zoro: 'J',
 };

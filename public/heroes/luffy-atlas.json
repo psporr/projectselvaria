@@ -1,0 +1,115 @@
+{
+  "frames": {
+    "idle-0": {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 53,
+        "h": 46
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 53,
+        "h": 46
+      },
+      "sourceSize": {
+        "w": 53,
+        "h": 46
+      }
+    },
+    "idle-1": {
+      "frame": {
+        "x": 53,
+        "y": 0,
+        "w": 53,
+        "h": 46
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 53,
+        "h": 46
+      },
+      "sourceSize": {
+        "w": 53,
+        "h": 46
+      }
+    },
+    "idle-2": {
+      "frame": {
+        "x": 106,
+        "y": 0,
+        "w": 53,
+        "h": 46
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 53,
+        "h": 46
+      },
+      "sourceSize": {
+        "w": 53,
+        "h": 46
+      }
+    },
+    "idle-3": {
+      "frame": {
+        "x": 159,
+        "y": 0,
+        "w": 53,
+        "h": 46
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 53,
+        "h": 46
+      },
+      "sourceSize": {
+        "w": 53,
+        "h": 46
+      }
+    },
+    "attack-0": {
+      "frame": {
+        "x": 212,
+        "y": 0,
+        "w": 53,
+        "h": 46
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 53,
+        "h": 46
+      },
+      "sourceSize": {
+        "w": 53,
+        "h": 46
+      }
+    }
+  },
+  "meta": {
+    "app": "projectselvaria-tools",
+    "version": "1.0",
+    "image": "luffy-atlas.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 265,
+      "h": 46
+    },
+    "scale": "1"
+  }
+}

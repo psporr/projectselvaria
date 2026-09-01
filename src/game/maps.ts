@@ -584,14 +584,16 @@ export const TEST_MAP_2: ChapterDef = {
 };
 
 /**
- * Luffy test stage (2026-08-31, per the repo owner) — a hidden dev-only
- * battle (`?luffyTest=1`, BootScene's debug-redirect convention, same as
- * `?spriteTest=1`) proving the animated-hero pipeline (idle/run/attack,
- * `heroArt.ts`'s `ANIMATED_HERO_NAMES`) inside an actual battle instead of
- * SpriteTestScene's standalone viewer — specifically, that the run
- * animation plays correctly during real movement tweens and the attack
- * animation during a real combat exchange, for both a player-controlled
- * and an AI-controlled unit at once (one Luffy each side).
+ * Animated hero test stage (2026-08-31, per the repo owner; Zoro added
+ * 2026-09-01 alongside the Aseprite-source pipeline, `extractAseprite.ts`)
+ * — a hidden dev-only battle (`?luffyTest=1`, BootScene's debug-redirect
+ * convention, same as `?spriteTest=1`) proving the animated-hero pipeline
+ * (`heroArt.ts`'s `ANIMATED_HERO_NAMES`) inside an actual battle instead of
+ * SpriteTestScene's standalone viewer — specifically, that the on-board
+ * idle loop and the attack pose (`UnitSprite.playAttackPose()`) show
+ * correctly during a real combat exchange, for a player-controlled and an
+ * AI-controlled unit on each side, and that two different heroes' art
+ * render distinctly side by side rather than just proving one.
  *
  * Reuses TEST_MAP_2's River Crossing terrain (`rows`) rather than a new
  * layout — the terrain isn't what's being tested here — but is its own
@@ -604,9 +606,10 @@ export const TEST_MAP_2: ChapterDef = {
  * not a survival run — the same objectiveType the real campaign chapters
  * already use, so `mode: 'campaign'` behaves exactly as proven there
  * (TacticalScene's new `debugChapter` scene-data field bypasses the
- * `CAMPAIGN_CHAPTERS` id lookup that mode normally does). Spawn tiles
- * reuse two of TEST_MAP_2's own confirmed-passable plain tiles (Marisa's
- * and Bandit 2's) rather than re-verifying the ASCII map by eye.
+ * `CAMPAIGN_CHAPTERS` id lookup that mode normally does). Spawn tiles reuse
+ * four of TEST_MAP_2's own confirmed-passable plain tiles (`npm run
+ * validate-maps` checks every unit spawn is reachable, same as every real
+ * chapter) rather than re-verifying the ASCII map by eye.
  *
  * Known rough edge: since this chapter's id isn't in `CAMPAIGN_CHAPTERS`,
  * winning it and hitting Continue clears any real in-progress campaign save
@@ -614,15 +617,17 @@ export const TEST_MAP_2: ChapterDef = {
  * last real chapter) — harmless for a hidden dev route nobody but the repo
  * owner reaches, but worth knowing before using this mid-campaign-testing.
  */
-export const LUFFY_TEST_STAGE: ChapterDef = {
-  id: 'luffy-test-stage',
-  name: 'Luffy Test Stage',
-  shortName: 'Luffy Test',
+export const ANIMATED_HERO_TEST_STAGE: ChapterDef = {
+  id: 'animated-hero-test-stage',
+  name: 'Hero Animation Test',
+  shortName: 'Hero Anim Test',
   objective: 'Defeat all enemies',
   objectiveType: 'rout',
   rows: TEST_MAP_2.rows,
   units: [
     { id: 'luffy-player', name: 'Luffy', team: 'player', className: 'Luffy', x: 0, y: 6 },
     { id: 'luffy-enemy', name: 'Luffy', team: 'enemy', className: 'Luffy', x: 4, y: 0 },
+    { id: 'zoro-player', name: 'Zoro', team: 'player', className: 'Zoro', x: 2, y: 6 },
+    { id: 'zoro-enemy', name: 'Zoro', team: 'enemy', className: 'Zoro', x: 2, y: 0 },
   ],
 };

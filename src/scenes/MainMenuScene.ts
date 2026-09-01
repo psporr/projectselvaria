@@ -1,7 +1,7 @@
 import { Scene } from 'phaser';
 
 import { PLAYER_START_LEVEL } from '../game/classes';
-import { CAMPAIGN_CHAPTERS, LUFFY_TEST_STAGE } from '../game/maps';
+import { CAMPAIGN_CHAPTERS, ANIMATED_HERO_TEST_STAGE } from '../game/maps';
 import { loadCampaignSave } from '../game/save';
 import { browserStorage } from '../systems/storage';
 import { battleStyleLabel, loadSettings, nextBattleStyle, saveSettings } from '../systems/settings';
@@ -58,7 +58,7 @@ const LOGO_DISPLAY_SIZE = 132;
  * worth revisiting if a second or third setting ever lands here.
  *
  * A fourth section, DEV TESTS (2026-08-31, per the repo owner), surfaces
- * `SpriteTestScene` and `LUFFY_TEST_STAGE` as real buttons instead of
+ * `SpriteTestScene` and `ANIMATED_HERO_TEST_STAGE` as real buttons instead of
  * `?spriteTest=1`/`?luffyTest=1`-only routes — both URL params still work
  * (BootScene), this is just a faster way in. Deliberately styled with no
  * primary accent, unlike Start Run/New Game, so it doesn't read as a third
@@ -83,7 +83,7 @@ export class MainMenuScene extends Scene {
     // --- compute total content height so the logo+card block can be centered as one group ---
     const save = loadCampaignSave(browserStorage);
     const campaignRowCount = 2 + (save ? 1 : 0); // New Game + Chapter Select, plus Load Game when a save exists
-    const devRowCount = 2; // Sprite Test + Luffy Test Stage
+    const devRowCount = 2; // Sprite Test + Hero Anim Test
     const roguelikeSectionHeight = HEADING_HEIGHT + ROW_HEIGHT;
     const campaignSectionHeight = HEADING_HEIGHT + campaignRowCount * ROW_HEIGHT + Math.max(0, campaignRowCount - 1) * ROW_GAP;
     const devSectionHeight = HEADING_HEIGHT + devRowCount * ROW_HEIGHT + Math.max(0, devRowCount - 1) * ROW_GAP;
@@ -187,7 +187,7 @@ export class MainMenuScene extends Scene {
     // accent on either row) rather than reading as a third real game mode.
     addHeading('DEV TESTS');
     addRow('Sprite Test', () => this.scene.start('SpriteTest'), '13px');
-    addRow('Luffy Test Stage', () => this.startLuffyTestStage(), '13px');
+    addRow('Hero Anim Test', () => this.startAnimatedHeroTestStage(), '13px');
 
     this.add
       .text(LOGICAL_WIDTH - 12, LOGICAL_HEIGHT - 12, `v${GAME_VERSION}`, {
@@ -229,9 +229,9 @@ export class MainMenuScene extends Scene {
     this.scene.start('Tactical', data);
   }
 
-  /** Same route `?luffyTest=1` gives BootScene — see LUFFY_TEST_STAGE's own doc comment (game/maps.ts) for why it's a debugChapter override rather than a real, CAMPAIGN_CHAPTERS-listed chapter. */
-  private startLuffyTestStage(): void {
-    const data: TacticalSceneData = { mode: 'campaign', debugChapter: LUFFY_TEST_STAGE };
+  /** Same route `?luffyTest=1` gives BootScene — see ANIMATED_HERO_TEST_STAGE's own doc comment (game/maps.ts) for why it's a debugChapter override rather than a real, CAMPAIGN_CHAPTERS-listed chapter. */
+  private startAnimatedHeroTestStage(): void {
+    const data: TacticalSceneData = { mode: 'campaign', debugChapter: ANIMATED_HERO_TEST_STAGE };
     this.scene.start('Tactical', data);
   }
 }

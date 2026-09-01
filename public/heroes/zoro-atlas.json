@@ -1,0 +1,115 @@
+{
+  "frames": {
+    "idle-0": {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 69,
+        "h": 57
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 69,
+        "h": 57
+      },
+      "sourceSize": {
+        "w": 69,
+        "h": 57
+      }
+    },
+    "idle-1": {
+      "frame": {
+        "x": 69,
+        "y": 0,
+        "w": 69,
+        "h": 57
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 69,
+        "h": 57
+      },
+      "sourceSize": {
+        "w": 69,
+        "h": 57
+      }
+    },
+    "idle-2": {
+      "frame": {
+        "x": 138,
+        "y": 0,
+        "w": 69,
+        "h": 57
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 69,
+        "h": 57
+      },
+      "sourceSize": {
+        "w": 69,
+        "h": 57
+      }
+    },
+    "idle-3": {
+      "frame": {
+        "x": 207,
+        "y": 0,
+        "w": 69,
+        "h": 57
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 69,
+        "h": 57
+      },
+      "sourceSize": {
+        "w": 69,
+        "h": 57
+      }
+    },
+    "attack-0": {
+      "frame": {
+        "x": 276,
+        "y": 0,
+        "w": 69,
+        "h": 57
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 69,
+        "h": 57
+      },
+      "sourceSize": {
+        "w": 69,
+        "h": 57
+      }
+    }
+  },
+  "meta": {
+    "app": "projectselvaria-tools",
+    "version": "1.0",
+    "image": "zoro-atlas.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 345,
+      "h": 57
+    },
+    "scale": "1"
+  }
+}

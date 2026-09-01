@@ -30,10 +30,9 @@ import {
   enemyClassSpriteBasenames,
   enemyBasenameTextureKey,
   ANIMATED_HERO_NAMES,
-  heroIdleRunAtlasKey,
-  heroAttackAtlasKey,
+  heroAnimAtlasKey,
 } from '../ui/heroArt';
-import { ensureLuffyAnimations } from '../ui/heroAnimations';
+import { ensureHeroAnimations } from '../ui/heroAnimations';
 import { FONT_FAMILY } from '../ui/kit';
 import type { UIScene } from './UIScene';
 
@@ -141,7 +140,7 @@ export interface TacticalSceneData {
    * ChapterDef — for a hidden dev route that needs a real battle without
    * being reachable from ChapterSelectScene's real menu or added to
    * TEST_MAP_2's live Roguelike roster (BootScene's `?luffyTest=1`,
-   * `LUFFY_TEST_STAGE`'s own doc comment in maps.ts). Every other caller
+   * `ANIMATED_HERO_TEST_STAGE`'s own doc comment in maps.ts). Every other caller
    * (MainMenuScene, ChapterSelectScene) leaves this unset.
    */
   debugChapter?: ChapterDef;
@@ -235,14 +234,11 @@ export class TacticalScene extends Scene {
         if (!this.textures.exists(key)) this.load.image(key, `enemy/${basename}.png`);
       }
     }
-    // Animated-hero atlases (2026-08-31) — still loaded from public/test/,
-    // same placeholder-art paths SpriteTestScene uses, since this is still
-    // explicitly test content (heroArt.ts's ANIMATED_HERO_NAMES doc comment).
+    // Animated-hero atlases (2026-09-01 pipeline — extractAseprite.ts) — one
+    // merged idle+attack atlas per hero, from public/heroes/.
     for (const name of ANIMATED_HERO_NAMES) {
-      const idleRunKey = heroIdleRunAtlasKey(name);
-      if (!this.textures.exists(idleRunKey)) this.load.atlas(idleRunKey, `test/${name}-sheet.png`, `test/${name}-atlas.json`);
-      const attackKey = heroAttackAtlasKey(name);
-      if (!this.textures.exists(attackKey)) this.load.atlas(attackKey, `test/${name}-attack.png`, `test/${name}-attack-atlas.json`);
+      const key = heroAnimAtlasKey(name);
+      if (!this.textures.exists(key)) this.load.atlas(key, `heroes/${name}-atlas.png`, `heroes/${name}-atlas.json`);
     }
     for (const filename of new Set(Object.values(CHAPTERS_WITH_BACKGROUND_ART))) {
       const key = `${filename}-bg`;
@@ -292,7 +288,7 @@ export class TacticalScene extends Scene {
     this.client = createGameClient(mode, chapter, this.sceneData.carryOver, this.sceneData.baseLevel);
     this.cameras.main.setBackgroundColor('#111318');
     applyDprZoom(this);
-    ensureLuffyAnimations(this);
+    for (const name of ANIMATED_HERO_NAMES) ensureHeroAnimations(this, name);
     this.battleStyle = loadSettings(browserStorage).battleStyle;
 
     const { G } = this.client.getState()!;
@@ -657,6 +653,13 @@ export class TacticalScene extends Scene {
       if (attacker && attacker.scene !== undefined && attacker !== defender) {
         const originX = attacker.x;
         const originY = attacker.y;
+        // A no-op for a static portrait/circle unit — only an animated hero
+        // (heroArt.ts's ANIMATED_HERO_NAMES) has a separate attack pose to
+        // show. Cheap enough to show on-board now that it's a single-frame
+        // swap rather than a played animation (UnitSprite.playAttackPose's
+        // own doc comment) — the earlier run/attack-cycle attempt that read
+        // badly at this tween's ~130ms duration doesn't apply here.
+        attacker.playAttackPose(defender.x >= attacker.x);
         this.tweens.add({
           targets: attacker,
           x: originX + (defender.x - originX) * 0.28,
@@ -665,7 +668,10 @@ export class TacticalScene extends Scene {
           ease: 'Quad.easeOut',
           yoyo: true,
           onYoyo: impact,
-          onComplete: onBeatDone,
+          onComplete: () => {
+            attacker.resumeIdlePose();
+            onBeatDone();
+          },
         });
       } else {
         impact();

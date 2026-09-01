@@ -141,6 +141,49 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-09-01 Claude: Replaced the hand-cut-PNG animated-hero pipeline with
+  an Aseprite-source one, per the repo owner (commissioning full animation
+  for the whole roster costs too much — the plan going forward is a cheap
+  per-hero `.aseprite` file, a handful of poses on one fixed canvas, run
+  through a new extractor). Added Zoro as a second animated hero alongside
+  Luffy, both now sourced from `public/aseprite/<name>.aseprite`.
+  New `npm run extract-aseprite` (`src/scripts/extractAseprite.ts`, replacing
+  `scanSpriteAtlas.ts`, now removed along with the old placeholder Luffy PNG
+  sheets) decodes cels with `ase-parser` and composites each frame onto its
+  own transparent canvas at the cel's own recorded position — provably
+  aligned by construction, not scanned for transparent-pixel gaps. Checked
+  directly against both source files: every idle frame's content bottom
+  lands on the same canvas row despite what a tight per-frame crop would
+  measure as differing heights, confirming the artist draws every pose
+  against one fixed ground line. The extractor crops every frame (idle and
+  attack alike) to the *union* of every frame's content bounds rather than
+  each frame's own tight box — every output frame ends up the exact same
+  pixel size with zero drift, derived from data Aseprite already recorded
+  rather than a heuristic like the old `--stabilize` flag had to be.
+  Also corrected a wrong assumption from the previous entry: rendering
+  Luffy's old sheets showed idle and attack facing opposite ways, but that
+  was specific to that placeholder art — both new Aseprite sources have
+  idle and attack facing the *same* direction, so `heroAnimations.ts`'s
+  flip logic (`heroFlipX`, replacing `luffyFlipX`) no longer needs to key
+  off which animation is currently playing, just which side a fighter
+  stands on.
+  Each hero's atlas is now a single merged idle+attack sheet (one source
+  file, so no more two-atlas split), and "attack" is a single held pose
+  (`HERO_ATTACK_FRAME`) rather than a played animation — the old ~20-frame
+  windup/impact/flurry timing this replaced doesn't apply to one frame.
+  That pose now shows on the **on-grid** lunge too
+  (`UnitSprite.playAttackPose()`/`resumeIdlePose()`, wired into
+  `TacticalScene.playCombatSequence()`), something a full run/attack
+  animation cycle couldn't do at a ~130ms tween's on-board scale — a
+  single-frame swap has no cycle to desync from. Per-hero scale
+  (`heroAnimScale()`) is now read from the loaded atlas frame at runtime
+  instead of a hand-tuned constant, since different heroes' extracted
+  frames are different sizes (Luffy 53x46, Zoro 69x57).
+  `LUFFY_TEST_STAGE` is now `ANIMATED_HERO_TEST_STAGE` (menu button "Hero
+  Anim Test"), a 2v2 with one Luffy and one Zoro per side, and
+  `SpriteTestScene`'s standalone viewer gained a character switcher
+  (dropped its Run button — there are no run frames in this pipeline).
+
 - 2026-09-01 Claude: Corrected the previous entry's root cause for the
   battle-screen facing bug, per the repo owner. Both Luffy's sheets — idle/run
   and attack — are drawn facing **right**; they were never mismatched with

@@ -1,5 +1,5 @@
 import { Scene } from 'phaser';
-import { LUFFY_TEST_STAGE } from '../game/maps';
+import { ANIMATED_HERO_TEST_STAGE } from '../game/maps';
 import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { GAME_VERSION } from '../version';
 import { FONT_FAMILY } from '../ui/kit';
@@ -44,14 +44,14 @@ export class BootScene extends Scene {
                 this.scene.start('SpriteTest');
                 return;
             }
-            // ?luffyTest=1 boots straight into LUFFY_TEST_STAGE (2026-08-31) —
-            // same hidden-dev-route convention, proving idle/run/attack inside
-            // a real battle instead of SpriteTestScene's standalone viewer.
-            // See that chapter's own doc comment (game/maps.ts) for why it's a
-            // TacticalSceneData.debugChapter override rather than a real,
-            // menu-reachable chapter.
+            // ?luffyTest=1 boots straight into ANIMATED_HERO_TEST_STAGE (2026-08-31) —
+            // same hidden-dev-route convention, proving the animated-hero
+            // pipeline inside a real battle instead of SpriteTestScene's
+            // standalone viewer. See that chapter's own doc comment
+            // (game/maps.ts) for why it's a TacticalSceneData.debugChapter
+            // override rather than a real, menu-reachable chapter.
             if (params.get('luffyTest')) {
-                const data: TacticalSceneData = { mode: 'campaign', debugChapter: LUFFY_TEST_STAGE };
+                const data: TacticalSceneData = { mode: 'campaign', debugChapter: ANIMATED_HERO_TEST_STAGE };
                 this.scene.start('Tactical', data);
                 return;
             }

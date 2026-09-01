@@ -337,9 +337,10 @@ export const SKILLS: Record<ClassName, SkillDef[]> = {
       rangeBonus: 0,
     },
   ],
-  // No active skill — the Luffy test stage (2026-08-31) is about the
-  // animated attack/movement art, not a new kit.
+  // No active skill — the animated hero test stage (2026-08-31) is about
+  // the animated attack/movement art, not a new kit.
   Luffy: [],
+  Zoro: [],
 };
 
 /** The reach a unit's skill can target from its current tile. */
