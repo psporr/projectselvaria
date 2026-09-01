@@ -144,30 +144,32 @@ own pass once idle art is in and the game's overall look is validated.
   `#4a90d9`, red accent `#d9534f`) — avoid anything that visually fights
   those.
 
-## 2. Terrain tileset (held for later, spec'd for when it's time)
+## 2. Terrain tileset (shipped 2026-09-01)
 
-32×32 or 64×64px tiles (whichever the artist prefers — code will scale
-either), covering: Plain, Forest, Wall, Water (`src/game/types.ts`'s
-`Terrain`). Currently flat colors (`TacticalScene.ts`'s `TERRAIN_COLOR`).
-Revisit sizing once map sprites are in hand and the overall visual scale
-is locked.
+32×32px tiles covering Plain, Forest, Wall, Water (`src/game/types.ts`'s
+`Terrain`) — one representative tile per type, cropped from a free,
+third-party set (McMagister's "32px FE-style Tileset," CC BY-SA 3.0 — see
+CREDITS.md for the exact source crops and license terms) rather than
+commissioned. No auto-tiled edge blending between neighboring cells yet
+(a real upgrade for later, not required to replace the flat-color
+placeholder). Wired in `TacticalScene.ts`'s `TERRAIN_TILE_KEY`/
+`drawBoard()`, replacing the flat-color `TERRAIN_COLOR` fill it used
+before.
 
 **Decided 2026-08-23: this stays a permanent second way to author a map,
-not a stopgap the painted-image pipeline replaces.** Two proven paths now
+not a stopgap the painted-image pipeline replaces.** Two proven paths
 exist for a chapter's board, and a chapter picks whichever fits it:
 
 - **Hand-authored tileset** (this section) — an ASCII `rows` grid
   (`src/game/maps.ts`'s `LEGEND`) rendered as a tile sprite per cell from a
-  terrain tileset. This is every existing hand-built chapter's approach
-  (`CHAPTER_1`, `CAMPAIGN_CHAPTER_1/2`), currently placeholder flat colors
-  pending this tileset's art.
+  terrain tileset. This is every hand-built chapter's approach
+  (`CAMPAIGN_CHAPTER_1`/`2` — Iron Gate, The Long March).
 - **Painted map image** — a full painted map image classified into the
   same `rows` grid via per-pixel color clustering (documented inline in
-  `src/game/maps.ts` above `TEST_MAP_1`), rendered as a single background
-  image instead of per-tile sprites (`TacticalScene.ts`'s
-  `CHAPTERS_WITH_BACKGROUND_ART`). Proven end-to-end this session
-  (`TEST_MAP_1`/`TEST_MAP_1_DETAILED`) — real terrain data, real gameplay,
-  a real chokepoint, off of a single user-generated image.
+  `src/game/maps.ts` above `RIVER_CROSSING`), rendered as a single
+  background image instead of per-tile sprites (`TacticalScene.ts`'s
+  `CHAPTERS_WITH_BACKGROUND_ART`) — `RIVER_CROSSING`, the Roguelike mode's
+  permanent map, is built this way.
 
 Same `ChapterDef`/`rows` grid either way — the only difference is what
 `TacticalScene` draws underneath it (tile sprites vs. one image), so

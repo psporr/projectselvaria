@@ -141,6 +141,35 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-09-01 Claude: Wired in a real terrain tileset, filling `ART_BRIEF.md`
+  §2's long-open gap — per the repo owner, picked a free third-party set
+  rather than waiting on a commission (see that section and CREDITS.md for
+  the full pick process and license terms). Chapter 1 (The Iron Gate) and
+  Chapter 2 (The Long March) now render real Plain/Forest/Wall/Water tiles
+  instead of flat color fills; the Hero Animation Test stage gets the same
+  tiles for free since it never had its own background-art entry either.
+  River Crossing (Roguelike's map) is unaffected — it already had its own
+  painted background image and that path didn't change.
+  Source: McMagister's "32px FE-style Tileset" (CC BY-SA 3.0,
+  `github.com/McMagister/srpg-studio-stuff`), one representative 32x32 tile
+  cropped per terrain type — `Grass.png`/`Trees.png`/`Mountains.png` for
+  Plain/Forest/Wall, and (after the `Rivers.png` sheet turned out to be a
+  bounded river/lake autotile with no pure open-water tile anywhere in it,
+  confirmed by scanning it programmatically rather than assuming) the
+  dedicated `!8#WaterAnimation.png` sheet's first frame for Water instead.
+  New `TERRAIN_TILE_KEY` in `TacticalScene.ts` maps each `TerrainType` to
+  its `public/tiles/<type>.png`; `drawBoard()` now draws that image per
+  grid cell (falling back to the old flat-color fill if a texture somehow
+  fails to load, same defensive pattern `CHAPTERS_WITH_BACKGROUND_ART`
+  already used) instead of branching only between "one painted background
+  image" and "flat color." v1 scope, matching the brief: one static tile
+  per type, no auto-tiled edge blending between neighboring cells yet.
+  Verified: typecheck/build/validate-maps/sim clean (map data unchanged,
+  purely visual); Playwright confirmed real tiles render correctly on both
+  Iron Gate and the much larger Long March board, River Crossing's
+  painted-background path is untouched, and the Hero Anim Test stage
+  picked up the new tiles automatically.
+
 - 2026-09-01 Claude: Removed the dead/unwired concept-test maps, per the
   repo owner — `CHAPTER_1` (`frozen-pass`), `TEST_MAP_1` (`test-map1`), and
   `TEST_MAP_1_DETAILED` (`test-map1-detailed`). `CHAPTER_1` had been
