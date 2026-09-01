@@ -76,13 +76,43 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 `main` via `.github/workflows/deploy-pages.yml`).
 
 - Full pure game core ported from `winteremblem` (`src/game/`) — classes,
-  combat, grid, skills, equipment, blessings, waves, maps (3 chapters),
-  story triggers, AI, the boardgame.io `Game` definition. All exercised by
-  the headless simulator (`npm run sim -- --batch N`) and map validator
-  (`npm run validate-maps`).
+  combat, grid, skills, equipment, blessings, waves, maps (Roguelike's
+  `RIVER_CROSSING` plus 2 campaign chapters, The Iron Gate and The Long
+  March), story triggers, AI, the boardgame.io `Game` definition. All
+  exercised by the headless simulator (`npm run sim -- --batch N`) and map
+  validator (`npm run validate-maps`).
 - Hit/crit implemented (HANDOFF.md §3, Option A) — flat per-class rates,
   terrain avoid, probabilistic combat throughout. Class hit/crit numbers are
   a first-pass design, not final balance.
+- EXP grants a permanent 2x pace (`classes.ts`'s `EXP_RATE_MULTIPLIER`,
+  2026-09-01) — started as a 5x testing multiplier, kept at 2x as the
+  intended default once that testing pass was done, not reverted to 1x.
+- Campaign chapters carry real dialogue — `DialoguePanel` (bottom-anchored,
+  tap-to-advance) plays each chapter's intro before the board opens, its
+  outro before the chapter-clear handoff, and mid-battle `MapEvent`
+  triggers (a unit falling, a turn count, a tile reached) interrupt play
+  for a line or two, all gated through the same `inputSuspended` contract
+  everything else in `TacticalScene` uses.
+- Combat has two presentations, picked via the main menu's **Battle
+  Style** setting (`systems/settings.ts`, on-grid by default): the on-grid
+  lunge/damage-number/particle pass, or `CombatOverlayScene`'s full-screen
+  GBA-style cut-in (portraits, HP bars draining live, tap-to-skip). Two
+  heroes (Luffy, Zoro) have real frame animation instead of a static
+  portrait in either presentation — `heroArt.ts`'s `ANIMATED_HERO_NAMES`,
+  sourced from `.aseprite` files via `npm run extract-aseprite`
+  (`src/scripts/extractAseprite.ts`) rather than commissioned frame-by-
+  frame; see that script's doc comment for the extraction method. Neither
+  is in the real 6-hero roster yet — proven in the dev-only Hero
+  Animation Test stage (main menu's "Hero Anim Test" button).
+- Real terrain tileset (2026-09-01) — Chapter 1 and Chapter 2 render actual
+  Plain/Forest/Wall/Water tiles (`public/tiles/`, `TacticalScene.ts`'s
+  `TERRAIN_TILE_KEY`) instead of flat color fills, cropped from a free,
+  CC BY-SA-licensed set rather than a commission (full attribution and
+  license terms in `CREDITS.md`). `RIVER_CROSSING` (Roguelike's map) keeps
+  its own painted background image instead, per `ART_BRIEF.md` §2's
+  two-supported-paths design. No auto-tiled edge blending between
+  neighboring cells yet — a real upgrade still open, not required for the
+  flat-color placeholder it replaced.
 - `TacticalScene` + `UIScene` (HUD/panels split out per HANDOFF.md §7) render
   the board and units from `G`/`ctx`. Full click flow: select a unit → move
   → **action menu** (Attack / class skill / Wait / Cancel, each gated on
@@ -118,28 +148,45 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Not built yet
 
-- `CombatOverlayScene` (HANDOFF.md §7 phase 2 — GBA-style combat presentation)
+- Bust portraits for 5 of the real roster's 6 heroes (Marisa, Lyn, Solen,
+  Natasha, Ephraim) — only Jill has one (`public/portrait/jill.png`);
+  the rest fall back to their map sprite in the status bar/forecast panel
+  (`ART_BRIEF.md` §3).
+- Auto-tiled edge blending for the terrain tileset — one flat tile per
+  type today, no blended transition where e.g. Plain meets Forest.
+- A third campaign chapter — Chapter Select structurally supports more
+  than 2, nothing past The Long March is written yet.
 - Multiplayer, mobile app wrap (both explicitly deferred, HANDOFF.md §9/§10)
 
 ### In progress
 
 *(Add a line here when you start something. Format: `- [Name] what, since when`.)*
 
-- [Claude] EXP is at 5x (`classes.ts`'s `TESTING_EXP_MULTIPLIER`), since
-  2026-08-27, deliberately temporary — the repo owner asked for it to speed
-  up manually testing the class-tree rework (reaching level 10/promotion
-  fast). **Set it back to 1 once that testing pass is done.**
-- [Claude] Graphical art pass — blocked on custom art being commissioned
-  (unit sprites first, terrain tileset held to ship together with them,
-  portraits after that). See `ART_BRIEF.md` for the spec handed to the
-  artist. Nothing to build code-side until art lands; the loading/
-  rendering integration is a contained follow-up once files exist.
-  Terrain art now has two supported paths going forward, not one
-  replacing the other — a hand-authored tileset (`ART_BRIEF.md` §2) or a
-  painted map image classified into terrain data (`RIVER_CROSSING` in
-  `src/game/maps.ts`) — a chapter picks whichever fits it.
+*(Nothing currently in flight.)*
 
 ### Recent changes
+
+- 2026-09-01 Claude: EXP rate made a permanent default instead of leftover
+  test scaffolding, per the repo owner — `classes.ts`'s multiplier was 5x
+  since 2026-08-27, explicitly temporary to speed through testing the
+  promotion system. Renamed `TESTING_EXP_MULTIPLIER` to
+  `EXP_RATE_MULTIPLIER` and set it to 2x rather than reverting to 1x — the
+  faster pace is the intended default now. `npm run sim -- --batch 30`
+  comes back statistically unchanged (0 wiped, still 100% reaching the
+  wave cap), so the slower-than-5x leveling doesn't hurt survivability at
+  this batch size.
+  Also refreshed the **Project Status** section (`Now`/`Not built yet`/
+  `In progress`), which had drifted well behind reality — it still listed
+  `CombatOverlayScene` as unbuilt and the terrain tileset as blocked on a
+  commission, both shipped weeks/sessions ago. `Now` gained bullets for
+  campaign dialogue (`DialoguePanel`), the two combat presentations
+  (Battle Style setting) and the animated-hero pipeline (Luffy/Zoro,
+  `extractAseprite.ts`), and the real terrain tileset; `Not built yet`
+  now lists what's actually still open — portraits for 5 of 6 real
+  roster heroes, terrain auto-tiling, a third campaign chapter, and the
+  still-deferred multiplayer/mobile-wrap items (HANDOFF.md §9/§10).
+  `In progress` is empty — nothing was actually in flight under that
+  heading, it just hadn't been cleared.
 
 - 2026-09-01 Claude: Switched the Hero Animation Test stage back to
   `river1.jpg`'s painted background, per the repo owner — it had picked up

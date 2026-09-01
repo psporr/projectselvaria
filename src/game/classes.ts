@@ -161,15 +161,15 @@ export const PLAYER_START_LEVEL = 5;
 
 /**
  * How much EXP landing an attack, a kill, or a heal grants, and how much a
- * level costs. Multiplied 5x (2026-08-27, per the repo owner, "for
- * testing") so a real playthrough reaches level 10+ and promotion-eligible
- * fast enough to actually exercise it — drop `TESTING_EXP_MULTIPLIER` back
- * to 1 once that testing pass is done.
+ * level costs. Started as a 5x multiplier (2026-08-27) explicitly to speed
+ * through testing the promotion system; kept as a permanent 2x pace
+ * instead of reverting to 1x (2026-09-01, per the repo owner — the faster
+ * pace is the intended default now, not leftover test scaffolding).
  */
-const TESTING_EXP_MULTIPLIER = 5;
-export const EXP_PER_ATTACK = 20 * TESTING_EXP_MULTIPLIER;
-export const EXP_PER_KILL = 50 * TESTING_EXP_MULTIPLIER;
-export const EXP_PER_HEAL = 50 * TESTING_EXP_MULTIPLIER;
+const EXP_RATE_MULTIPLIER = 2;
+export const EXP_PER_ATTACK = 20 * EXP_RATE_MULTIPLIER;
+export const EXP_PER_KILL = 50 * EXP_RATE_MULTIPLIER;
+export const EXP_PER_HEAL = 50 * EXP_RATE_MULTIPLIER;
 export const EXP_TO_LEVEL = 100;
 
 /**
