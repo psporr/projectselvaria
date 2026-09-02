@@ -82,8 +82,8 @@ export const CLASS_STATS: Record<ClassName, ClassStats> = {
   Dancer: { maxHp: 16, atk: 6, def: 2, move: 4, range: 1, hit: 85, crit: 5 },
   // Added 2026-08-26 alongside the enemy-class art commit — see skills.ts's
   // SKILLS for each one's signature ability and heroArt.ts for which classes
-  // got real enemy art (Fighter/Spearfighter didn't become classes; their art
-  // became alt skins for Swordsman/Lancer instead — see that file's comment).
+  // got real enemy art (Spearfighter didn't become its own class; its art
+  // became Lancer's alt skin instead — see that file's comment).
   General: { maxHp: 32, atk: 8, def: 10, move: 2, range: 1, hit: 80, crit: 5 },
   Thief: { maxHp: 16, atk: 6, def: 2, move: 5, range: 1, hit: 90, crit: 10 },
   Assassin: { maxHp: 14, atk: 10, def: 2, move: 4, range: 1, hit: 75, crit: 35 },
@@ -118,34 +118,38 @@ export const CLASS_STATS: Record<ClassName, ClassStats> = {
  * units (maps.ts) draw from for a fresh enemy — every class here can appear
  * as a random, unpromoted, wave-1-strength mob.
  *
- * Restricted (2026-08-27, per the repo owner) to classes with real anonymous
- * enemy art — `src/ui/heroArt.ts`'s `ENEMY_CLASS_SPRITE_BASENAMES` is the
- * actual source of truth for which classes those are; this list must be
- * kept in sync with it by hand, since `game/` can't import from `ui/`
- * (HANDOFF.md §7 — pure logic never knows about rendering). A class with no
- * enemy art still renders as an enemy fine (the circle+letter placeholder,
- * same fallback every unit without art gets), but every random spawn was
- * hitting that fallback for several classes at once and reading as broken
- * rather than "art not done yet" — this trims the pool back to what
- * actually looks finished, art added here as it lands.
+ * Every *base* class — the original 12-class roster plus Fighter (Part 3's
+ * new base class) — is in the pool regardless of whether it currently has
+ * anonymous enemy art (`heroArt.ts`'s `ENEMY_CLASS_SPRITE_BASENAMES`); a
+ * class with none just renders the circle+letter placeholder (2026-09-02,
+ * per the repo owner — reverses the 2026-08-27 restriction that used to
+ * gate this list on art completeness).
  *
- * This is also, incidentally, why none of the 9 class-tree-rework advanced
- * classes (Part 3, 2026-08-27) or Fighter show up here: none of the 10 have
- * enemy art yet either, on top of the 9 promotion-only ones already running
- * noticeably stronger than a wave-1 base class (confirmed the hard way,
- * `npm run sim -- --batch 30` — see README's "Recent changes"). They stay
- * reachable only through `PROMOTES_TO`, never a random spawn.
+ * The 9 class-tree-rework *advanced* classes (Part 3, 2026-08-27 —
+ * Swordmaster, Sniper, Lancemaster, Sorcerer, Sage, Priest, Hero, Berserker,
+ * Axe Master) stay excluded on their own merits: they tested noticeably
+ * stronger than a wave-1 base class (confirmed the hard way, `npm run sim
+ * -- --batch 30` — see README's "Recent changes"), so a random spawn drawing
+ * one would be a real balance problem, not just a missing-art one. They stay
+ * reachable only through `PROMOTES_TO`, never a random spawn. Luffy/Zoro are
+ * excluded too, for the unrelated reason `ClassName`'s own doc comment gives
+ * (animated test-stage-only units, untuned stats, no second copy of their
+ * sprite to draw).
  */
 export const ALL_CLASSES: ClassName[] = [
   'Swordsman',
   'Archer',
   'Lancer',
+  'Mage',
   'Barbarian',
+  'Cleric',
+  'Dancer',
   'General',
   'Thief',
   'Assassin',
   'Mercenary',
   'Dark Mage',
+  'Fighter',
 ];
 
 /**

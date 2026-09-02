@@ -34,8 +34,11 @@ the moment they are. The enemy sprites are wired in as anonymous enemy art (`her
 `ENEMY_ART_CLASSES`): 7 mapped to their same-named class — 2 existing
 (Archer, Barbarian), 5 new ones added the same day (General, Thief,
 Assassin, Mercenary, Dark Mage — a 2026-08-26 class-roster expansion, see
-README) — and 2 more (Fighter, Spearfighter) folded in as the enemy skin
-for Swordsman/Lancer since they didn't earn distinct classes of their own.
+README) — and Spearfighter folded in as Lancer's enemy skin, since
+Spearfighter never earned a distinct class of its own. `fighter_m128.png`
+originally filled the same role for Swordsman, but moved to the real
+Fighter class once Part 3's class-tree rework (2026-08-27) gave it one;
+Swordsman now has no enemy art of its own (2026-09-02, per the repo owner).
 `b_eirika128.png` isn't wired in — it reads as a specific boss/named enemy
 unit, not a class skin, so it's unused pending a story decision.
 

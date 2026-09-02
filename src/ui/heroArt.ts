@@ -120,21 +120,26 @@ export function heroAnimAtlasKey(unitName: string): string {
 /**
  * Anonymous enemy-class art (`public/enemy/*.png`) — only ever applies to
  * enemy-team units with no name match above (heroes always render as
- * themselves, never as their class). Fighter and Spearfighter didn't become
- * their own `ClassName`s (2026-08-26 class-roster discussion — no distinct
- * tactical identity from Swordsman/Lancer beyond flavor), so their art
- * became those two classes' enemy skin instead. Several classes have both a
- * `_f128`/`_m128` variant in the asset folder — rather than hardcoding one
- * per class (as this file did through 2026-08-28), every available variant
- * is listed and a specific unit/dialogue speaker picks between them
- * deterministically (`enemyClassTextureKeyFor` below); `Unit` still has no
- * gender field, this just means "which piece of art" instead of "which
- * gender" (v1 approach the doc comment 2 lines up used to reference, now
- * moot). `b_eirika128.png` isn't wired here — it reads as a specific
- * boss/named enemy unit, not a class skin.
+ * themselves, never as their class). `fighter_m128`/`spearfighter_*` were
+ * originally Swordsman/Lancer's own enemy skin (2026-08-26 class-roster
+ * discussion, back when Fighter/Spearfighter weren't their own
+ * `ClassName`s) — Fighter has since become a real base class (Part 3
+ * class-tree rework, 2026-08-27), so `fighter_m128` moved to it here
+ * (2026-09-02, per the repo owner); Swordsman now has no enemy art of its
+ * own and reads as an unfinished placeholder (circle+letter) until it gets
+ * dedicated art. Spearfighter never became a `ClassName`, so Lancer keeps
+ * `spearfighter_*`. Several classes have both a `_f128`/`_m128` variant in
+ * the asset folder — rather than hardcoding one per class (as this file did
+ * through 2026-08-28), every available variant is listed and a specific
+ * unit/dialogue speaker picks between them deterministically
+ * (`enemyClassTextureKeyFor` below); `Unit` still has no gender field, this
+ * just means "which piece of art" instead of "which gender" (v1 approach
+ * the doc comment 2 lines up used to reference, now moot). `b_eirika128.png`
+ * isn't wired here — it reads as a specific boss/named enemy unit, not a
+ * class skin.
  */
 const ENEMY_CLASS_SPRITE_BASENAMES: Partial<Record<string, readonly string[]>> = {
-  Swordsman: ['fighter_m128'],
+  Fighter: ['fighter_m128'],
   Lancer: ['spearfighter_f128', 'spearfighter_m128'],
   Archer: ['archer_f128', 'archer_m128'],
   Barbarian: ['barbarian_m128'],

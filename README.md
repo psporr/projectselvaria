@@ -162,6 +162,36 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-09-02 Claude: Enemy Swordsman/Fighter art reassignment, per the repo
+  owner. `heroArt.ts`'s `ENEMY_CLASS_SPRITE_BASENAMES` used to give Swordsman
+  the `fighter_m128.png` art (a leftover from before Fighter was its own
+  `ClassName` — see the 2026-08-26 CREDITS.md note this entry updates).
+  Swapped: Swordsman now has no enemy art (circle+letter placeholder), and
+  Fighter — a real base class since Part 3's class-tree rework — has
+  `fighter_m128.png` instead. Three follow-on questions this raised got
+  answered directly by the repo owner rather than guessed at:
+  - Three hardcoded enemies that were `className: 'Swordsman'` (Gate Guard
+    in Chapter 1, Vale Guard and Vale Scout in Chapter 2) got reclassed to
+    `'Fighter'` in `maps.ts` so they keep real art instead of falling back to
+    the placeholder — a real (small) stat change too, Fighter's base stats
+    differ slightly from Swordsman's.
+  - `classes.ts`'s `ALL_CLASSES` (the pool random enemy spawns — bandits,
+    wave spawns — draw from) used to be restricted to classes with finished
+    enemy art, which is how Swordsman ended up excluded from it despite
+    being a base class. That restriction is gone: `ALL_CLASSES` is now every
+    *base* class (the original 12 plus Fighter) regardless of art, so
+    Mage/Cleric/Dancer/Fighter/Swordsman can all appear as random spawns now
+    (some showing the placeholder) alongside the rest. The 9 Part 3
+    *advanced* classes (Swordmaster, Sniper, Sorcerer, etc.) and the two
+    animated test-stage classes (Luffy/Zoro) stay excluded — unrelated to
+    art, the advanced 9 tested noticeably stronger than a wave-1 base class
+    (documented in `ALL_CLASSES`'s own comment) and Luffy/Zoro are test-
+    stage-only with untuned stats.
+  Verified: typecheck/build/validate-maps clean; `npm run sim -- --batch 30`
+  still comes back 0% wiped / 100% reaching the wave cap (mean wave 7.13 vs.
+  the prior baseline's 7.23 — the larger, art-agnostic random-spawn pool
+  doesn't meaningfully change difficulty at this batch size).
+
 - 2026-09-02 Claude: Two follow-up fixes from the repo owner testing the
   previous entry's changes.
   `UnitStatusBar`'s portrait box grew back from 50×50 to **96×96** — the

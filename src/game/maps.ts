@@ -308,7 +308,7 @@ export const CAMPAIGN_CHAPTER_1: ChapterDef = {
     { id: 'gate-chief', name: 'Gate Chief', team: 'enemy', className: 'Barbarian', x: 3, y: 1 },
     { id: 'gate-bow-1', name: 'Gate Archer', team: 'enemy', className: 'Archer', x: 0, y: 1 },
     { id: 'gate-bow-2', name: 'Gate Archer', team: 'enemy', className: 'Archer', x: 6, y: 1 },
-    { id: 'gate-guard-1', name: 'Gate Guard', team: 'enemy', className: 'Swordsman', x: 2, y: 2 },
+    { id: 'gate-guard-1', name: 'Gate Guard', team: 'enemy', className: 'Fighter', x: 2, y: 2 },
     { id: 'gate-guard-2', name: 'Gate Guard', team: 'enemy', className: 'Lancer', x: 4, y: 2 },
   ],
 };
@@ -397,10 +397,10 @@ export const CAMPAIGN_CHAPTER_2: ChapterDef = {
     { id: 'march-captain', name: 'Vale Captain', team: 'enemy', className: 'Barbarian', x: 5, y: 0 },
     { id: 'march-bow-1', name: 'Vale Archer', team: 'enemy', className: 'Archer', x: 1, y: 1 },
     { id: 'march-bow-2', name: 'Vale Archer', team: 'enemy', className: 'Archer', x: 9, y: 1 },
-    { id: 'march-guard-1', name: 'Vale Guard', team: 'enemy', className: 'Swordsman', x: 2, y: 4 },
+    { id: 'march-guard-1', name: 'Vale Guard', team: 'enemy', className: 'Fighter', x: 2, y: 4 },
     { id: 'march-guard-2', name: 'Vale Guard', team: 'enemy', className: 'Lancer', x: 8, y: 4 },
     { id: 'march-mage', name: 'Vale Adept', team: 'enemy', className: 'Mage', x: 5, y: 6 },
-    { id: 'march-scout-1', name: 'Vale Scout', team: 'enemy', className: 'Swordsman', x: 1, y: 6 },
+    { id: 'march-scout-1', name: 'Vale Scout', team: 'enemy', className: 'Fighter', x: 1, y: 6 },
     { id: 'march-scout-2', name: 'Vale Scout', team: 'enemy', className: 'Lancer', x: 9, y: 6 },
   ],
 };
