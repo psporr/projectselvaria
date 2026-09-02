@@ -61,27 +61,24 @@ SELVARIA" wordmark underneath the shield was cropped out since it isn't
 legible at favicon size.
 
 **Terrain tileset** (`public/tiles/plain.png`, `forest.png`, `wall.png`,
-`water.png`, added 2026-09-01, per the repo owner) fills `ART_BRIEF.md` §2's
-long-open gap — a real tile per `TerrainType` in place of the flat color
-fills `TacticalScene.ts`'s `TERRAIN_COLOR` used to draw. One representative
+`water.png`, added 2026-09-01, per the repo owner) filled `ART_BRIEF.md`
+§2's long-open gap — a real tile per `TerrainType` in place of the flat
+color fills `TacticalScene.ts`'s `TERRAIN_COLOR` draws. One representative
 32×32 tile per terrain type, cropped from **McMagister's "32px FE-style
 Tileset"** ([`McMagister/srpg-studio-stuff`](https://github.com/McMagister/srpg-studio-stuff),
 `32px FE-style Tileset/Graphics/mapchip/`), licensed
-[**CC BY-SA 3.0**](https://creativecommons.org/licenses/by-sa/3.0/) —
-attribution required, and any redistributed derivative of the tileset
-itself must stay under a compatible license (the game's own code is
-unaffected; this applies to the art files). Source crops: `plain.png` from
-`Grass.png` (0,0); `forest.png` from `Trees.png` (128,32); `wall.png` from
-`Mountains.png` (0,0); `water.png` from the dedicated
-`!8#WaterAnimation.png` sheet's first frame (0,0) — the `Rivers.png` sheet
-itself is a bounded river/lake autotile with no pure open-water tile at any
-position, so the standalone water-animation sheet was the actual source for
-a flat water fill. Wired in `TacticalScene.ts`'s `drawBoard()`: a chapter
-without its own painted background image (`CHAPTERS_WITH_BACKGROUND_ART`)
-now draws one of these per grid cell instead of a solid color rectangle —
-Chapter 1 (The Iron Gate) and Chapter 2 (The Long March) are the first to
-show it. No auto-tiled edge blending between neighboring cells (v1 scope,
-matching the brief) — one static tile per type.
+[**CC BY-SA 3.0**](https://creativecommons.org/licenses/by-sa/3.0/). Source
+crops: `plain.png` from `Grass.png` (0,0); `forest.png` from `Trees.png`
+(128,32); `wall.png` from `Mountains.png` (0,0); `water.png` from the
+dedicated `!8#WaterAnimation.png` sheet's first frame (0,0) — the
+`Rivers.png` sheet itself is a bounded river/lake autotile with no pure
+open-water tile at any position, so the standalone water-animation sheet
+was the actual source for a flat water fill.
+**Removed 2026-09-02, per the repo owner** — didn't look good in-game; a
+replacement is pending, and `TacticalScene.ts`'s `TERRAIN_COLOR` flat fill
+is back to being the only art for a chapter without its own painted
+background (Chapter 1 and Chapter 2). Credit stands regardless of whether
+the asset ships, same as every other removed-art entry in this file.
 
 ## Design lineage
 

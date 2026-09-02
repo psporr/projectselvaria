@@ -10,7 +10,7 @@ import { CAMPAIGN_CHAPTERS, RIVER_CROSSING, type CampaignCarryOver, type Chapter
 import { saveCampaign, clearCampaignSave } from '../game/save';
 import { canUseSkill, describeSkillEffect, novaBlastCoords, skillTargets, SKILLS, type SkillDef } from '../game/skills';
 import { isTriggerMet, type MapEvent } from '../game/story';
-import { TERRAIN, teamOf, type CombatBeat, type CombatResult, type GameMode, type GameState, type Team, type TerrainType, type Unit } from '../game/types';
+import { TERRAIN, teamOf, type CombatBeat, type CombatResult, type GameMode, type GameState, type Team, type Unit } from '../game/types';
 import { UnitSprite } from '../entities/UnitSprite';
 import type { CombatOverlayData } from './CombatOverlayScene';
 import { createGameClient, type GameClient } from '../systems/gameClient';
@@ -52,31 +52,19 @@ const BOARD_ORIGIN_Y = 56;
 const BOARD_AREA_WIDTH = LOGICAL_WIDTH - 2 * 16;
 const BOARD_AREA_HEIGHT = 568 - BOARD_ORIGIN_Y;
 
-/** Fallback fill if a terrain tile's real art ever fails to load — same defensive pattern as CHAPTERS_WITH_BACKGROUND_ART's own `this.textures.exists()` guard. Should never actually show once TERRAIN_TILE_KEY's images are in place. */
+/**
+ * Flat per-terrain-type fill (the "hand-authored tileset" path's only art
+ * again, ART_BRIEF.md §2 — a real cropped tileset briefly filled this in,
+ * 2026-09-01, but was removed 2026-09-02, per the repo owner: it didn't
+ * look good in-game. A replacement is pending; whatever gets picked next
+ * can reuse the same `hasArt`-guarded slot in `drawBoard()` below without
+ * this fallback needing to change).
+ */
 const TERRAIN_COLOR: Record<string, number> = {
   plain: 0x3a3f4b,
   forest: 0x2d5a3d,
   wall: 0x4a4a4a,
   water: 0x2a5d8a,
-};
-
-/**
- * Per-terrain-type tile art (2026-09-01, per the repo owner — a free
- * tileset picked to fill in `ART_BRIEF.md` §2's long-open terrain-tileset
- * gap). One representative 32x32 tile per `TerrainType`, cropped from
- * McMagister's "32px FE-style Tileset" (CC BY-SA 3.0 — see CREDITS.md) —
- * `public/tiles/<type>.png`, loaded under the `tile-<type>` key. This is
- * `ART_BRIEF.md` §2's "hand-authored tileset" path: one tile drawn per
- * `rows` grid cell, not a painted background image (`CHAPTERS_WITH_BACKGROUND_ART`
- * below, still its own separate path for a chapter sourced that way instead).
- * v1 scope, matching the brief: one static tile per type, no auto-tiled
- * edge blending between neighboring cells.
- */
-const TERRAIN_TILE_KEY: Record<TerrainType, string> = {
-  plain: 'tile-plain',
-  forest: 'tile-forest',
-  wall: 'tile-wall',
-  water: 'tile-water',
 };
 
 /**
@@ -261,9 +249,6 @@ export class TacticalScene extends Scene {
       const imgPath = filename.includes('.') ? `maps/${filename}` : `maps/${filename}.png`;
       if (!this.textures.exists(key)) this.load.image(key, imgPath);
     }
-    for (const [type, key] of Object.entries(TERRAIN_TILE_KEY)) {
-      if (!this.textures.exists(key)) this.load.image(key, `tiles/${type}.png`);
-    }
   }
 
   create() {
@@ -376,16 +361,10 @@ export class TacticalScene extends Scene {
         const terrain = TERRAIN[G.tiles[y][x]];
         const { px, py } = this.tileCenter(x, y);
         // A chapter with its own painted background image already has its
-        // terrain baked into that one picture; everyone else gets a real
-        // tile image per cell now instead of a flat color fill (both guard
-        // on the texture actually being loaded, same fallback-to-flat-color
-        // pattern either way).
-        const tileArtKey = TERRAIN_TILE_KEY[terrain.type];
-        const hasTileArt = !hasBackgroundArt && this.textures.exists(tileArtKey);
-        if (hasTileArt) {
-          this.add.image(px, py, tileArtKey).setDisplaySize(this.tileSize, this.tileSize).setDepth(-1);
-        }
-        const hasArt = hasBackgroundArt || hasTileArt;
+        // terrain baked into that one picture; everyone else falls back to
+        // TERRAIN_COLOR's flat fill per cell (no hand-authored tile art
+        // currently wired in — see that constant's own comment).
+        const hasArt = hasBackgroundArt;
         // With real art underneath, the rect itself turns invisible but
         // keeps a faint grid stroke and stays interactive — clicking still
         // needs one hit-testable shape per tile either way.

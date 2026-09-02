@@ -16,8 +16,10 @@ and the lessons learned building the prototype — including what to deliberatel
 *not* port. It's the source of truth for what this project is building.
 
 If you're sourcing or drawing art, see [`ART_BRIEF.md`](./ART_BRIEF.md) —
-the spec for unit sprites and the terrain tileset (both have real art now;
-see that doc's status notes for what shipped and how). If you're
+the spec for unit sprites (shipped) and the terrain tileset (open again —
+a first pick shipped 2026-09-01 and was removed 2026-09-02; see that
+doc's §2 for the current status and what a replacement needs to match).
+If you're
 generating a new chapter's map image, see [`MAP_BRIEF.md`](./MAP_BRIEF.md)
 for the prompt and technical spec to hand an image generator.
 
@@ -104,15 +106,6 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
   frame; see that script's doc comment for the extraction method. Neither
   is in the real 6-hero roster yet — proven in the dev-only Hero
   Animation Test stage (main menu's "Hero Anim Test" button).
-- Real terrain tileset (2026-09-01) — Chapter 1 and Chapter 2 render actual
-  Plain/Forest/Wall/Water tiles (`public/tiles/`, `TacticalScene.ts`'s
-  `TERRAIN_TILE_KEY`) instead of flat color fills, cropped from a free,
-  CC BY-SA-licensed set rather than a commission (full attribution and
-  license terms in `CREDITS.md`). `RIVER_CROSSING` (Roguelike's map) keeps
-  its own painted background image instead, per `ART_BRIEF.md` §2's
-  two-supported-paths design. No auto-tiled edge blending between
-  neighboring cells yet — a real upgrade still open, not required for the
-  flat-color placeholder it replaced.
 - `TacticalScene` + `UIScene` (HUD/panels split out per HANDOFF.md §7) render
   the board and units from `G`/`ctx`. Full click flow: select a unit → move
   → **action menu** (Attack / class skill / Wait / Cancel, each gated on
@@ -148,8 +141,11 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Not built yet
 
-- Auto-tiled edge blending for the terrain tileset — one flat tile per
-  type today, no blended transition where e.g. Plain meets Forest.
+- Terrain tileset — Chapter 1/Chapter 2 render `TacticalScene.ts`'s flat
+  `TERRAIN_COLOR` fills again; a first pick shipped 2026-09-01 and was
+  removed 2026-09-02, per the repo owner (didn't look good in-game), a
+  replacement is pending (`ART_BRIEF.md` §2). `RIVER_CROSSING`'s own
+  painted background image is unaffected either way.
 - A third campaign chapter — Chapter Select structurally supports more
   than 2, nothing past The Long March is written yet.
 - Multiplayer, mobile app wrap (both explicitly deferred, HANDOFF.md §9/§10)
@@ -161,6 +157,25 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 *(Nothing currently in flight.)*
 
 ### Recent changes
+
+- 2026-09-02 Claude: Removed the terrain tileset, per the repo owner ("I
+  don't think tileset look good so lets remove it from project, i will
+  find new one") — the McMagister "32px FE-style Tileset" crops shipped
+  2026-09-01 (`public/tiles/plain.png`/`forest.png`/`wall.png`/`water.png`)
+  are deleted, along with `TacticalScene.ts`'s `TERRAIN_TILE_KEY` map, its
+  preload loop, and the `hasTileArt` branch in `drawBoard()` that rendered
+  a per-cell tile image. Chapter 1 (The Iron Gate) and Chapter 2 (The Long
+  March) are back to `TERRAIN_COLOR`'s flat per-terrain-type fill, exactly
+  the pre-2026-09-01 look. `RIVER_CROSSING` and the Hero Animation Test
+  stage are unaffected either way — they draw a painted background image
+  (`CHAPTERS_WITH_BACKGROUND_ART`), a separate code path the tileset never
+  touched. `ART_BRIEF.md` §2 and `CREDITS.md`'s tileset entry updated to
+  "removed, replacement pending" rather than deleted outright — same
+  attribution-preserved pattern already used for the retired bust-portrait
+  category. `TerrainType` dropped from `TacticalScene.ts`'s import list
+  (only use left was the now-removed `TERRAIN_TILE_KEY`'s type annotation).
+  Verified: typecheck/build clean, no other file referenced the removed
+  symbols or the deleted `public/tiles/` assets.
 
 - 2026-09-02 Claude: Enemy Swordsman/Fighter art reassignment, per the repo
   owner. `heroArt.ts`'s `ENEMY_CLASS_SPRITE_BASENAMES` used to give Swordsman

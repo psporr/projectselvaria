@@ -144,17 +144,22 @@ own pass once idle art is in and the game's overall look is validated.
   `#4a90d9`, red accent `#d9534f`) — avoid anything that visually fights
   those.
 
-## 2. Terrain tileset (shipped 2026-09-01)
+## 2. Terrain tileset (shipped 2026-09-01, removed 2026-09-02)
 
 32×32px tiles covering Plain, Forest, Wall, Water (`src/game/types.ts`'s
 `Terrain`) — one representative tile per type, cropped from a free,
 third-party set (McMagister's "32px FE-style Tileset," CC BY-SA 3.0 — see
 CREDITS.md for the exact source crops and license terms) rather than
-commissioned. No auto-tiled edge blending between neighboring cells yet
-(a real upgrade for later, not required to replace the flat-color
-placeholder). Wired in `TacticalScene.ts`'s `TERRAIN_TILE_KEY`/
-`drawBoard()`, replacing the flat-color `TERRAIN_COLOR` fill it used
-before.
+commissioned. Wired in `TacticalScene.ts`'s `drawBoard()`, replacing the
+flat-color `TERRAIN_COLOR` fill it used before.
+
+**Removed 2026-09-02, per the repo owner** — didn't look good in-game; a
+replacement is pending (the repo owner is sourcing one). The gap is open
+again exactly as it was before 2026-09-01: `drawBoard()` is back to
+`TERRAIN_COLOR`'s flat fill for any chapter without its own painted
+background image. Whatever art lands next can drop into the same
+`hasArt`-guarded slot that constant's own comment points to — no other
+code needs to change.
 
 **Decided 2026-08-23: this stays a permanent second way to author a map,
 not a stopgap the painted-image pipeline replaces.** Two proven paths
