@@ -5,7 +5,7 @@ import { SKILLS } from '../game/skills';
 import type { Terrain, Unit } from '../game/types';
 import { DPR, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from './classIcons';
-import { enemyClassTextureKeyFor, heroPortraitTextureKey, heroTextureKey } from './heroArt';
+import { resolveUnitArtTexture } from './heroArt';
 import { Card, COLORS, FONT_FAMILY } from './kit';
 
 // Sits right below the board, at a fixed position — TacticalScene now
@@ -22,15 +22,20 @@ const BAR_TOP = BAR_Y - BAR_HEIGHT / 2;
 const CARD_LEFT = LOGICAL_WIDTH / 2 - BAR_WIDTH / 2;
 const CARD_RIGHT = LOGICAL_WIDTH / 2 + BAR_WIDTH / 2;
 
-// Portrait-slot box on the left — shows real hero art (heroArt.ts) when the
-// shown unit has any, falling back to a team-colored panel + big class
-// letter otherwise (every enemy, and any hero not yet drawn). Sized so a
-// newly-drawn hero's art just drops in at PORTRAIT_W x PORTRAIT_H with no
-// layout change.
+// Portrait-slot box on the left — shows the unit's own on-board map sprite
+// (heroArt.ts's resolveUnitArtTexture, the same art UnitSprite renders on
+// the board) when the shown unit has any, falling back to a team-colored
+// panel + class letter otherwise (every enemy, and any hero not yet
+// drawn). Deliberately small (2026-09-01, per the repo owner — a compact
+// identity cue, not a showcase) rather than the near-full-height box a
+// dedicated bust-portrait category used to fill; everything below it
+// (banner/HP/terrain/stats/skills) is positioned off PORTRAIT_Y, not
+// PORTRAIT_H, so shrinking this box doesn't ripple into the rest of the
+// panel's layout.
 const PORTRAIT_X = CARD_LEFT + 8;
 const PORTRAIT_Y = BAR_TOP + 8;
-const PORTRAIT_W = 96;
-const PORTRAIT_H = BAR_HEIGHT - 16;
+const PORTRAIT_W = 50;
+const PORTRAIT_H = 50;
 
 const INFO_X = PORTRAIT_X + PORTRAIT_W + 12;
 const INFO_RIGHT = CARD_RIGHT - 8;
@@ -175,7 +180,7 @@ export class UnitStatusBar extends GameObjects.Container {
     this.portraitLetter = scene.add
       .text(PORTRAIT_X + PORTRAIT_W / 2, PORTRAIT_Y + PORTRAIT_H / 2, '', {
         fontFamily: FONT_FAMILY,
-        fontSize: '40px',
+        fontSize: '20px',
         fontStyle: 'bold',
         color: '#ffffff',
         resolution: DPR,
@@ -185,8 +190,8 @@ export class UnitStatusBar extends GameObjects.Container {
     // show() always swaps it to a real hero texture before making this
     // visible, or leaves it hidden and shows portraitLetter instead.
     this.portraitImage = scene.add
-      .image(PORTRAIT_X + PORTRAIT_W / 2, PORTRAIT_Y + PORTRAIT_H - 6, '__WHITE')
-      .setOrigin(0.5, 1)
+      .image(PORTRAIT_X + PORTRAIT_W / 2, PORTRAIT_Y + PORTRAIT_H / 2, '__WHITE')
+      .setOrigin(0.5)
       .setVisible(false);
     this.portraitImage.enableFilters();
     this.portraitGrayscale = this.portraitImage.filters!.internal.addColorMatrix();
@@ -319,28 +324,18 @@ export class UnitStatusBar extends GameObjects.Container {
     this.portraitGfx.fillRoundedRect(PORTRAIT_X, PORTRAIT_Y, PORTRAIT_W, PORTRAIT_H, 10);
     this.portraitGfx.lineStyle(2, panelColor, 1);
     this.portraitGfx.strokeRoundedRect(PORTRAIT_X, PORTRAIT_Y, PORTRAIT_W, PORTRAIT_H, 10);
-    // Prefer a dedicated bust portrait (heroArt.ts's HERO_PORTRAIT_NAMES) over the
-    // map sprite here — UnitSprite always uses the map sprite regardless. Below
-    // that, the same enemy-only class-art fallback as UnitSprite (heroArt.ts's
-    // ENEMY_ART_CLASSES).
-    const portraitKey = heroPortraitTextureKey(unit.name);
-    const heroKey = heroTextureKey(unit.name);
-    const enemyKey = unit.team === 'enemy' ? (enemyClassTextureKeyFor(unit.className, unit.id) ?? heroKey) : heroKey;
-    const textureKey = this.scene.textures.exists(portraitKey)
-      ? portraitKey
-      : this.scene.textures.exists(heroKey)
-        ? heroKey
-        : enemyKey;
-    const hasArt = this.scene.textures.exists(textureKey);
+    // Same map-sprite-then-enemy-class-art chain UnitSprite renders on the
+    // board with (heroArt.ts's resolveUnitArtTexture) — no separate art
+    // category just for this panel.
+    const textureKey = resolveUnitArtTexture(this.scene, unit);
+    const hasArt = textureKey !== undefined;
     this.portraitLetter.setVisible(!hasArt).setText(CLASS_LETTER[unit.className] ?? '?').setAlpha(dimmed ? 0.6 : 1);
     if (hasArt) {
       // Live grayscale filter toggle, not a faded alpha, for an acted unit
       // — matches the on-board sprite's own treatment (UnitSprite.ts).
       // Scaled to fit inside the box (6px margin per side) preserving the
-      // source texture's own aspect ratio, rather than forcing a square —
-      // the 128x128 map/enemy sprites still land square this way, but a
-      // portrait (e.g. jill.png at 150x250) displays at its real shape
-      // instead of being squished.
+      // source texture's own square aspect ratio, same as every other
+      // panel that shows this same 128x128 art.
       this.portraitImage.setTexture(textureKey);
       const maxW = PORTRAIT_W - 12;
       const maxH = PORTRAIT_H - 12;

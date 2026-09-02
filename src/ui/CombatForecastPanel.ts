@@ -6,7 +6,7 @@ import { terrainAt } from '../game/grid';
 import type { GameState, Unit } from '../game/types';
 import { DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from './classIcons';
-import { resolveBattlePortraitTexture } from './heroArt';
+import { resolveUnitArtTexture } from './heroArt';
 import { Button, Card, COLORS, FONT_FAMILY } from './kit';
 
 const CARD_WIDTH = 420;
@@ -144,11 +144,11 @@ function allObjects(side: Side): GameObjects.GameObject[] {
  * `ForecastPanel`'s original generic `string[]`-lines card stays exactly as
  * it was for `enterSkillConfirm` instead of being stretched to fit both.
  *
- * Each side's portrait resolves through the same fallback chain
- * `UnitStatusBar` already established (bust portrait, then on-board map
- * sprite, then anonymous enemy-class art, then the class-letter
- * placeholder) — real art wherever it exists, no separate art category
- * needed just for this screen. The weapon-name row uses the unit's
+ * Each side's portrait resolves through `heroArt.ts`'s
+ * `resolveUnitArtTexture` (on-board map sprite, then anonymous enemy-class
+ * art, then the class-letter placeholder) — the same chain every other
+ * panel that shows a unit's likeness uses, `UnitStatusBar` included. The
+ * weapon-name row uses the unit's
  * equipped weapon (`ITEMS`, equipment.ts) when it has one, falling back to
  * its class name — every enemy takes that fallback today since
  * `Unit.equipment` is only ever populated for player units, which reads
@@ -252,7 +252,7 @@ export class CombatForecastPanel extends GameObjects.Container {
     side.portraitGfx.lineStyle(2, accent, 1);
     side.portraitGfx.strokeRoundedRect(portraitX - PORTRAIT_SIZE / 2, PORTRAIT_Y - PORTRAIT_SIZE / 2, PORTRAIT_SIZE, PORTRAIT_SIZE, 10);
 
-    const textureKey = resolveBattlePortraitTexture(this.scene, unit);
+    const textureKey = resolveUnitArtTexture(this.scene, unit);
     if (textureKey) {
       side.portraitImage.setTexture(textureKey);
       const maxSize = PORTRAIT_SIZE - 10;

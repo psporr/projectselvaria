@@ -3,7 +3,7 @@ import { GameObjects, Scene, TintModes } from 'phaser';
 import type { CombatBeat, CombatResult, Unit } from '../game/types';
 import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { CLASS_LETTER } from '../ui/classIcons';
-import { artFlipX, heroAnimAtlasKey, isAnimatedHero, resolveBattlePortraitTexture, STATIC_ART_FACES_RIGHT } from '../ui/heroArt';
+import { artFlipX, heroAnimAtlasKey, isAnimatedHero, resolveUnitArtTexture, STATIC_ART_FACES_RIGHT } from '../ui/heroArt';
 import { HERO_ATTACK_FRAME, heroAnimScale, heroFlipX, heroIdleAnimKey } from '../ui/heroAnimations';
 import { COLORS, FONT_FAMILY } from '../ui/kit';
 
@@ -196,7 +196,7 @@ export class CombatOverlayScene extends Scene {
       sprite.setFlipX(heroFlipX(lungeSign === 1));
       root.add(sprite);
     } else {
-      const textureKey = resolveBattlePortraitTexture(this, unit);
+      const textureKey = resolveUnitArtTexture(this, unit);
       if (textureKey) {
         image = this.add.image(0, 0, textureKey).setOrigin(0.5, 1);
         const fit = FIGHTER_HEIGHT / image.height;

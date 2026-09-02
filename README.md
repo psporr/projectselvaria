@@ -16,10 +16,10 @@ and the lessons learned building the prototype — including what to deliberatel
 *not* port. It's the source of truth for what this project is building.
 
 If you're sourcing or drawing art, see [`ART_BRIEF.md`](./ART_BRIEF.md) —
-the spec for the unit sprites/tileset/portraits the game still needs (it's
-currently 100% placeholder shapes, zero art assets). If you're generating
-a new chapter's map image, see [`MAP_BRIEF.md`](./MAP_BRIEF.md) for the
-prompt and technical spec to hand an image generator.
+the spec for unit sprites and the terrain tileset (both have real art now;
+see that doc's status notes for what shipped and how). If you're
+generating a new chapter's map image, see [`MAP_BRIEF.md`](./MAP_BRIEF.md)
+for the prompt and technical spec to hand an image generator.
 
 ## Workflow
 
@@ -148,10 +148,6 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Not built yet
 
-- Bust portraits for 5 of the real roster's 6 heroes (Marisa, Lyn, Solen,
-  Natasha, Ephraim) — only Jill has one (`public/portrait/jill.png`);
-  the rest fall back to their map sprite in the status bar/forecast panel
-  (`ART_BRIEF.md` §3).
 - Auto-tiled edge blending for the terrain tileset — one flat tile per
   type today, no blended transition where e.g. Plain meets Forest.
 - A third campaign chapter — Chapter Select structurally supports more
@@ -165,6 +161,30 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 *(Nothing currently in flight.)*
 
 ### Recent changes
+
+- 2026-09-01 Claude: Retired the bust-portrait art category, per the repo
+  owner — every panel that shows a unit's likeness now uses the same
+  on-board map sprite everywhere (`heroArt.ts`'s new `resolveUnitArtTexture`,
+  a two-tier map-sprite-then-enemy-class-art chain, replacing the old
+  three-tier `resolveBattlePortraitTexture` that checked a dedicated bust
+  portrait first). `HERO_PORTRAIT_NAMES`/`heroPortraitTextureKey` and the
+  `TacticalScene.preload()` loop that loaded them are gone;
+  `public/portrait/jill.png` (the one bust that had shipped) is deleted —
+  CREDITS.md keeps the attribution history, ART_BRIEF.md's old "Portraits
+  (later)" section now reads "retired."
+  `UnitStatusBar`'s own portrait slot shrank from 96×164 to a **50×50**
+  compact box (also per the repo owner) — it had kept its own inline copy
+  of the same fallback chain rather than calling the shared helper (a
+  pre-existing duplication now removed along the way), and its previous
+  near-full-height size was originally sized for a tall bust crop that no
+  longer exists. Everything below the box (banner/HP/terrain/stats/skills)
+  is positioned off the box's Y coordinate, not its height, so the resize
+  didn't ripple into the rest of the panel's layout — just freed up
+  horizontal room for the stat grid.
+  Verified: typecheck/build/validate-maps/sim clean; Playwright confirmed
+  both a named hero (Jill, now showing her map sprite) and an unnamed
+  enemy (Gate Chief, enemy-class art) render correctly at the new size
+  with no console errors.
 
 - 2026-09-01 Claude: EXP rate made a permanent default instead of leftover
   test scaffolding, per the repo owner — `classes.ts`'s multiplier was 5x

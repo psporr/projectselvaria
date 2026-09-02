@@ -39,13 +39,17 @@ for Swordsman/Lancer since they didn't earn distinct classes of their own.
 `b_eirika128.png` isn't wired in — it reads as a specific boss/named enemy
 unit, not a class skin, so it's unused pending a story decision.
 
-`public/portrait/jill.png` (added 2026-08-26, same source) is a bust
+`public/portrait/jill.png` (added 2026-08-26, same source) was a bust
 portrait — the first of a separate, higher-detail art category from the
-map sprites (`ART_BRIEF.md`'s "Portraits (later)" section). Originally
-cropped square by Claude; replaced 2026-08-26 with a 150×250 portrait-
-shaped crop supplied directly, which `UnitStatusBar`'s portrait slot now
-displays at its real aspect ratio (scaled to fit, not squished to a
-square) in place of the map sprite when a unit has one.
+map sprites (`ART_BRIEF.md`'s original "Portraits (later)" section).
+Originally cropped square by Claude; replaced 2026-08-26 with a 150×250
+portrait-shaped crop supplied directly. **Removed 2026-09-01, per the
+repo owner** — the whole bust-portrait category was retired in favor of
+every panel showing the same on-board map sprite (`heroArt.ts`'s
+`resolveUnitArtTexture`), so this file and the `HERO_PORTRAIT_NAMES`
+pipeline that loaded it no longer have a consumer. Credit stands
+regardless of whether the asset ships: original art, same friend-of-the-
+developer source as the map sprites above.
 
 `public/favicon.png` (added 2026-08-26) is a 32×32 crop of the shield
 emblem from `public/project selvaria icon.png` (the project's logo,

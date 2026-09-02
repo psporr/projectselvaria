@@ -23,8 +23,6 @@ import type { PromotionCandidate } from '../ui/PromotionPicker';
 import {
   heroSpriteBasename,
   heroTextureKey,
-  HERO_PORTRAIT_NAMES,
-  heroPortraitTextureKey,
   HERO_SPRITE_NAMES,
   ENEMY_ART_CLASSES,
   enemyClassSpriteBasenames,
@@ -245,10 +243,6 @@ export class TacticalScene extends Scene {
     for (const name of HERO_SPRITE_NAMES) {
       const key = heroTextureKey(name);
       if (!this.textures.exists(key)) this.load.image(key, `units/${heroSpriteBasename(name)}.png`);
-    }
-    for (const name of HERO_PORTRAIT_NAMES) {
-      const key = heroPortraitTextureKey(name);
-      if (!this.textures.exists(key)) this.load.image(key, `portrait/${name}.png`);
     }
     for (const className of ENEMY_ART_CLASSES) {
       for (const basename of enemyClassSpriteBasenames(className)) {

@@ -175,16 +175,17 @@ Same `ChapterDef`/`rows` grid either way — the only difference is what
 `TacticalScene` draws underneath it (tile sprites vs. one image), so
 picking one doesn't foreclose the other for a later chapter.
 
-## 3. Portraits (later)
+## 3. Portraits (retired 2026-09-01, was "later")
 
-Close-up bust portraits for dialogue/combat-forecast panels, one per
-**named player character** (Eirika, Byleth, Corrin, Selva, Ike, Lissa,
-Olivia — 7 portraits, not per-class, since these are specific people).
-Enemies stay anonymous (no portrait needed) per the same naming
-convention as map sprites. Size/format TBD when this phase starts —
-likely a fixed square or portrait-aspect canvas sized against
-`ForecastPanel`'s card width (`src/ui/ForecastPanel.ts`, currently 420px
-wide capped to screen width).
+Was speccing close-up bust portraits for dialogue/combat-forecast panels,
+one per named player character. Dropped instead, per the repo owner:
+every panel that shows a unit's likeness (`UnitStatusBar`,
+`CombatForecastPanel`, `CombatOverlayScene`) now uses the same on-board
+map sprite everywhere (`heroArt.ts`'s `resolveUnitArtTexture`) rather than
+maintaining a separate higher-detail art category for one of them.
+`public/portrait/jill.png`, the one bust that had shipped, was removed
+along with the `HERO_PORTRAIT_NAMES` pipeline that loaded it — see
+CREDITS.md for the asset's own history.
 
 ## Delivery & integration
 

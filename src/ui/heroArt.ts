@@ -65,21 +65,6 @@ export function heroTextureKey(unitName: string): string {
 }
 
 /**
- * Bust portraits (`public/portrait/<name>.png`) — a separate, higher-detail
- * art category from the map sprites above (ART_BRIEF.md's originally-
- * deferred "Portraits (later)" section), shown in UnitStatusBar's portrait
- * slot instead of the map sprite when a unit has one. Falls back to the map
- * sprite, then the letter placeholder, same layered pattern as everywhere
- * else in this file.
- */
-export const HERO_PORTRAIT_NAMES = ['jill'] as const;
-
-/** Phaser texture key a given unit's display name loads its bust portrait under, if it has one. */
-export function heroPortraitTextureKey(unitName: string): string {
-  return `portrait-${unitName.toLowerCase()}`;
-}
-
-/**
  * Frame-based animated map art (2026-08-31, source pipeline replaced
  * 2026-09-01) — idle/attack, a separate category from the single-PNG
  * `HERO_SPRITE_NAMES` above. Each name here has a `public/aseprite/
@@ -93,10 +78,10 @@ export function heroPortraitTextureKey(unitName: string): string {
 export const ANIMATED_HERO_NAMES = ['luffy', 'zoro'] as const;
 
 /**
- * Every static art source in this file — `HERO_SPRITE_NAMES` map sprites,
- * `HERO_PORTRAIT_NAMES` busts, and the anonymous enemy-class art — is drawn
- * facing left (confirmed by the repo owner, 2026-08-31). The animated
- * sources are the opposite (`heroAnimations.ts`'s `ANIMATED_ART_FACES_RIGHT`
+ * Every static art source in this file — `HERO_SPRITE_NAMES` map sprites
+ * and the anonymous enemy-class art — is drawn facing left (confirmed by
+ * the repo owner, 2026-08-31). The animated sources are the opposite
+ * (`heroAnimations.ts`'s `ANIMATED_ART_FACES_RIGHT`
  * — confirmed 2026-09-01 by rendering both `luffy.aseprite` and
  * `zoro.aseprite`'s extracted frames), which is why "which way does this
  * art face" has to be a fact each art source states rather than one flip
@@ -174,17 +159,17 @@ export function enemyBasenameTextureKey(basename: string): string {
 }
 
 /**
- * The three-tier portrait fallback (bust portrait, then map sprite, then
- * anonymous enemy-class art) shared by `CombatForecastPanel` and
- * `CombatOverlayScene`. `UnitStatusBar` keeps its own copy — it reads
- * `unit.team`/`unit.hasActed` extras these two don't need, and inlines the
- * result into a texture swap on a long-lived Image rather than resolving a
- * key up front. Returns undefined when a unit has no art at all, leaving the
- * caller to fall back to its own class-letter placeholder.
+ * The two-tier art fallback (map sprite, then anonymous enemy-class art)
+ * shared by every panel that shows a unit's likeness —
+ * `CombatForecastPanel`, `CombatOverlayScene`, and `UnitStatusBar` alike.
+ * Used to be a three-tier chain with a dedicated bust-portrait category
+ * checked first; that category is retired (2026-09-01, per the repo
+ * owner — every unit now shows the same map sprite everywhere instead of
+ * a separate higher-detail art asset for one panel). Returns undefined
+ * when a unit has no art at all, leaving the caller to fall back to its
+ * own class-letter placeholder.
  */
-export function resolveBattlePortraitTexture(scene: Scene, unit: Unit): string | undefined {
-  const portraitKey = heroPortraitTextureKey(unit.name);
-  if (scene.textures.exists(portraitKey)) return portraitKey;
+export function resolveUnitArtTexture(scene: Scene, unit: Unit): string | undefined {
   const heroKey = heroTextureKey(unit.name);
   if (scene.textures.exists(heroKey)) return heroKey;
   if (unit.team === 'enemy') {
