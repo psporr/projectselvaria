@@ -26,16 +26,16 @@ const CARD_RIGHT = LOGICAL_WIDTH / 2 + BAR_WIDTH / 2;
 // (heroArt.ts's resolveUnitArtTexture, the same art UnitSprite renders on
 // the board) when the shown unit has any, falling back to a team-colored
 // panel + class letter otherwise (every enemy, and any hero not yet
-// drawn). Deliberately small (2026-09-01, per the repo owner — a compact
-// identity cue, not a showcase) rather than the near-full-height box a
-// dedicated bust-portrait category used to fill; everything below it
-// (banner/HP/terrain/stats/skills) is positioned off PORTRAIT_Y, not
-// PORTRAIT_H, so shrinking this box doesn't ripple into the rest of the
-// panel's layout.
+// drawn). A compact square (2026-09-01, per the repo owner — first tried
+// at 50x50, sized back up to 96x96 the same day after testing) rather
+// than the near-full-height box a dedicated bust-portrait category used
+// to fill; everything below it (banner/HP/terrain/stats/skills) is
+// positioned off PORTRAIT_Y, not PORTRAIT_H, so this box's exact size
+// doesn't ripple into the rest of the panel's layout.
 const PORTRAIT_X = CARD_LEFT + 8;
 const PORTRAIT_Y = BAR_TOP + 8;
-const PORTRAIT_W = 50;
-const PORTRAIT_H = 50;
+const PORTRAIT_W = 96;
+const PORTRAIT_H = 96;
 
 const INFO_X = PORTRAIT_X + PORTRAIT_W + 12;
 const INFO_RIGHT = CARD_RIGHT - 8;
@@ -180,7 +180,7 @@ export class UnitStatusBar extends GameObjects.Container {
     this.portraitLetter = scene.add
       .text(PORTRAIT_X + PORTRAIT_W / 2, PORTRAIT_Y + PORTRAIT_H / 2, '', {
         fontFamily: FONT_FAMILY,
-        fontSize: '20px',
+        fontSize: '40px',
         fontStyle: 'bold',
         color: '#ffffff',
         resolution: DPR,

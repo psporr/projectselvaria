@@ -162,6 +162,55 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-09-02 Claude: Two follow-up fixes from the repo owner testing the
+  previous entry's changes.
+  `UnitStatusBar`'s portrait box grew back from 50×50 to **96×96** — the
+  50×50 size (previous entry) turned out too small in practice; the fit/
+  margin math in `show()` is formula-based off `PORTRAIT_W`/`PORTRAIT_H`, so
+  bumping the two constants (plus reverting the class-letter fallback's font
+  size from 20px back to 40px to match) was the whole fix, no layout code
+  changed.
+  Fixed a real bug, also reported by the repo owner: "when using battlescene
+  option, unit hp on grid is updated before battle scene is played." Root
+  cause was in `TacticalScene.syncUnits()` — the per-unit reconciliation
+  loop synced every `UnitSprite` (including HP bar width) to the *live*,
+  already-resolved `G.units` state the instant a move resolved, well before
+  either presentation (the on-grid combat pass, or the battle-screen overlay
+  selected by the Battle Style setting) had actually played out the
+  exchange. Most visible in overlay mode, where the board sits on screen for
+  a beat with the already-updated HP bar before the cut-in even opens. Fixed
+  by holding a combat participant's displayed HP at its pre-exchange value
+  (read from `this.lastUnits`, the pre-combat snapshot already kept for
+  floating-damage-text purposes) while `combatUnitIds` marks it as part of
+  the resolving exchange, then re-syncing every surviving participant's
+  sprite to its real post-combat HP inside `finishPresentation` — the
+  closure already responsible for lifting `inputSuspended` once a
+  presentation completes, for both the grid and overlay paths. A dead
+  participant needs no such re-sync: it has no `G.units` entry left to read
+  and its sprite is already destroyed or about to be by the same closure's
+  `deferredRemovals` pass.
+  Found a second instance of the identical bug class in
+  `UIScene.refreshUnitStatusBar()` — the panel that shows a tapped unit's
+  full stat card, including its HP number directly. Unlike the gameover
+  panel in `refreshHud()` (gated on `isInputSuspended()` in an earlier
+  session's fix for "stage clear appears before battle overlay and on grid
+  battle end"), this panel had no such gate and refreshed on every
+  `client.subscribe()` state change, spoiling a combat outcome the instant
+  it resolved if the affected unit's status bar happened to be open. Fixed
+  the same way: added an `isInputSuspended()` gate at the top of
+  `refreshUnitStatusBar()`, moved its only call site from standalone inside
+  `client.subscribe()` to the tail of `refreshHud()` (so its three existing
+  call sites — including `finishPresentation`'s own `refreshHud()` call —
+  now catch the status bar up automatically once presentation completes),
+  and removed the now-redundant standalone call.
+  Verified: typecheck/build/validate-maps/`sim -- --batch 30` all clean.
+  Live Playwright capture of the exact pre-reveal HP-hold window in overlay
+  mode proved impractical to pin down through blind coordinate-based
+  automation (RNG-driven exchanges and AI repositioning made it hard to
+  land a specific damaging player attack reliably); relying instead on the
+  code-level trace above and the fact that the fix mirrors the already-
+  proven gameover-panel gating pattern from the earlier session.
+
 - 2026-09-01 Claude: Retired the bust-portrait art category, per the repo
   owner — every panel that shows a unit's likeness now uses the same
   on-board map sprite everywhere (`heroArt.ts`'s new `resolveUnitArtTexture`,

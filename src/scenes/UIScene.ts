@@ -195,13 +195,32 @@ export class UIScene extends Scene {
     const unsubscribe = this.client.subscribe(() => {
       this.refreshHud();
       this.equipScreen.refresh();
-      this.refreshUnitStatusBar();
     });
     this.events.once('shutdown', unsubscribe);
   }
 
-  /** Re-fetches and re-shows whatever unit UnitStatusBar is currently displaying, off the latest G — it never reads G itself (HANDOFF.md §5/§7). No-op if nothing's shown; hides it if the shown unit died. */
+  /**
+   * Re-fetches and re-shows whatever unit UnitStatusBar is currently
+   * displaying, off the latest G — it never reads G itself (HANDOFF.md
+   * §5/§7). No-op if nothing's shown; hides it if the shown unit died.
+   *
+   * Gated on `isInputSuspended()`, called from `refreshHud()` rather than
+   * standalone from `client.subscribe()` — same reasoning as that method's
+   * own gameover-panel gate: a unit's `G.units` entry already carries its
+   * post-combat HP (or is gone entirely, if this exchange killed it) the
+   * instant the move resolves, well before either presentation has actually
+   * shown that outcome. Refreshing this panel on every state change like
+   * before re-displayed the real HP into an already-open status bar mid-
+   * presentation, spoiling it the same way the gameover panel used to
+   * (found 2026-09-01, the repo owner: "unit hp on grid is updated before
+   * battle scene is played" — same root cause, a second UI surface).
+   * Simply doing nothing while suspended and catching up via `refreshHud()`
+   * once it clears (its own three call sites already cover "presentation
+   * just finished") leaves a dying shown unit's last-known HP on screen
+   * until its death is actually revealed, rather than snapping to "gone."
+   */
   private refreshUnitStatusBar(): void {
+    if (this.tactical.isInputSuspended()) return;
     const id = this.unitStatusBar.getCurrentUnitId();
     if (!id) return;
     const state = this.client.getState();
@@ -299,6 +318,8 @@ export class UIScene extends Scene {
     const threatOn = this.tactical?.isThreatOverlayVisible?.() ?? false;
     this.dangerButton.setLabel(threatOn ? 'Danger: ON' : 'Danger: OFF');
     this.dangerButton.setAccent(threatOn ? COLORS.dangerOnFill : null, threatOn ? COLORS.enemyAccent : null, threatOn ? COLORS.dangerOnText : null);
+
+    this.refreshUnitStatusBar();
   }
 
   showActionMenu(options: ActionMenuOption[], onChoose: (id: ActionMenuChoice) => void, anchorX: number, anchorY: number): void {

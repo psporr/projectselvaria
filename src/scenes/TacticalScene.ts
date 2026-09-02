@@ -470,7 +470,17 @@ export class TacticalScene extends Scene {
         } else {
           sprite.setPosition(px, py);
         }
-        sprite.sync(unit, isDimmed(unit));
+        // A combat participant's HP bar holds at its pre-exchange value
+        // through sync() here — using the live post-combat unit.hp would
+        // show the outcome on the board the instant the move resolves,
+        // before either presentation (on-grid pass or battle-screen
+        // overlay) has actually played it, spoiling the reveal (found
+        // 2026-09-01, the repo owner — most visible in overlay mode, since
+        // the board stays on screen for a beat before the cut-in even
+        // opens). finishPresentation() below re-syncs with the real HP
+        // once presentation completes.
+        const displayUnit = combatUnitIds?.has(unit.id) && previous ? { ...unit, hp: previous.hp } : unit;
+        sprite.sync(displayUnit, isDimmed(unit));
 
         if (previous && unit.hp !== previous.hp && !combatUnitIds?.has(unit.id)) {
           if (unit.hp < previous.hp) {
@@ -524,6 +534,21 @@ export class TacticalScene extends Scene {
       // re-check of everything that was waiting on the unlock.
       const finishPresentation = () => {
         for (const removeSprite of deferredRemovals) removeSprite();
+        // Brings a surviving combat participant's board sprite up to its
+        // real post-combat HP — held back above so the presentation, not
+        // the board, is what reveals it. A dead participant has no G.units
+        // entry to read (game.ts already removed it) and no surviving
+        // sprite to update (deferredRemovals, just above, either destroyed
+        // it or is about to), so this naturally only ever touches whoever's
+        // still standing.
+        const state = this.client.getState();
+        if (state) {
+          for (const id of combatUnitIds ?? []) {
+            const liveUnit = state.G.units[id];
+            const sprite = this.unitSprites.get(id);
+            if (liveUnit && sprite) sprite.sync(liveUnit, isDimmed(liveUnit));
+          }
+        }
         this.inputSuspended = false;
         // Catches up a phase banner (and the gameover panel) UIScene held
         // off showing while isInputSuspended() — a killing blow can cross a

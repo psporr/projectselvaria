@@ -6,4 +6,4 @@
  * since this is a static string Vite can't read package.json into at
  * runtime without extra build config).
  */
-export const GAME_VERSION = '0.37.0';
+export const GAME_VERSION = '0.37.1';
