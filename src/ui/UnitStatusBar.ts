@@ -324,19 +324,19 @@ export class UnitStatusBar extends GameObjects.Container {
     this.portraitGfx.fillRoundedRect(PORTRAIT_X, PORTRAIT_Y, PORTRAIT_W, PORTRAIT_H, 10);
     this.portraitGfx.lineStyle(2, panelColor, 1);
     this.portraitGfx.strokeRoundedRect(PORTRAIT_X, PORTRAIT_Y, PORTRAIT_W, PORTRAIT_H, 10);
-    // Same map-sprite-then-enemy-class-art chain UnitSprite renders on the
-    // board with (heroArt.ts's resolveUnitArtTexture) — no separate art
-    // category just for this panel.
-    const textureKey = resolveUnitArtTexture(this.scene, unit);
-    const hasArt = textureKey !== undefined;
+    // Same map-sprite-then-animated-idle-frame-then-enemy-class-art chain
+    // UnitSprite renders on the board with (heroArt.ts's
+    // resolveUnitArtTexture) — no separate art category just for this panel.
+    const art = resolveUnitArtTexture(this.scene, unit);
+    const hasArt = art !== undefined;
     this.portraitLetter.setVisible(!hasArt).setText(CLASS_LETTER[unit.className] ?? '?').setAlpha(dimmed ? 0.6 : 1);
-    if (hasArt) {
+    if (art) {
       // Live grayscale filter toggle, not a faded alpha, for an acted unit
       // — matches the on-board sprite's own treatment (UnitSprite.ts).
       // Scaled to fit inside the box (6px margin per side) preserving the
       // source texture's own square aspect ratio, same as every other
       // panel that shows this same 128x128 art.
-      this.portraitImage.setTexture(textureKey);
+      this.portraitImage.setTexture(art.key, art.frame);
       const maxW = PORTRAIT_W - 12;
       const maxH = PORTRAIT_H - 12;
       const fitScale = Math.min(maxW / this.portraitImage.width, maxH / this.portraitImage.height);

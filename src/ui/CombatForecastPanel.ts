@@ -145,9 +145,10 @@ function allObjects(side: Side): GameObjects.GameObject[] {
  * it was for `enterSkillConfirm` instead of being stretched to fit both.
  *
  * Each side's portrait resolves through `heroArt.ts`'s
- * `resolveUnitArtTexture` (on-board map sprite, then anonymous enemy-class
- * art, then the class-letter placeholder) — the same chain every other
- * panel that shows a unit's likeness uses, `UnitStatusBar` included. The
+ * `resolveUnitArtTexture` (on-board map sprite, then an animated hero's
+ * first idle frame, then anonymous enemy-class art, then the class-letter
+ * placeholder) — the same chain every other panel that shows a unit's
+ * likeness uses, `UnitStatusBar` included. The
  * weapon-name row uses the unit's
  * equipped weapon (`ITEMS`, equipment.ts) when it has one, falling back to
  * its class name — every enemy takes that fallback today since
@@ -252,9 +253,9 @@ export class CombatForecastPanel extends GameObjects.Container {
     side.portraitGfx.lineStyle(2, accent, 1);
     side.portraitGfx.strokeRoundedRect(portraitX - PORTRAIT_SIZE / 2, PORTRAIT_Y - PORTRAIT_SIZE / 2, PORTRAIT_SIZE, PORTRAIT_SIZE, 10);
 
-    const textureKey = resolveUnitArtTexture(this.scene, unit);
-    if (textureKey) {
-      side.portraitImage.setTexture(textureKey);
+    const art = resolveUnitArtTexture(this.scene, unit);
+    if (art) {
+      side.portraitImage.setTexture(art.key, art.frame);
       const maxSize = PORTRAIT_SIZE - 10;
       const fitScale = Math.min(maxSize / side.portraitImage.width, maxSize / side.portraitImage.height);
       side.portraitImage.setDisplaySize(side.portraitImage.width * fitScale, side.portraitImage.height * fitScale).setVisible(true);

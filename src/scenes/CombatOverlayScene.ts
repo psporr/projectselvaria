@@ -196,9 +196,9 @@ export class CombatOverlayScene extends Scene {
       sprite.setFlipX(heroFlipX(lungeSign === 1));
       root.add(sprite);
     } else {
-      const textureKey = resolveUnitArtTexture(this, unit);
-      if (textureKey) {
-        image = this.add.image(0, 0, textureKey).setOrigin(0.5, 1);
+      const art = resolveUnitArtTexture(this, unit);
+      if (art) {
+        image = this.add.image(0, 0, art.key, art.frame).setOrigin(0.5, 1);
         const fit = FIGHTER_HEIGHT / image.height;
         image.setScale(fit);
         image.setFlipX(artFlipX(STATIC_ART_FACES_RIGHT, lungeSign === 1));

@@ -163,23 +163,50 @@ export function enemyBasenameTextureKey(basename: string): string {
   return `enemy-${basename}`;
 }
 
+/** A resolved art source: a plain texture (`frame` undefined), or one named frame of an atlas (animated heroes' `idle-0` — heroArt.ts's own still-image tier). */
+export interface UnitArtRef {
+  key: string;
+  frame?: string;
+}
+
 /**
- * The two-tier art fallback (map sprite, then anonymous enemy-class art)
- * shared by every panel that shows a unit's likeness —
- * `CombatForecastPanel`, `CombatOverlayScene`, and `UnitStatusBar` alike.
- * Used to be a three-tier chain with a dedicated bust-portrait category
- * checked first; that category is retired (2026-09-01, per the repo
- * owner — every unit now shows the same map sprite everywhere instead of
- * a separate higher-detail art asset for one panel). Returns undefined
- * when a unit has no art at all, leaving the caller to fall back to its
- * own class-letter placeholder.
+ * The art fallback (map sprite → animated-hero idle frame → anonymous
+ * enemy-class art) shared by every panel that shows a unit's likeness —
+ * `CombatForecastPanel` and `UnitStatusBar` (`CombatOverlayScene` calls
+ * this too, but only for the non-animated branch of its own separate
+ * `isAnimatedHero` check — it plays Luffy/Zoro's actual idle *animation*
+ * there, not a single frame from it). Used to be a three-tier chain with a
+ * dedicated bust-portrait category checked first; that category is retired
+ * (2026-09-01, per the repo owner — every unit now shows the same map
+ * sprite everywhere instead of a separate higher-detail art asset for one
+ * panel).
+ *
+ * The animated-hero tier (2026-09-02, per the repo owner — "for unit that
+ * use idle animation but dont have static sprite you can use first idle
+ * frame for portrait") exists because `HERO_SPRITE_NAMES` and
+ * `ANIMATED_HERO_NAMES` are two disjoint art categories: a name in the
+ * latter never has a static `unit-<name>` texture to match on the tier
+ * above, so without this a static-only panel (this function's callers,
+ * unlike `UnitSprite`/`CombatOverlayScene` which play the real animation)
+ * fell all the way through to the plain circle+letter placeholder for
+ * Luffy/Zoro. `'idle-0'` is the same first-frame name every other
+ * `heroAnimAtlasKey` consumer already hardcodes (`heroAnimations.ts`'s
+ * `heroAnimScale`, `CombatOverlayScene`'s idle sprite, `UnitSprite`'s) —
+ * not a new convention.
+ *
+ * Returns undefined when a unit has no art at all, leaving the caller to
+ * fall back to its own class-letter placeholder.
  */
-export function resolveUnitArtTexture(scene: Scene, unit: Unit): string | undefined {
+export function resolveUnitArtTexture(scene: Scene, unit: Unit): UnitArtRef | undefined {
   const heroKey = heroTextureKey(unit.name);
-  if (scene.textures.exists(heroKey)) return heroKey;
+  if (scene.textures.exists(heroKey)) return { key: heroKey };
+  if (isAnimatedHero(unit.name)) {
+    const atlasKey = heroAnimAtlasKey(unit.name);
+    if (scene.textures.exists(atlasKey)) return { key: atlasKey, frame: 'idle-0' };
+  }
   if (unit.team === 'enemy') {
     const enemyKey = enemyClassTextureKeyFor(unit.className, unit.id);
-    if (enemyKey && scene.textures.exists(enemyKey)) return enemyKey;
+    if (enemyKey && scene.textures.exists(enemyKey)) return { key: enemyKey };
   }
   return undefined;
 }

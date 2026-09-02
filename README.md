@@ -158,6 +158,32 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-09-02 Claude: Luffy/Zoro get a real portrait in the two panels that
+  never rendered their animation, per the repo owner ("For unit that use
+  idle animation but dont have static sprite you can use first idle frame
+  for portrait"). `CombatForecastPanel` and `UnitStatusBar` share
+  `heroArt.ts`'s `resolveUnitArtTexture` for a unit's portrait, but that
+  function only ever checked `HERO_SPRITE_NAMES` (static PNGs) and
+  anonymous enemy-class art — `ANIMATED_HERO_NAMES` (Luffy, Zoro) never
+  matches either tier, since a static texture never exists for them, so
+  both panels fell straight to the plain circle+letter placeholder even
+  though `UnitSprite`/`CombatOverlayScene` already play their real
+  animation elsewhere.
+  `resolveUnitArtTexture` now returns a `{ key, frame? }` (`UnitArtRef`)
+  instead of a bare texture-key string, and gained a middle tier: an
+  animated hero's atlas, `frame: 'idle-0'` — the same first-idle-frame name
+  every other atlas consumer already hardcodes (`heroAnimations.ts`'s
+  `heroAnimScale`, `CombatOverlayScene`'s idle sprite, `UnitSprite`'s), not
+  a new convention. All three callers (`CombatForecastPanel`,
+  `UnitStatusBar`, and `CombatOverlayScene`'s own non-animated fallback
+  branch) updated to pass `art.key`/`art.frame` into `setTexture()` instead
+  of a plain key — Phaser reads a texture's *current frame* for `width`/
+  `height`, so the existing fit-scale math in both panels needed no changes.
+  Verified: typecheck/build/validate-maps/sim clean; Playwright against the
+  Hero Animation Test stage confirmed both Luffy's and Zoro's status bar
+  now show their real idle pose, correctly cropped/scaled into the 96×96
+  box, no console errors.
+
 - 2026-09-02 Claude: Removed the terrain tileset, per the repo owner ("I
   don't think tileset look good so lets remove it from project, i will
   find new one") — the McMagister "32px FE-style Tileset" crops shipped
