@@ -65,6 +65,40 @@ export function heroTextureKey(unitName: string): string {
 }
 
 /**
+ * Static-art heroes that additionally get a procedural on-board idle bob
+ * (2026-09-03, per the repo owner, for Jill specifically: "except her lower
+ * leg move up and down in 4 frame") — a second cropped copy of the same
+ * `unit-<name>` PNG (everything *above* this row) tweened up/down over the
+ * unmoving base image, rather than needing a whole hand-drawn animated-art
+ * category (`ANIMATED_HERO_NAMES`, its own separate `.aseprite`-sourced
+ * pipeline) just for a subtle "breathing" loop on art that's already a
+ * single static painting.
+ *
+ * The value is the y coordinate (in that hero's own 128x128 source PNG,
+ * `public/units/<name>128.png`) below which nothing bobs — that hero's own
+ * lower leg/boots, so the character still visibly stands on its tile
+ * instead of the whole sprite floating. Picked per-hero by inspecting each
+ * PNG's actual silhouette (not a fixed fraction of 128): Jill's boots read
+ * as a stable, unchanging left/right silhouette from row 97 down to her
+ * feet at row 112 (`minX`/`maxX` constant across that whole span, scanned
+ * directly rather than eyeballed), a good sign that's genuinely her
+ * planted lower leg and not still mid-thigh/knee.
+ *
+ * See `UnitSprite.ts`'s `idleBobLayer` for how this actually renders —
+ * two `Image` objects sharing one texture and one crop, not a second art
+ * asset — and `IDLE_BOB_OFFSETS`/`IDLE_BOB_STEP_MS` there for the 4-step
+ * timing.
+ */
+export const IDLE_BOB_SPLIT_Y: Partial<Record<string, number>> = {
+  jill: 97,
+};
+
+/** `IDLE_BOB_SPLIT_Y` lookup by unit name, case-insensitive like every other name-keyed art lookup in this file. */
+export function idleBobSplitY(unitName: string): number | undefined {
+  return IDLE_BOB_SPLIT_Y[unitName.toLowerCase()];
+}
+
+/**
  * Frame-based animated map art (2026-08-31, source pipeline replaced
  * 2026-09-01) — idle/attack, a separate category from the single-PNG
  * `HERO_SPRITE_NAMES` above. Each name here has a `public/aseprite/

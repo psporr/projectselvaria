@@ -158,6 +158,42 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-09-03 Claude: Jill gets a procedural on-board idle bob, per the repo
+  owner ("try animate jill sprite to idle animation, i want her sprite
+  except her lower leg move up and down in 4 frame") — without a new hand-
+  drawn animated-art category (`ANIMATED_HERO_NAMES`, its own `.aseprite`
+  pipeline). `UnitSprite.ts`'s static-art mode (`this.portrait`) gained an
+  optional second layer, `idleBobLayer`: an `Image` on the *same*
+  `unit-jill` texture, `setCrop()`-ed to just the rows above her boots and
+  drawn on top of the untouched full portrait underneath, stepped through 4
+  y-offsets (`IDLE_BOB_OFFSETS = [0, -1, -2, -1]`, display pixels) on a
+  `scene.time.addEvent` loop at ~3fps (`IDLE_BOB_STEP_MS`, matching real
+  animated heroes' own on-board idle cadence, `heroIdleMapAnimKey`). The
+  split row is per-hero data (`heroArt.ts`'s new `idleBobSplitY`/
+  `IDLE_BOB_SPLIT_Y`, `jill: 97`) found by scanning `unit-jill128.png`'s
+  actual silhouette for where it stops changing shape (`minX`/`maxX`
+  constant from row 97 down to her feet at 112) rather than eyeballed or a
+  fixed fraction of the sprite height — that stability is what marks it as
+  her planted lower leg and not still mid-stride. Since the offset layer is
+  literally a second copy of the same pixels, `sync()`'s grayscale
+  ("acted") toggle and `flash()`'s hit-tint now apply to both layers
+  together so an acted or just-hit Jill doesn't show one layer out of sync
+  with the other. The timer isn't a Container child, so it needed a
+  `destroy()` override (`idleBobTimer?.remove()`) to avoid it firing on a
+  dead sprite after Jill leaves the board — every other per-instance timer
+  in this file (`flash()`'s two `delayedCall`s) is short-lived enough not
+  to need one, this is the first looping one.
+  Only Jill has an `idleBobSplitY` entry today; any other static-art hero
+  can get the same treatment later by adding one more row to that map after
+  scanning their own PNG the same way — no other code changes needed.
+  Verified: typecheck/build/validate-maps/sim clean (a pure rendering
+  change — sim's numbers are byte-identical to the prior entry's).
+  Playwright: 6 screenshots ~300ms apart during a live Chapter 1 board
+  confirmed via pixel-diff that the bottom ~17px of Jill's sprite (her
+  boots) is byte-identical across frames while the rows above it visibly
+  differ, and a 10x-zoomed crop of the boundary row across two different
+  frames showed no seam or transparency gap at the split.
+
 - 2026-09-02 Claude: Luffy/Zoro get a real portrait in the two panels that
   never rendered their animation, per the repo owner ("For unit that use
   idle animation but dont have static sprite you can use first idle frame
