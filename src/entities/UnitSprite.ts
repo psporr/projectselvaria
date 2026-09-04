@@ -1,8 +1,8 @@
-import { Filters, GameObjects, Scene, Time, TintModes } from 'phaser';
+import { Filters, GameObjects, Scene, TintModes } from 'phaser';
 import type { Unit } from '../game/types';
 import { DPR } from '../systems/viewport';
 import { CLASS_LETTER } from '../ui/classIcons';
-import { enemyClassTextureKeyFor, heroAnimAtlasKey, heroTextureKey, idleBobSplitY, isAnimatedHero } from '../ui/heroArt';
+import { enemyClassTextureKeyFor, heroAnimAtlasKey, heroTextureKey, isAnimatedHero } from '../ui/heroArt';
 import { HERO_ATTACK_FRAME, heroAnimScale, heroFlipX, heroIdleMapAnimKey } from '../ui/heroAnimations';
 import { FONT_FAMILY } from '../ui/kit';
 
@@ -14,21 +14,6 @@ const ACTED_BLEND = 0.55;
 const HIT_FLASH_ALPHA_DURATION_MS = 160;
 /** The on-board display height an animated hero's sprite is scaled to — matches everyone else's `tileSize*0.92` art footprint, not its own raw pixel size. `heroAnimScale()` reads the actual loaded frame height at construction time rather than a hand-tuned constant, since `extractAseprite.ts` now guarantees a stable frame size per hero but that size differs hero to hero. */
 const ANIM_DISPLAY_HEIGHT_FACTOR = 0.92;
-
-/**
- * A static-art hero's procedural idle bob (`heroArt.ts`'s `idleBobSplitY`)
- * — 4 discrete steps in **display** pixels (post-`setDisplaySize`, not raw
- * source-PNG pixels, since a source pixel can be smaller than one display
- * pixel at this sprite's on-board scale), stepped rather than tweened
- * smoothly between them to read as the same kind of frame-by-frame loop
- * `heroIdleMapAnimKey`'s real animated heroes play, not a floaty bounce.
- * `0, -1, -2, -1` rises, peaks, and comes most of the way back down before
- * the loop restarts at 0 — the 1px gap left between the last step and the
- * first keeps that restart from reading as a snap.
- */
-const IDLE_BOB_OFFSETS = [0, -1, -2, -1];
-/** ~3fps — matches `heroIdleMapAnimKey`'s own on-board frame rate, so every idling hero on the board (animated or procedurally-bobbed) moves at the same visual cadence. */
-const IDLE_BOB_STEP_MS = 333;
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -62,12 +47,7 @@ function blendToward(color: number, target: number, amount: number): number {
  * name match falls back to anonymous class art (`ENEMY_ART_CLASSES`) if its
  * class has any (2026-08-26); everyone else — a player unit with no hero
  * art, or an enemy whose class has none — keeps the original
- * colored-circle-plus-class-letter placeholder. A static-art hero can
- * additionally have a procedural idle bob (`heroArt.ts`'s `idleBobSplitY`,
- * 2026-09-03) — not a fourth mode, just `idleBobLayer`, a second `Image` on
- * the same PNG layered over `portrait` and stepped up/down — so it's still
- * the same three modes at the level that matters here (what texture(s) a
- * unit renders from). All three art-bearing modes
+ * colored-circle-plus-class-letter placeholder. All three art-bearing modes
  * share the HP bar but render "acted" differently: the circle blends its
  * flat fill toward gray, while the two art modes toggle a live GPU
  * grayscale filter (`enableFilters()` + `filters.internal.addColorMatrix()`,
@@ -102,20 +82,6 @@ export class UnitSprite extends GameObjects.Container {
   private readonly portrait: GameObjects.Image | null;
   /** The grayscale filter controller for `portrait` — null in circle/animated mode. Toggling `.active` is a live GPU effect, not a texture swap, so there's nothing to pre-generate or cache. */
   private readonly portraitGrayscale: Filters.ColorMatrix | null;
-  /**
-   * Static-art idle bob (`heroArt.ts`'s `idleBobSplitY`) — a second `Image`
-   * on the *same* texture as `portrait`, cropped to just the rows above the
-   * hero's own lower-leg split, drawn on top of it, and stepped up/down by
-   * `idleBobTimer` below. Null for every unit without an `idleBobSplitY`
-   * entry (everyone except Jill today) — `portrait` alone already renders
-   * correctly with no bob layer over it, so this is purely additive.
-   */
-  private readonly idleBobLayer: GameObjects.Image | null;
-  /** Same grayscale-filter approach as portraitGrayscale, for idleBobLayer — kept in sync with it in sync() so a dimmed Jill doesn't show a color bob layer over grayscale legs. */
-  private readonly idleBobGrayscale: Filters.ColorMatrix | null;
-  /** Steps idleBobLayer.y through IDLE_BOB_OFFSETS on a loop — owned per-instance (not Container-child) so it must be removed by hand in destroy(), unlike everything added via this.add(). Null outside idle-bob mode. */
-  private idleBobTimer: Time.TimerEvent | null = null;
-  private idleBobFrame = 0;
   /** Animated-hero mode (`isAnimatedHero`) — null for every other unit. */
   private readonly animSprite: GameObjects.Sprite | null;
   /** Same grayscale-filter approach as portraitGrayscale, for animSprite. */
@@ -151,8 +117,6 @@ export class UnitSprite extends GameObjects.Container {
       this.circle = null;
       this.portrait = null;
       this.portraitGrayscale = null;
-      this.idleBobLayer = null;
-      this.idleBobGrayscale = null;
       this.idleAnimKey = heroIdleMapAnimKey(unit.name);
       const animScale = heroAnimScale(scene, unit.name, tileSize * ANIM_DISPLAY_HEIGHT_FACTOR);
       this.animSprite = scene.add.sprite(0, 0, heroAnimAtlasKey(unit.name), 'idle-0').setOrigin(0.5, 0.5).setScale(animScale);
@@ -173,43 +137,9 @@ export class UnitSprite extends GameObjects.Container {
       this.portraitGrayscale.colorMatrix.grayscale(1);
       this.portraitGrayscale.active = false;
       visuals.push(this.portrait);
-
-      const splitY = idleBobSplitY(unit.name);
-      if (splitY !== undefined) {
-        // Same texture, same displaySize as portrait — setCrop's rect is in
-        // source-frame pixels (portrait.width/.height, the PNG's raw 128x128
-        // regardless of displaySize) and Phaser scales it to match
-        // automatically, so cropping to rows [0, splitY) and drawing this on
-        // top of the untouched full portrait underneath reproduces exactly
-        // that top slice in the exact right screen spot with zero manual
-        // position math — see heroArt.ts's idleBobSplitY doc comment for why
-        // that row, and IDLE_BOB_OFFSETS above for how it moves.
-        this.idleBobLayer = scene.add
-          .image(0, 0, textureKey)
-          .setDisplaySize(tileSize * 0.92, tileSize * 0.92)
-          .setCrop(0, 0, this.portrait.width, splitY);
-        this.idleBobLayer.enableFilters();
-        this.idleBobGrayscale = this.idleBobLayer.filters!.internal.addColorMatrix();
-        this.idleBobGrayscale.colorMatrix.grayscale(1);
-        this.idleBobGrayscale.active = false;
-        visuals.push(this.idleBobLayer);
-        this.idleBobTimer = scene.time.addEvent({
-          delay: IDLE_BOB_STEP_MS,
-          loop: true,
-          callback: () => {
-            this.idleBobFrame = (this.idleBobFrame + 1) % IDLE_BOB_OFFSETS.length;
-            this.idleBobLayer!.y = IDLE_BOB_OFFSETS[this.idleBobFrame];
-          },
-        });
-      } else {
-        this.idleBobLayer = null;
-        this.idleBobGrayscale = null;
-      }
     } else {
       this.portrait = null;
       this.portraitGrayscale = null;
-      this.idleBobLayer = null;
-      this.idleBobGrayscale = null;
       this.animSprite = null;
       this.animGrayscale = null;
       this.idleAnimKey = null;
@@ -270,10 +200,6 @@ export class UnitSprite extends GameObjects.Container {
       // Toggles the live grayscale filter rather than fading alpha — see
       // the class doc comment on why.
       this.portraitGrayscale!.active = dimmed;
-      // idleBobLayer is just a cropped duplicate of the same texture — keeps
-      // it grayscale in lockstep with portrait so a dimmed Jill doesn't show
-      // a still-colored sliver bobbing over her grayscale legs.
-      if (this.idleBobLayer) this.idleBobGrayscale!.active = dimmed;
       return;
     }
 
@@ -294,13 +220,6 @@ export class UnitSprite extends GameObjects.Container {
     if (this.portrait) {
       this.portrait.setTintMode(TintModes.FILL).setTint(color);
       this.scene.time.delayedCall(HIT_FLASH_ALPHA_DURATION_MS, () => this.portrait!.clearTint());
-      // Same duplicated-texture reasoning as sync()'s grayscale toggle — an
-      // untinted idleBobLayer would flash-tint the legs but leave the
-      // bobbing sliver above them its normal color.
-      if (this.idleBobLayer) {
-        this.idleBobLayer.setTintMode(TintModes.FILL).setTint(color);
-        this.scene.time.delayedCall(HIT_FLASH_ALPHA_DURATION_MS, () => this.idleBobLayer!.clearTint());
-      }
       return;
     }
     this.circle!.setFillStyle(color);
@@ -355,20 +274,5 @@ export class UnitSprite extends GameObjects.Container {
     if (!this.animSprite || !this.idleAnimKey) return;
     this.animSprite.setFlipX(false);
     this.animSprite.play(this.idleAnimKey);
-  }
-
-  /**
-   * idleBobTimer is a `scene.time` event, not a child of this Container —
-   * `super.destroy()` destroys every GameObject added via `this.add()`
-   * (portrait, idleBobLayer, hpBar, ...) but has no idea this timer exists,
-   * so left alone it would keep firing after this sprite (and its
-   * idleBobLayer) is gone, throwing on the next tick. Every other timer in
-   * this file (`flash()`'s two `delayedCall`s) is short-lived enough that a
-   * unit dying mid-flash is a one-off missed edge case; this one loops
-   * forever, so it's the one that actually needs explicit cleanup.
-   */
-  destroy(fromScene?: boolean): void {
-    this.idleBobTimer?.remove();
-    super.destroy(fromScene);
   }
 }
