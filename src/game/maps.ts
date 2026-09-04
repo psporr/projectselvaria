@@ -470,21 +470,35 @@ export const RIVER_CROSSING: ChapterDef = {
  * and that multiple different heroes' art render distinctly side by side
  * rather than just proving one.
  *
- * Reuses `RIVER_CROSSING`'s terrain (`rows`) rather than a new layout — the
- * terrain isn't what's being tested here — but is its own separate
- * `ChapterDef`, deliberately *not* added to `RIVER_CROSSING`'s own `units`
- * (that's the live Roguelike ("Start Run") mode's actual roster, `game.ts`'s
- * `ProjectSelvaria = createSelvariaGame('roguelike', RIVER_CROSSING)` — real
- * players use it) and *not* added to `CAMPAIGN_CHAPTERS` (that array is what
- * populates ChapterSelectScene's real menu). `rout` (defeat all enemies)
- * rather than `waves` — this is a one-off skirmish, not a survival run —
- * the same objectiveType the real campaign chapters already use, so
- * `mode: 'campaign'` behaves exactly as proven there (TacticalScene's new
+ * Is its own separate `ChapterDef`, deliberately *not* added to
+ * `RIVER_CROSSING`'s own `units` (that's the live Roguelike ("Start Run")
+ * mode's actual roster, `game.ts`'s `ProjectSelvaria =
+ * createSelvariaGame('roguelike', RIVER_CROSSING)` — real players use it)
+ * and *not* added to `CAMPAIGN_CHAPTERS` (that array is what populates
+ * ChapterSelectScene's real menu). `rout` (defeat all enemies) rather than
+ * `waves` — this is a one-off skirmish, not a survival run — the same
+ * objectiveType the real campaign chapters already use, so `mode:
+ * 'campaign'` behaves exactly as proven there (TacticalScene's new
  * `debugChapter` scene-data field bypasses the `CAMPAIGN_CHAPTERS` id
- * lookup that mode normally does). Spawn tiles reuse six of
- * `RIVER_CROSSING`'s own confirmed-passable plain tiles (`npm run
- * validate-maps` checks every unit spawn is reachable, same as every real
- * chapter) rather than re-verifying the ASCII map by eye.
+ * lookup that mode normally does).
+ *
+ * Terrain (2026-09-04, per the repo owner) is its own painted map,
+ * `public/maps/plains1.jpg` (`TacticalScene.ts`'s
+ * `CHAPTERS_WITH_BACKGROUND_ART`) — through 2026-09-01 this reused
+ * `RIVER_CROSSING`'s own `rows`/background image instead, since terrain
+ * wasn't what this stage was testing, but plains1.jpg is what the repo
+ * owner supplied for it specifically. No accompanying text grid shipped
+ * with the image, so `rows` below was hand-derived by inspecting the image
+ * directly (a 7×8 grid cropped and eyeballed cell by cell, `MAP_BRIEF.md`'s
+ * documented pixel-classification fallback for exactly this case) rather
+ * than pasted from a generator's own output. All-plain aside from one small
+ * wall cluster (a rock outcrop spanning roughly columns 2–3, rows 0–3) and
+ * several forest cells (tree/bush clumps) — no water anywhere in this
+ * image, unlike `RIVER_CROSSING`. Spawn tiles land on six of its
+ * confirmed-passable plain cells (`npm run validate-maps` checks every unit
+ * spawn is reachable and that all open terrain is one connected region,
+ * same as every real chapter) rather than re-verifying the ASCII map by
+ * eye.
  *
  * Known rough edge: since this chapter's id isn't in `CAMPAIGN_CHAPTERS`,
  * winning it and hitting Continue clears any real in-progress campaign save
@@ -498,7 +512,16 @@ export const ANIMATED_HERO_TEST_STAGE: ChapterDef = {
   shortName: 'Hero Anim Test',
   objective: 'Defeat all enemies',
   objectiveType: 'rout',
-  rows: RIVER_CROSSING.rows,
+  rows: [
+    '.f.#...',
+    '...#.f.',
+    '..#f...',
+    '..#f..f',
+    '......f',
+    '...f...',
+    '.f....f',
+    '....f..',
+  ],
   units: [
     { id: 'luffy-player', name: 'Luffy', team: 'player', className: 'Luffy', x: 0, y: 6 },
     { id: 'luffy-enemy', name: 'Luffy', team: 'enemy', className: 'Luffy', x: 4, y: 0 },

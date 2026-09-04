@@ -158,6 +158,34 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-09-04 Claude: Gave the Hero Animation Test stage its own painted
+  map, `public/maps/plains1.jpg`, from an image the repo owner supplied —
+  it shared `RIVER_CROSSING`'s river map through the previous entry, since
+  terrain wasn't what that stage was testing, but plains1.jpg is what got
+  added for it specifically. No accompanying text grid shipped alongside
+  the image (`MAP_BRIEF.md`'s normal path asks an image generator for one),
+  so the `rows` classification was hand-derived by inspecting the image
+  directly — cropped into its 7×8 grid, each cell eyeballed against the
+  art (`MAP_BRIEF.md`'s documented pixel-classification fallback for
+  exactly this case) — rather than pasted from a generator's own output.
+  Comes out all-plain aside from a small rock-outcrop wall cluster
+  (columns 2–3, rows 0–3) and several forest tree/bush cells; no water
+  anywhere in this image, unlike River Crossing's. `TacticalScene.ts`'s
+  `CHAPTERS_WITH_BACKGROUND_ART` entry for `'animated-hero-test-stage'`
+  now points at `plains1.jpg` instead of `river1.jpg`, and the chapter's
+  own `rows` is this new grid instead of a reference to `RIVER_CROSSING
+  .rows` — the existing six unit spawns (Luffy/Zoro/Gear5 × player/enemy)
+  all happened to already sit on plain tiles in the new grid too, so no
+  positions needed to move.
+  Verified: typecheck/build/sim clean; `npm run validate-maps` confirms
+  every spawn lands on passable ground and the whole map is one connected
+  region (the wall cluster doesn't seal off either side — row 4 has a
+  clear crossing). Playwright: 6 tap-to-inspect spot checks (the wall
+  cluster, several forest cells including two adjacent ones that looked
+  ambiguous at a glance, and a plain cell right next to a forest one)
+  all matched the terrain label to what's actually painted there, with
+  cell boundaries lining up cleanly against the art; no console errors.
+
 - 2026-09-04 Claude: Added Gear5 (Luffy's own strongest transformation) as
   a third character on the Hero Animation Test stage, from a real
   hand-authored `.aseprite` file the repo owner supplied

@@ -76,12 +76,12 @@ const TERRAIN_COLOR: Record<string, number> = {
  */
 const CHAPTERS_WITH_BACKGROUND_ART: Record<string, string> = {
   'river-crossing': 'river1.jpg',
-  // Shares river1.jpg rather than getting the generic tile art (2026-09-01,
-  // per the repo owner) — ANIMATED_HERO_TEST_STAGE already reuses
-  // RIVER_CROSSING's own `rows` (maps.ts), so its board should look like
-  // River Crossing too, not switch art styles for reasons unrelated to
-  // what it's actually testing (the animated-hero pipeline, not terrain).
-  'animated-hero-test-stage': 'river1.jpg',
+  // Its own painted map (2026-09-04, per the repo owner) rather than
+  // sharing River Crossing's — `public/maps/plains1.jpg`, classified into
+  // ANIMATED_HERO_TEST_STAGE's own `rows` grid (maps.ts) the same way
+  // RIVER_CROSSING's own image was, per MAP_BRIEF.md's fallback pixel-
+  // classification path (no accompanying text grid shipped with the image).
+  'animated-hero-test-stage': 'plains1.jpg',
 };
 
 const MOVE_HIGHLIGHT = 0x4a90d9;
