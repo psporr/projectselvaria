@@ -122,6 +122,36 @@ export function heroAnimAtlasKey(unitName: string): string {
 }
 
 /**
+ * Per-hero display-height correction for `heroAnimations.ts`'s
+ * `heroAnimScale` (2026-09-04, per the repo owner — "luffy gear 5 look
+ * small vs zoro, that because luffy gear 5 have effect on his head"). That
+ * function normally scales every animated hero so its raw atlas frame
+ * height matches the same on-board target — a safe assumption when frame
+ * height is basically "how tall is this character," but Gear5's trademark
+ * white hair eats close to half his 96px idle frame (`gear5-atlas.json`),
+ * versus Zoro's 56px frame, which is tight to his body top-to-bottom.
+ * Normalizing both by raw frame height left Gear5's actual torso/legs
+ * visibly smaller than Zoro's or Luffy's at the same target height, even
+ * though all three frames obey `extractAseprite.ts`'s per-hero union-bounds
+ * crop correctly — that guarantee only promises *one hero's own* frames
+ * stay pixel-stable relative to each other, never that two different
+ * heroes' frames spend the same fraction of their height on hair/headwear
+ * versus body. `1.3` was picked by rendering Gear5, Zoro, and Luffy side by
+ * side at a few candidate multipliers and eyeballing which one brought
+ * Gear5's shoulder/torso width in line with the other two — a per-hero
+ * fudge factor, not derived from a formula, so it's fair game to retune by
+ * eye again if it still doesn't look right in the actual game. Boosting
+ * height also boosts width (`heroAnimScale`'s result feeds one uniform
+ * `Sprite.setScale()`), so Gear5 ends up visibly taller overall too, hair
+ * included — reads as the intended "imposing power-up" silhouette rather
+ * than a bug, but worth knowing it's a side effect of there being no way to
+ * scale just the body sub-region of a single texture frame.
+ */
+export const HERO_DISPLAY_SCALE: Partial<Record<string, number>> = {
+  gear5: 1.3,
+};
+
+/**
  * Anonymous enemy-class art (`public/enemy/*.png`) — only ever applies to
  * enemy-team units with no name match above (heroes always render as
  * themselves, never as their class). `fighter_m128`/`spearfighter_*` were

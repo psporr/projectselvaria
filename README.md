@@ -158,6 +158,37 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-09-04 Claude: Fixed Gear5 rendering visibly smaller than Zoro/Luffy
+  on the board, per the repo owner ("luffy gear 5 look small vs zoro, that
+  because luffy gear 5 have effect on his head"). Root cause:
+  `heroAnimations.ts`'s `heroAnimScale` scales every animated hero so its
+  raw atlas frame height matches the same on-board target — correct within
+  one hero's own frames (`extractAseprite.ts` guarantees those stay a
+  stable size), but not a safe comparison *across* different heroes. Gear5's
+  trademark white hair eats close to half his 96px idle frame; Zoro's 56px
+  frame is tight to his body top-to-bottom. Normalizing both to the same
+  target height by raw frame height alone left Gear5's actual torso/legs
+  visibly smaller than the other two, exactly as reported.
+  Fixed with a new per-hero correction, `heroArt.ts`'s `HERO_DISPLAY_SCALE`
+  (`gear5: 1.3`), applied inside `heroAnimScale` — `1.3` came from rendering
+  Gear5/Zoro/Luffy side by side at a few candidate multipliers and
+  eyeballing which one brought Gear5's shoulder/torso width in line with
+  the other two, not a formula, so it's fair game to retune further if it
+  still doesn't look right in the actual game. Since `heroAnimScale`
+  produces one uniform `Sprite.setScale()`, boosting height also boosts
+  width — Gear5 now renders visibly taller overall too (hair included),
+  which reads as the intended "imposing power-up" silhouette rather than a
+  bug. Neither Luffy nor Zoro has an entry in `HERO_DISPLAY_SCALE`, so their
+  `?? 1` default multiplies their existing scale by exactly 1 — unchanged
+  by construction, not just by eye (an attempted before/after pixel diff on
+  Zoro turned out invalid, since the two screenshots being compared also
+  differed by the previous entry's plains1.jpg map swap and a different
+  idle-loop frame, so it wasn't left in as a claimed verification).
+  Verified: typecheck/build/validate-maps/sim clean (rendering-only change).
+  Playwright against `?luffyTest=1`: side-by-side crop of Zoro and Gear5 in
+  their idle pose shows Gear5's shoulder/torso width now close to Zoro's
+  instead of noticeably thinner; no console errors.
+
 - 2026-09-04 Claude: Gave the Hero Animation Test stage its own painted
   map, `public/maps/plains1.jpg`, from an image the repo owner supplied —
   it shared `RIVER_CROSSING`'s river map through the previous entry, since

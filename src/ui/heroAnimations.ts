@@ -1,6 +1,6 @@
 import { Scene } from 'phaser';
 
-import { artFlipX, heroAnimAtlasKey } from './heroArt';
+import { artFlipX, HERO_DISPLAY_SCALE, heroAnimAtlasKey } from './heroArt';
 
 /**
  * Animated-hero playback (2026-09-01 pipeline: `extractAseprite.ts`,
@@ -58,15 +58,18 @@ export function heroFlipX(faceRight: boolean): boolean {
 
 /**
  * Scale factor to render `unitName`'s animated sprite at `desiredHeight`
- * (display pixels), read from its own atlas frame rather than a hand-tuned
- * per-hero constant — safe because `extractAseprite.ts` crops every frame
- * (idle and attack alike) to one shared union-bounds size, so any frame's
- * height is the right reference for the whole hero. Call once the atlas is
- * loaded (after `preload()`, e.g. in `create()`).
+ * (display pixels), read from its own atlas frame — safe to compare across
+ * that one hero's own frames because `extractAseprite.ts` crops all of them
+ * (idle and attack alike) to one shared union-bounds size. Not safe to
+ * assume frame height means the same thing *across* different heroes,
+ * though — `heroArt.ts`'s `HERO_DISPLAY_SCALE` corrects for the one hero
+ * (Gear5) where it doesn't; see that constant's own doc comment. Call once
+ * the atlas is loaded (after `preload()`, e.g. in `create()`).
  */
 export function heroAnimScale(scene: Scene, unitName: string, desiredHeight: number): number {
   const frame = scene.textures.getFrame(heroAnimAtlasKey(unitName), 'idle-0');
-  return desiredHeight / frame.height;
+  const correction = HERO_DISPLAY_SCALE[unitName.toLowerCase()] ?? 1;
+  return (desiredHeight * correction) / frame.height;
 }
 
 /**
