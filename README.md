@@ -158,6 +158,40 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-09-04 Claude: Added Gear5 (Luffy's own strongest transformation) as
+  a third character on the Hero Animation Test stage, from a real
+  hand-authored `.aseprite` file the repo owner supplied
+  (`public/aseprite/luffy_gear5.aseprite`) — the kind of real animated art
+  the reverted procedural idle-bob attempt (previous entry) was standing in
+  for. Extracted via the existing pipeline, unchanged:
+  `npm run extract-aseprite -- aseprite/luffy_gear5.aseprite gear5` (5
+  frames — 4 idle + 1 attack, same shape `ase-parser` already expects by
+  default — wrote `public/heroes/gear5-atlas.png`/`.json`). `heroArt.ts`'s
+  `ANIMATED_HERO_NAMES` gained `'gear5'`; that one line is what makes
+  `UnitSprite`/`CombatOverlayScene` play its real idle loop and attack pose
+  instead of a placeholder, and (per the 2026-09-02 entry above) makes its
+  idle-0 frame show up automatically in `CombatForecastPanel`/
+  `UnitStatusBar` too.
+  A new `Gear5` `ClassName` backs it (`classes.ts`) — stats deliberately the
+  strongest of the three test-stage classes (14 atk / 25 crit at level 1,
+  vs. Luffy's 11/15) since it's meant to read as an overwhelming power
+  spike over base Luffy, not a lateral sidegrade; same "untuned test-stage
+  numbers" caveat as Luffy/Zoro. Needed an entry in every other
+  `Record<ClassName, ...>` map too — `skills.ts`'s `SKILLS` (`[]`, no active
+  skill, matching Luffy/Zoro) and `classIcons.ts`'s `CLASS_LETTER` (`'Q'`,
+  only ever shown if the atlas somehow fails to load). Two new units in
+  `maps.ts`'s `ANIMATED_HERO_TEST_STAGE` — `gear5-player`/`gear5-enemy` —
+  placed on two more of `RIVER_CROSSING`'s confirmed-passable plain tiles
+  ((4,6) and (0,0)), mirroring the existing player/enemy pair-per-hero
+  layout.
+  Verified: typecheck/build/validate-maps/sim clean (sim numbers unchanged
+  — this class is excluded from the random-spawn pool same as Luffy/Zoro).
+  Playwright against `?luffyTest=1`: no console errors, Gear5 renders its
+  real idle animation on both sides of the board alongside Luffy and Zoro,
+  and its status card shows correct level-5-scaled stats (36 HP / 18 atk /
+  8 def, matching `statsAtLevel`'s formula against the level-1 numbers
+  above) with its idle frame as portrait.
+
 - 2026-09-02 Claude: Luffy/Zoro get a real portrait in the two panels that
   never rendered their animation, per the repo owner ("For unit that use
   idle animation but dont have static sprite you can use first idle frame

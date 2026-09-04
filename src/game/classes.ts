@@ -31,16 +31,17 @@ export type ClassName =
   | 'Hero'
   | 'Berserker'
   | 'Axe Master'
-  // Animated hero test stage (2026-08-31, Zoro added 2026-09-01) —
-  // named-hero-only classes backing the two animated units (heroArt.ts's
-  // ANIMATED_HERO_NAMES), used by both sides in maps.ts's
-  // ANIMATED_HERO_TEST_STAGE. Neither is in ALL_CLASSES (no anonymous enemy
-  // art, and a random spawn drawing one would need a second copy of that
-  // same animated sprite on screen at once, which the pipeline was never
-  // meant to support) or PROMOTES_TO (the test stage has no leveling arc to
-  // promote through).
+  // Animated hero test stage (2026-08-31, Zoro added 2026-09-01, Gear5
+  // added 2026-09-04) — named-hero-only classes backing the animated units
+  // (heroArt.ts's ANIMATED_HERO_NAMES), used by both sides in maps.ts's
+  // ANIMATED_HERO_TEST_STAGE. None of the three are in ALL_CLASSES (no
+  // anonymous enemy art, and a random spawn drawing one would need a
+  // second copy of that same animated sprite on screen at once, which the
+  // pipeline was never meant to support) or PROMOTES_TO (the test stage
+  // has no leveling arc to promote through).
   | 'Luffy'
-  | 'Zoro';
+  | 'Zoro'
+  | 'Gear5';
 
 export interface ClassStats {
   maxHp: number;
@@ -111,6 +112,11 @@ export const CLASS_STATS: Record<ClassName, ClassStats> = {
   // untuned-test-stage caveat as Luffy above, tuned for visual contrast
   // (a bit less durable, more crit-leaning) rather than balance.
   Zoro: { maxHp: 23, atk: 12, def: 3, move: 4, range: 1, hit: 88, crit: 20 },
+  // Luffy's own strongest transformation, fitting the animated kick attack
+  // — same untuned-test-stage caveat as the two above, but deliberately the
+  // strongest of the three (higher atk/crit than base Luffy) since it reads
+  // in-universe as an overwhelming power spike, not a lateral sidegrade.
+  Gear5: { maxHp: 28, atk: 14, def: 4, move: 4, range: 1, hit: 85, crit: 25 },
 };
 
 /**

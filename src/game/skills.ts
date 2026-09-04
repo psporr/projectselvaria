@@ -341,6 +341,7 @@ export const SKILLS: Record<ClassName, SkillDef[]> = {
   // the animated attack/movement art, not a new kit.
   Luffy: [],
   Zoro: [],
+  Gear5: [],
 };
 
 /** The reach a unit's skill can target from its current tile. */

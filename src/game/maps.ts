@@ -459,15 +459,16 @@ export const RIVER_CROSSING: ChapterDef = {
 
 /**
  * Animated hero test stage (2026-08-31, per the repo owner; Zoro added
- * 2026-09-01 alongside the Aseprite-source pipeline, `extractAseprite.ts`)
- * — a hidden dev-only battle (`?luffyTest=1`, BootScene's debug-redirect
- * convention, same as `?spriteTest=1`) proving the animated-hero pipeline
- * (`heroArt.ts`'s `ANIMATED_HERO_NAMES`) inside an actual battle instead of
- * SpriteTestScene's standalone viewer — specifically, that the on-board
- * idle loop and the attack pose (`UnitSprite.playAttackPose()`) show
- * correctly during a real combat exchange, for a player-controlled and an
- * AI-controlled unit on each side, and that two different heroes' art
- * render distinctly side by side rather than just proving one.
+ * 2026-09-01 alongside the Aseprite-source pipeline, `extractAseprite.ts`;
+ * Gear5 added 2026-09-04) — a hidden dev-only battle (`?luffyTest=1`,
+ * BootScene's debug-redirect convention, same as `?spriteTest=1`) proving
+ * the animated-hero pipeline (`heroArt.ts`'s `ANIMATED_HERO_NAMES`) inside
+ * an actual battle instead of SpriteTestScene's standalone viewer —
+ * specifically, that the on-board idle loop and the attack pose
+ * (`UnitSprite.playAttackPose()`) show correctly during a real combat
+ * exchange, for a player-controlled and an AI-controlled unit on each side,
+ * and that multiple different heroes' art render distinctly side by side
+ * rather than just proving one.
  *
  * Reuses `RIVER_CROSSING`'s terrain (`rows`) rather than a new layout — the
  * terrain isn't what's being tested here — but is its own separate
@@ -480,7 +481,7 @@ export const RIVER_CROSSING: ChapterDef = {
  * the same objectiveType the real campaign chapters already use, so
  * `mode: 'campaign'` behaves exactly as proven there (TacticalScene's new
  * `debugChapter` scene-data field bypasses the `CAMPAIGN_CHAPTERS` id
- * lookup that mode normally does). Spawn tiles reuse four of
+ * lookup that mode normally does). Spawn tiles reuse six of
  * `RIVER_CROSSING`'s own confirmed-passable plain tiles (`npm run
  * validate-maps` checks every unit spawn is reachable, same as every real
  * chapter) rather than re-verifying the ASCII map by eye.
@@ -503,5 +504,7 @@ export const ANIMATED_HERO_TEST_STAGE: ChapterDef = {
     { id: 'luffy-enemy', name: 'Luffy', team: 'enemy', className: 'Luffy', x: 4, y: 0 },
     { id: 'zoro-player', name: 'Zoro', team: 'player', className: 'Zoro', x: 2, y: 6 },
     { id: 'zoro-enemy', name: 'Zoro', team: 'enemy', className: 'Zoro', x: 2, y: 0 },
+    { id: 'gear5-player', name: 'Gear5', team: 'player', className: 'Gear5', x: 4, y: 6 },
+    { id: 'gear5-enemy', name: 'Gear5', team: 'enemy', className: 'Gear5', x: 0, y: 0 },
   ],
 };

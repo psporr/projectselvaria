@@ -67,15 +67,19 @@ export function heroTextureKey(unitName: string): string {
 /**
  * Frame-based animated map art (2026-08-31, source pipeline replaced
  * 2026-09-01) — idle/attack, a separate category from the single-PNG
- * `HERO_SPRITE_NAMES` above. Each name here has a `public/aseprite/
- * <name>.aseprite` source file (a handful of poses on one fixed canvas —
- * cheap to produce, unlike a full commissioned animation set) run through
- * `npm run extract-aseprite` to produce `public/heroes/<name>-atlas.png`/
- * `.json` (see that script's own doc comment for the extraction method).
- * `UnitSprite` checks this list *before* `HERO_SPRITE_NAMES` — an animated
- * name takes priority if a unit somehow matched both.
+ * `HERO_SPRITE_NAMES` above. Each name here has an `.aseprite` source file
+ * under `public/aseprite/` (a handful of poses on one fixed canvas — cheap
+ * to produce, unlike a full commissioned animation set) run through `npm
+ * run extract-aseprite -- <source> <name>` to produce
+ * `public/heroes/<name>-atlas.png`/`.json` (see that script's own doc
+ * comment for the extraction method) — the source filename doesn't have to
+ * match `<name>` (`gear5` here extracts from `luffy_gear5.aseprite`), only
+ * the atlas output does, since that's the half every other lookup in this
+ * file (`heroAnimAtlasKey`, `isAnimatedHero`) actually keys off. `UnitSprite`
+ * checks this list *before* `HERO_SPRITE_NAMES` — an animated name takes
+ * priority if a unit somehow matched both.
  */
-export const ANIMATED_HERO_NAMES = ['luffy', 'zoro'] as const;
+export const ANIMATED_HERO_NAMES = ['luffy', 'zoro', 'gear5'] as const;
 
 /**
  * Every static art source in this file — `HERO_SPRITE_NAMES` map sprites
