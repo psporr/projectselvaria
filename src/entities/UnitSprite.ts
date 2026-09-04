@@ -3,7 +3,7 @@ import type { Unit } from '../game/types';
 import { DPR } from '../systems/viewport';
 import { CLASS_LETTER } from '../ui/classIcons';
 import { enemyClassTextureKeyFor, heroAnimAtlasKey, heroTextureKey, isAnimatedHero } from '../ui/heroArt';
-import { HERO_ATTACK_FRAME, heroAnimScale, heroFlipX, heroIdleMapAnimKey } from '../ui/heroAnimations';
+import { HERO_ATTACK_FRAME, heroAnimScale, heroAnimYOffset, heroFlipX, heroIdleMapAnimKey } from '../ui/heroAnimations';
 import { FONT_FAMILY } from '../ui/kit';
 
 const TEAM_COLOR: Record<string, number> = { player: 0x4a90d9, enemy: 0xd9534f };
@@ -118,8 +118,16 @@ export class UnitSprite extends GameObjects.Container {
       this.portrait = null;
       this.portraitGrayscale = null;
       this.idleAnimKey = heroIdleMapAnimKey(unit.name);
-      const animScale = heroAnimScale(scene, unit.name, tileSize * ANIM_DISPLAY_HEIGHT_FACTOR);
-      this.animSprite = scene.add.sprite(0, 0, heroAnimAtlasKey(unit.name), 'idle-0').setOrigin(0.5, 0.5).setScale(animScale);
+      const animDesiredHeight = tileSize * ANIM_DISPLAY_HEIGHT_FACTOR;
+      const animScale = heroAnimScale(scene, unit.name, animDesiredHeight);
+      // Center-anchored (see the class doc comment above), so a
+      // HERO_DISPLAY_SCALE correction's extra height would otherwise sink
+      // this hero's feet into the tile below theirs — heroAnimYOffset
+      // shifts the sprite up by exactly half that extra height so the feet
+      // land where an uncorrected sprite's would, and only the top grows
+      // further. Zero for every hero without a correction.
+      const animYOffset = heroAnimYOffset(unit.name, animDesiredHeight);
+      this.animSprite = scene.add.sprite(0, animYOffset, heroAnimAtlasKey(unit.name), 'idle-0').setOrigin(0.5, 0.5).setScale(animScale);
       this.animSprite.play(this.idleAnimKey);
       this.animSprite.enableFilters();
       this.animGrayscale = this.animSprite.filters!.internal.addColorMatrix();

@@ -73,6 +73,32 @@ export function heroAnimScale(scene: Scene, unitName: string, desiredHeight: num
 }
 
 /**
+ * Vertical position offset (display px, negative = up) to pair with
+ * `heroAnimScale`'s result for a center-anchored (`setOrigin(0.5, 0.5)`)
+ * sprite — `UnitSprite`'s on-board mode, not `CombatOverlayScene`'s or
+ * `SpriteTestScene`'s, which anchor at the *bottom* (`setOrigin(0.5, 1)`)
+ * and so already grow purely upward with no offset needed.
+ *
+ * Without this, a `HERO_DISPLAY_SCALE` correction's extra height grows
+ * equally in both directions from a center anchor, sinking a boosted
+ * hero's feet visibly into the tile below theirs (2026-09-04, per the
+ * repo owner testing Gear5's fix: keep feet planted on their own tile,
+ * let the extra room only grow the sprite upward, same as a real "power-
+ * up" pose reads — bigger presence overhead, not a deeper stance). Shifting
+ * the whole sprite up by half the added height cancels the downward half
+ * of that growth exactly, leaving the bottom edge exactly where an
+ * uncorrected (`correction = 1`) sprite's would be — the derivation is
+ * `offset = (desiredHeight - desiredHeight*correction) / 2`, which
+ * collapses to `0` whenever `correction` is `1`, i.e. every hero without a
+ * `HERO_DISPLAY_SCALE` entry (`?? 1`'s same default as `heroAnimScale`
+ * itself) — a genuine no-op there, not just a small number.
+ */
+export function heroAnimYOffset(unitName: string, desiredHeight: number): number {
+  const correction = HERO_DISPLAY_SCALE[unitName.toLowerCase()] ?? 1;
+  return (desiredHeight - desiredHeight * correction) / 2;
+}
+
+/**
  * Registers `unitName`'s idle animations on `scene.anims` (Phaser's
  * animation registry is global across every Scene, not per-scene, so this
  * only needs to run once per game session per hero — guarded on that

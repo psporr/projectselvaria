@@ -158,6 +158,29 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-09-04 Claude: Follow-up to the previous entry's Gear5 scale fix, per
+  the repo owner testing it live: boosting his display height grew his
+  sprite equally in both directions from `UnitSprite`'s center anchor,
+  sinking his feet visibly into the tile below his own ("this make gear 5
+  feet place in below grid, while I think we should keep feet in the grid,
+  but make his top can go upper grid"). Added `heroAnimations.ts`'s
+  `heroAnimYOffset(unitName, desiredHeight)` — shifts the sprite up by
+  exactly half the extra height `HERO_DISPLAY_SCALE` adds, which cancels
+  that correction's downward growth exactly, leaving the bottom edge where
+  an uncorrected sprite's would be and letting the extra room only extend
+  upward (matches how a real "power-up" pose should read — bigger presence
+  overhead, not a deeper stance). Zero whenever `HERO_DISPLAY_SCALE` has no
+  entry for a hero, same `?? 1` default as `heroAnimScale` itself, so
+  Luffy/Zoro are unaffected by construction. Only wired into `UnitSprite.ts`
+  — `CombatOverlayScene`'s and `SpriteTestScene`'s animated sprites already
+  anchor at the bottom (`setOrigin(0.5, 1)`), so they already grew purely
+  upward with no offset needed there.
+  Verified: typecheck/build/validate-maps/sim clean (rendering-only
+  change). Playwright against `?luffyTest=1`: a zoomed crop shows Gear5's
+  feet now sitting right at his own tile's bottom edge, matching Zoro's
+  and Luffy's foot placement, with his hair extending up past the grid
+  line into the tile above instead; no console errors.
+
 - 2026-09-04 Claude: Fixed Gear5 rendering visibly smaller than Zoro/Luffy
   on the board, per the repo owner ("luffy gear 5 look small vs zoro, that
   because luffy gear 5 have effect on his head"). Root cause:
