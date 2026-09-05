@@ -57,17 +57,23 @@ export class BlessingPicker extends GameObjects.Container {
 
     const width = LOGICAL_WIDTH;
     const height = LOGICAL_HEIGHT;
-    const totalWidth = blessings.length * CARD_WIDTH + (blessings.length - 1) * CARD_GAP;
-    const startX = width / 2 - totalWidth / 2 + CARD_WIDTH / 2;
+    // Normally 3 cards (CARD_WIDTH fits comfortably), but The Phoenix
+    // (blessings.ts) can offer a bonus 4th — shrink cards to whatever still
+    // fits the 480-wide logical screen rather than letting them spill off
+    // the edges, which the fixed CARD_WIDTH used to do unconditionally.
+    const maxTotalWidth = width - 32;
+    const cardWidth = Math.min(CARD_WIDTH, (maxTotalWidth - (blessings.length - 1) * CARD_GAP) / blessings.length);
+    const totalWidth = blessings.length * cardWidth + (blessings.length - 1) * CARD_GAP;
+    const startX = width / 2 - totalWidth / 2 + cardWidth / 2;
     const centerY = height / 2;
 
     blessings.forEach((blessing, index) => {
-      const x = startX + index * (CARD_WIDTH + CARD_GAP);
+      const x = startX + index * (cardWidth + CARD_GAP);
       const color = RARITY_COLOR[blessing.rarity];
 
-      const card = new Card(this.scene, x, centerY, CARD_WIDTH, CARD_HEIGHT, color);
+      const card = new Card(this.scene, x, centerY, cardWidth, CARD_HEIGHT, color);
       const hitZone = this.scene.add
-        .rectangle(x, centerY, CARD_WIDTH, CARD_HEIGHT, 0x000000, 0)
+        .rectangle(x, centerY, cardWidth, CARD_HEIGHT, 0x000000, 0)
         .setInteractive({ useHandCursor: true })
         .on('pointerup', () => this.pick(blessing.id));
 
@@ -86,7 +92,7 @@ export class BlessingPicker extends GameObjects.Container {
           fontSize: '12px',
           color: '#e0e0e0',
           align: 'center',
-          wordWrap: { width: CARD_WIDTH - 16 },
+          wordWrap: { width: cardWidth - 16 },
           resolution: DPR,
         })
         .setOrigin(0.5, 0);
@@ -97,7 +103,7 @@ export class BlessingPicker extends GameObjects.Container {
           fontSize: '11px',
           color: '#9099a8',
           align: 'center',
-          wordWrap: { width: CARD_WIDTH - 16 },
+          wordWrap: { width: cardWidth - 16 },
           lineSpacing: 4,
           resolution: DPR,
         })

@@ -18,18 +18,22 @@ import { effectiveStats, equippedCounterReduction } from './equipment';
 
 /**
  * Damage if the hit connects (not accounting for crit). A minimum of 1 keeps
- * battles from stalling into unbreakable defences. Folds in two permanent
+ * battles from stalling into unbreakable defences. Folds in three permanent
  * blessing effects: Ironclad doubles (or more, stacked) the terrain bonus for
- * a defending player unit, and Executioner adds flat damage for a player
- * attacker against a target at or below half HP.
+ * a defending player unit, Executioner adds flat damage for a player attacker
+ * against a target at or below half HP, and Berserker adds flat damage for a
+ * player attacker that's itself at or below half HP — the attacker-side
+ * mirror of Executioner's defender-side check, rewarding a squad built to
+ * lean into being low-HP rather than only punishing an already-weak enemy.
  */
 export function computeDamage(G: GameState, attacker: Unit, defender: Unit): number {
   const terrainBonus = terrainAt(G, defender.x, defender.y).defBonus;
   const cover = defender.team === 'player' ? terrainBonus * G.modifiers.terrainDefMultiplier : terrainBonus;
 
   let damage = effectiveStats(attacker).atk - (effectiveStats(defender).def + cover);
-  if (attacker.team === 'player' && defender.hp <= defender.maxHp / 2) {
-    damage += G.modifiers.executionerBonus;
+  if (attacker.team === 'player') {
+    if (defender.hp <= defender.maxHp / 2) damage += G.modifiers.executionerBonus;
+    if (attacker.hp <= attacker.maxHp / 2) damage += G.modifiers.berserkerBonus;
   }
   return Math.max(1, damage);
 }
@@ -39,9 +43,12 @@ export function computeDamage(G: GameState, attacker: Unit, defender: Unit): num
  * and the chance (0-100) that a connecting hit is a critical — Option A's
  * flat per-class rates, reduced by the defender's terrain avoid. Floored at
  * 5% so no combination of stats makes an attack truly unmissable, and
- * capped at 100%.
+ * capped at 100%. Perfect Aim (Farsight duo) breaks that floor on purpose —
+ * a player unit with range 2+ always connects — as the payoff for
+ * committing two picks to the Farsight house.
  */
 export function computeHitChance(G: GameState, attacker: Unit, defender: Unit): number {
+  if (attacker.team === 'player' && G.modifiers.rangedAlwaysHit && effectiveStats(attacker).range >= 2) return 100;
   const terrainAvoid = terrainAt(G, defender.x, defender.y).avoid;
   return clamp(effectiveStats(attacker).hit - terrainAvoid, 5, 100);
 }
@@ -103,12 +110,13 @@ export function computeAttackChances(G: GameState, attacker: Unit, defender: Uni
  * Pure probabilities for defender's counter against attacker — same shape as
  * computeAttackChances, but damage goes through computeCounterDamage (Thorns/
  * Dragonscale) instead of computeDamage. Callers are responsible for checking
- * canCounter first; this doesn't gate on range.
+ * canCounter first; this doesn't gate on range. Unbreakable (Bulwark duo)
+ * forces the counter's crit chance to 100 for a player defender.
  */
 export function computeCounterChances(G: GameState, defender: Unit, attacker: Unit): AttackChances {
   return attackChances({
     hitChance: computeHitChance(G, defender, attacker),
-    critChance: computeCritChance(defender),
+    critChance: defender.team === 'player' && G.modifiers.counterAlwaysCrit ? 100 : computeCritChance(defender),
     normalDamage: computeCounterDamage(G, defender, attacker),
   });
 }

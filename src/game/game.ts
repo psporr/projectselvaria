@@ -151,7 +151,8 @@ function killUnit(G: GameState, unit: Unit, random: DropRandomAPI, killer?: Unit
   }
 
   if (killer) {
-    const heal = equippedKillHeal(killer);
+    let heal = equippedKillHeal(killer);
+    if (killer.team === 'player' && effectiveStats(killer).range <= 1) heal += G.modifiers.meleeKillHeal;
     if (heal > 0 && killer.hp > 0) {
       killer.hp = Math.min(killer.maxHp, killer.hp + heal);
       pushLog(G, `${killer.name} drains ${heal} HP from the kill.`);
@@ -881,6 +882,7 @@ export const chooseBlessing = (
   // picked — reset before applying, so picking anything else lets it lapse.
   G.modifiers.dropChanceMultiplier = 1;
   blessing.apply(G);
+  if (blessing.house) G.housePicks[blessing.house] += 1;
 
   for (const unit of unitsOf(G, 'player')) {
     unit.hasMoved = false;

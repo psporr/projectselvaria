@@ -111,7 +111,9 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
   → **action menu** (Attack / class skill / Wait / Cancel, each gated on
   real legality) → target → **forecast panel** (hit%/crit%/damage preview)
   → confirm. Wave clears open a real **blessing picker** (3 cards, rarity-
-  colored). A "Player Phase"/"Enemy Phase" **banner** (`src/ui/PhaseBanner.ts`)
+  colored, rarity-weighted draw, occasionally a bonus 4th card) — the pool
+  is grouped into 4 thematic **Houses** with a Duo-blessing payoff for
+  committing 2+ picks to one (`blessings.ts`). A "Player Phase"/"Enemy Phase" **banner** (`src/ui/PhaseBanner.ts`)
   plays on every real turn transition; the CPU's opening move waits for it
   to finish rather than guessing a matching delay. A spent unit's sprite
   visibly dims/desaturates.
@@ -158,6 +160,31 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-09-05 Claude: Roguelike-mode redesign, increment 1 of several (the
+  repo owner asked for a skill-tested redesign then said "think of priority
+  and start do it now, you can take multiple turns" — this is the first
+  self-chosen slice). Reworked the blessing pool per the new
+  `tactics-roguelike-design` skill's build-variety-and-choice-design.md:
+  every blessing now belongs to one of 4 **Houses** (Vanguard/Bulwark/
+  Farsight/Fortune, `types.ts`'s `BlessingHouse`) so the pool reads as a
+  handful of directions instead of 29 independent stat deltas; picking 2+
+  from one House unlocks that House's **Duo blessing** (Blood Oath,
+  Unbreakable, Perfect Aim, The Phoenix — gated via the existing
+  `Blessing.isAvailable` hook on `GameState.housePicks`), the same
+  "commit to a direction, get rewarded for it" lever Hades' god-pair boons
+  use. Draws are now rarity-weighted (`drawBlessings` in `blessings.ts`,
+  common/rare/legendary at 70/25/5) instead of a uniform shuffle. Added 9
+  new blessings: Blood for Steel (a real trade-off — melee +Atk/-Def, not a
+  flat upgrade), Last Stand, Volley, Windfall (guarantees a legendary next
+  draw), Berserker (attacker-side mirror of the existing Executioner), plus
+  the 4 Duo blessings above. All new effects route through existing
+  centralized checkpoints only (`combat.ts`'s `computeDamage`/
+  `computeHitChance`/`computeCounterChances`, `killUnit`'s kill-heal block)
+  — no new engine machinery, so the AI's expected-value math, the forecast
+  panel, and actual combat resolution can't disagree. `BlessingPicker`
+  needed zero changes — its card layout was already driven by
+  `blessings.length`. Next increments (run structure, meta-progression,
+  content pools, Trials dial) still to come.
 - 2026-09-04 Claude: Follow-up to the previous entry's Gear5 scale fix, per
   the repo owner testing it live: boosting his display height grew his
   sprite equally in both directions from `UnitSprite`'s center anchor,

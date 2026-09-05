@@ -10,6 +10,19 @@ import type { ClassName } from './classes';
 export type Team = 'player' | 'enemy';
 
 /**
+ * A blessing's thematic identity group (blessings.ts) — Vanguard/Bulwark/
+ * Farsight/Fortune, per the tactics-roguelike-design skill's
+ * build-variety-and-choice-design.md: grouping the pool gives picks a
+ * legible direction before the tooltip's numbers do, and lets picking
+ * 2+ from the same House unlock a bonus Duo blessing (GameState's
+ * `housePicks`), the same "commit to a direction, get rewarded for it"
+ * lever Hades' god-pair duo boons use. Lives in types.ts rather than
+ * blessings.ts so GameState (this file) can reference it without a
+ * circular import — same reasoning as Team/GameMode/TerrainType above.
+ */
+export type BlessingHouse = 'vanguard' | 'bulwark' | 'farsight' | 'fortune';
+
+/**
  * Roguelike is the endless wave-survival run; campaign is a sequence of
  * hand-authored chapters with their own win conditions. Both share every
  * rule below this line — they differ only in how a battle starts and what
@@ -81,6 +94,18 @@ export interface SquadModifiers {
   guardianAngelCharges: number;
   /** Fortune: multiplies drop chance for the wave right after it's picked, then resets to 1. */
   dropChanceMultiplier: number;
+  /** Blood Oath (Vanguard duo): HP a melee player unit heals whenever it lands a killing blow, on top of any equipped kill-heal gear. */
+  meleeKillHeal: number;
+  /** Unbreakable (Bulwark duo): a player unit's counterattack is always a critical hit. */
+  counterAlwaysCrit: boolean;
+  /** Perfect Aim (Farsight duo): a ranged (range 2+) player unit's attacks always hit. */
+  rangedAlwaysHit: boolean;
+  /** Windfall: this many of the next blessing draws are guaranteed to include a legendary option (decrements by 1 each draw it applies to). */
+  guaranteedLegendaryDraws: number;
+  /** The Phoenix (Fortune duo): The Fallen, when available, is always offered as a bonus option alongside the normal 3 — see `drawBlessings`. */
+  phoenixActive: boolean;
+  /** Berserker: bonus damage a player unit deals while at or below half its own HP — the attacker-side mirror of Executioner's defender-side check. */
+  berserkerBonus: number;
 }
 
 export interface Unit {
@@ -157,6 +182,8 @@ export interface GameState {
   nextItemInstance: number;
   /** Running totals from every "permanent" blessing picked so far this run. */
   modifiers: SquadModifiers;
+  /** How many blessings picked so far this run belong to each House — drives Duo-blessing unlocks (blessings.ts's `isAvailable` gates check this). Counts every pick, including repeats; a Duo blessing itself has no `house` and doesn't bump its own House's count. */
+  housePicks: Record<BlessingHouse, number>;
   /** Player units that have died this run, kept around for The Fallen to revive. */
   fallenUnits: Unit[];
   /** The 3 blessing ids drawn for the current wave-clear pause; empty until the first one. */
