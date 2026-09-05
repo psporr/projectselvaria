@@ -1,0 +1,48 @@
+{
+  "skill_name": "tactics-roguelike-design",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I want to reinvent the Roguelike mode in this project (Project Selvaria). Right now it's just: one fixed map (River Crossing), infinite waves of randomly-composed enemies that scale by level = wave number, and after each wave you pick 1 of 3 blessings drawn uniformly from a flat pool of ~19 options (things like +2 Atk for everyone, +2 Def for everyone, fully heal, etc.) with no synergy between them and no meta-progression between runs. It feels flat and same-y run to run. Study great roguelikes (Hades, Slay the Spire, etc.) and propose a concrete redesign for this mode.",
+      "expected_output": "A concrete, specific redesign proposal for Project Selvaria's Roguelike mode that names specific mechanics from real roguelikes (not vague genre trivia), explicitly addresses run structure (finite vs infinite), the blessing pool's flatness (proposes synergy/conditional effects, not just more flat bonuses), meta-progression, risk/reward, and difficulty pacing, and translates all of it into terms that fit a squad-based grid-tactics game specifically (not generic single-hero roguelike advice) — referencing this project's actual files/systems (blessings.ts, waves.ts, River Crossing) where relevant.",
+      "files": [],
+      "expectations": [
+        "Names at least 2 specific mechanics from real shipped roguelikes by name (e.g. Hades boons/duo-boons/Heat, Slay the Spire relics/elites/Ascension, Darkest Dungeon stress/torch) rather than vague unattributed genre trivia",
+        "Explicitly addresses whether the run should be finite or infinite/endless as a deliberate decision, not left implicit",
+        "Diagnoses the current blessing pool's core problem as flat/independent/non-synergistic effects (not just 'needs more options' or 'numbers too small') and proposes conditional, role-based, or synergistic alternatives",
+        "Explicitly discusses meta-progression — what should persist between runs vs. reset",
+        "Explicitly discusses a risk/reward mechanic (an opt-in harder encounter for better reward, a difficulty dial, or equivalent)",
+        "Grounds the proposal in this project's real systems — references at least one of blessings.ts, waves.ts, or River Crossing by name, or quotes actual current blessing names/effects",
+        "Explicitly addresses squad/permadeath dynamics specific to a multi-unit tactics game (not single-hero-only framing)",
+        "Does not edit, create, or modify any actual game source files — this is a design-proposal-only task"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "im building a small grid tactics game in godot, kind of like Into the Breach but with a persistent squad instead of 3 mechs. right now the roguelike/endless mode is just: infinite waves of randomly stronger enemies forever, no rewards or choices between waves at all, you just keep fighting until your squad wipes. how should I actually structure this into something that feels like a real roguelike run instead of just an endless grind?",
+      "expected_output": "Concrete, actionable run-structure guidance that doesn't assume any Project-Selvaria-specific context (no mention of this repo's specific files) — covers finite-vs-infinite run decision, introducing a real choice/reward moment between encounters (not just harder waves), meta-progression options, and how permadeath/squad loss should work, adapted for a squad-tactics game rather than generic single-hero roguelike advice. Should read as genuinely useful to a different, unrelated project.",
+      "files": [],
+      "expectations": [
+        "Names at least 2 specific mechanics from real shipped roguelikes by name",
+        "Explicitly addresses finite vs. infinite/endless run structure as a deliberate decision",
+        "Proposes a real choice/reward mechanic between waves (not just 'make enemies harder')",
+        "Explicitly discusses meta-progression",
+        "Adapts advice for a persistent squad's permadeath dynamics specifically (matches the prompt's own framing), not single-hero-only advice",
+        "Does not reference Project Selvaria specifics (no mention of blessings.ts, River Crossing, or this repo) — should read as generic, portable advice"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "my tactics RPG's roguelike mode gives the player a choice of 3 flat +stat buffs after every wave (like +2 atk for everyone, +2 def for everyone, +10 max hp for everyone) and it feels really boring even though I have like 20 of them in the pool. what's actually wrong with this and how do I fix it?",
+      "expected_output": "A diagnosis that correctly identifies the core problem (flat, independent, non-interactive bonuses with no synergy or build identity, not just 'not enough options' or 'numbers too small'), and concrete fixes: conditional/class-or-role-based effects, synergies between pool entries, non-linear/rule-changing effects instead of stat deltas, using named-game examples (Slay the Spire relics, Hades boons/duo-boons) as evidence for why the fix works, adapted specifically for a squad where 'which units benefit' is itself a design lever.",
+      "files": [],
+      "expectations": [
+        "Correctly diagnoses the root problem as lack of synergy/interactivity between pool options, not 'not enough options' or 'numbers too small'",
+        "Proposes conditional, class/role-based, or positional effects as a concrete fix",
+        "Cites at least one specific named game mechanic as evidence (e.g. Slay the Spire relic design, Hades boon/duo-boon system)",
+        "Explicitly names 'which units benefit' as a squad-specific design lever (not single-hero-only advice)",
+        "Gives at least one concrete example of a redesigned/improved option, not only abstract principles"
+      ]
+    }
+  ]
+}

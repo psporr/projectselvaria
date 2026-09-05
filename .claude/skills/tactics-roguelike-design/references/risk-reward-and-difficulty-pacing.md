@@ -1,0 +1,27 @@
+# Risk/Reward Economy and Difficulty Pacing
+
+These two are handled together because they're the same lever seen from two angles: risk/reward is *player-chosen* difficulty spikes in exchange for better rewards; difficulty pacing is the *baseline* curve the game imposes regardless of choice. A run needs both — a flat difficulty curve with no player-chosen risk feels like a conveyor belt; player-chosen risk with no underlying curve has nothing to escalate against.
+
+## Player-chosen risk: the genre's key lever
+
+**Slay the Spire's elites**: optional harder fights (visible on the map before you commit to a path) that drop a relic — the game's best per-fight reward. Taking the elite-heavy path is a legible, opt-in difficulty increase with a legible, opt-in reward increase, decided *before* the fight, not during it. **Rest sites** are the matched resource-tension mechanic: at a rest site you can heal *or* permanently upgrade a card, never both — meaning the player's HP total when they arrive is itself the result of earlier risk decisions, and the rest-site choice is downstream of how well those went.
+
+**Hades' Pact of Punishment (Heat)**: a menu of individually-toggleable modifiers (tankier enemies, a hard timer, fewer healing fountains, an extra required boss phase, etc.), each with a Heat-point cost, all chosen *before* the run starts. Total Heat both raises difficulty and unlocks better end-of-run rewards. This is risk/reward turned into an explicit, transparent difficulty *menu* rather than a hidden escalation — the player always knows exactly what they signed up for and why the run is harder than last time.
+
+**Darkest Dungeon's torch/light and stress**: light level affects both combat odds (darker = worse for the player, generally) *and* loot quality (darker = better rewards) on the same expedition — a continuously-adjustable risk dial rather than a discrete menu, plus a second attrition axis (stress accumulation leading to negative quirks or breakdowns) that makes "just push forward" costly even without direct HP loss.
+
+**The common thread**: every one of these makes the risk **visible and chosen** before the player commits — never a surprise difficulty spike sprung on them mid-encounter with no way to have opted out. A run that's "sometimes randomly way harder for no telegraphed reason" reads as unfair; a run where the player can see "this path has 2 elites, this one doesn't" and pick accordingly reads as strategic.
+
+## Baseline difficulty curve: three shapes
+
+**Fixed floor/act tables** (Slay the Spire): each floor and act has hand-tuned monster HP/damage numbers; the curve is authored once and every run experiences the same underlying ramp (modulated only by the player's own choices about elites/rest, and by Ascension level if opted into). This is the easiest to balance well, since there's one curve to tune, but requires a finite run structure to make sense of ("floor 17 of 17" is meaningful; "floor 17 of infinity" isn't).
+
+**Player-set difficulty dial** (Hades' Heat, Slay the Spire's Ascension): the baseline curve stays roughly constant, and the player explicitly dials in *how much* harder they want it, with matched rewards. This decouples "is the base game appropriately challenging for a newcomer" from "is there enough challenge for a 100-hour veteran" — solving the tension that a single fixed curve can't solve for both audiences at once.
+
+**Endless/soft-cap scaling** (wave-survival modes): difficulty must increase *forever* since there's no finish line, which means it eventually either becomes unsurvivable (the intended "wall" that ends the run) or the scaling stalls into a repeatable steady-state (avoid this unless deliberate — an accidental soft-cap where difficulty stops mattering past wave N makes the back half of a long run feel like padding). If you want an endless mode, decide explicitly: is the "wall" meant to be reached by nearly everyone around a similar point (a tuned difficulty ceiling, giving runs a comparable score-attack feel), or is it meant to vary a lot by build/skill (a looser curve, rewarding build optimization more than consistent play)? Both are valid, but they call for different curve shapes — the former needs the curve to steepen predictably; the latter can afford a gentler, longer ramp since build variance does more of the differentiating work.
+
+## Practical tuning advice
+
+- **Simulate before you tune by feel.** A batch simulation harness (even a crude one — random legal moves, N seeds, log outcomes) that reports win rate / average run length across many seeds catches "this scales way too fast" or "this never gets hard" long before manual playtesting would, especially for an endless mode where the interesting failure point might be wave 40, not wave 3.
+- **Tune the curve's *shape*, not just its endpoint.** "The final boss should be hard" is necessary but insufficient — check that difficulty is monotonically legible along the way (no dead-flat stretch that feels like padding, no single spike that's disproportionately harder than its neighbors without a telegraphed reason like an elite/optional fight).
+- **Reward escalation should roughly track difficulty escalation.** If risk climbs faster than reward across the run, risk-taking (elites, harder optional content) stops being worth it partway through and the player degenerates into always taking the safe path — which quietly removes the risk/reward layer from the second half of every run.

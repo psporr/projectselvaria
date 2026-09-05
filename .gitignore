@@ -4,3 +4,7 @@ dist/
 *.log
 .env
 .env.local
+
+# skill-creator eval scratch workspaces (subagent run outputs, timing/grading
+# data) — not project content, disposable between iterations.
+.claude/skills/*-workspace/
