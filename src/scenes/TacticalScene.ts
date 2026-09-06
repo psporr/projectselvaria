@@ -11,7 +11,7 @@ import { saveCampaign, clearCampaignSave } from '../game/save';
 import { computeEmbersEarned, loadMetaProgress, saveMetaProgress } from '../game/meta';
 import { canUseSkill, describeSkillEffect, novaBlastCoords, skillTargets, SKILLS, type SkillDef } from '../game/skills';
 import { isTriggerMet, type MapEvent } from '../game/story';
-import { TERRAIN, teamOf, type CombatBeat, type CombatResult, type GameMode, type GameState, type Team, type Unit } from '../game/types';
+import { TERRAIN, teamOf, type CombatBeat, type CombatResult, type GameMode, type GameState, type Team, type TrialId, type Unit } from '../game/types';
 import { UnitSprite } from '../entities/UnitSprite';
 import type { CombatOverlayData } from './CombatOverlayScene';
 import { createGameClient, type GameClient } from '../systems/gameClient';
@@ -153,6 +153,8 @@ export interface TacticalSceneData {
    * (MainMenuScene, ChapterSelectScene) leaves this unset.
    */
   debugChapter?: ChapterDef;
+  /** Roguelike-only, chosen at the main menu's Trials panel (src/game/trials.ts) before starting the run. Undefined/omitted (the plain "Start Run" button) means no Trials. */
+  activeTrials?: TrialId[];
 }
 
 /**
@@ -300,7 +302,8 @@ export class TacticalScene extends Scene {
     // campaign chapter never draws blessings at all — but it's harmless to
     // read regardless, same as loadSettings(browserStorage) just below.
     const headStartHouse = mode === 'roguelike' ? loadMetaProgress(browserStorage).headStartHouse : null;
-    this.client = createGameClient(mode, chapter, this.sceneData.carryOver, this.sceneData.baseLevel, headStartHouse);
+    const activeTrials: TrialId[] = mode === 'roguelike' ? (this.sceneData.activeTrials ?? []) : [];
+    this.client = createGameClient(mode, chapter, this.sceneData.carryOver, this.sceneData.baseLevel, headStartHouse, activeTrials);
     this.cameras.main.setBackgroundColor('#111318');
     applyDprZoom(this);
     for (const name of ANIMATED_HERO_NAMES) ensureHeroAnimations(this, name);

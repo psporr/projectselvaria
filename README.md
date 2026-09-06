@@ -152,6 +152,26 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
   deliberately small, hard-capped unlock so far: **Head Start**, a chosen
   Blessing House that starts every future run with 1 pick already counted
   toward its Duo threshold.
+- **Content pools + Trials** (`src/game/maps.ts`'s `ROGUELIKE_MAPS`,
+  `src/game/waves.ts`'s Warbands/Boss Duos, `src/game/trials.ts`) — closes
+  out the roguelike redesign. A run's map is now drawn uniformly from a
+  3-map pool (River Crossing plus two new flat-terrain layouts, Ashfall
+  Ridge and Frostgate Pass — no new art commissioned, per
+  procedural-vs-handcrafted.md's "hand-author the pool, proceduralize the
+  draw") instead of always River Crossing. Every wave's enemy composition
+  is drawn from a named **Warband** (5 for normal waves, 4 "Boss Duo"
+  pairings for Boss waves) instead of independently-rolled classes — real
+  thematic identity ("Iron Vanguard," "Arcane Circle") and the
+  tactics-specific difficulty lever tactics-adaptation.md calls out
+  (composition/count variety, not just bigger numbers), logged by name in
+  the battle log on every wave transition. **Trials** (opt-in, pre-run
+  difficulty modifiers, main menu's new "Trials…" row, `TrialsPanel`) let a
+  player toggle any of 4 independent modifiers (Grueling, Swarming,
+  Ironclad Foes, Grim Bosses) before starting a run, each adding to the
+  run's Embers payout — Hades' Pact of Punishment/Spire's Ascension
+  adapted here, always alongside (never replacing) the zero-friction
+  default "Start Run".
+
 ### Not built yet
 
 - Roguelike wave-vs-squad balance — a played-out AI-vs-AI sim never wipes
@@ -177,6 +197,35 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-09-06 Claude: Roguelike-mode redesign, increment 3 (final) — content
+  pools + Trials, per the repo owner's "Do all next to complete our
+  redesign, then we will test and improve from there". Three pieces:
+  (1) **Map pool** — `game/maps.ts`'s new `ROGUELIKE_MAPS` (River Crossing
+  plus two new flat-terrain layouts, `ASHFALL_RIDGE` and `FROSTGATE_PASS`,
+  no new art) is drawn uniformly inside `createSelvariaGame`'s `setup()`
+  (through boardgame.io's seeded random, so it stays deterministic/replay-
+  safe) instead of always River Crossing. (2) **Warbands** — `waves.ts`'s
+  `spawnWave`/`spawnBossWave` now draw from 5 named enemy compositions (4
+  Boss-only "Duo" pairings for Boss waves) instead of independently-rolled
+  classes, each returning its name for the battle log — the tactics-
+  specific "composition variety, not just bigger numbers" difficulty lever
+  tactics-adaptation.md calls out, and procedural-vs-handcrafted.md's
+  "hand-author the pool, proceduralize the draw" applied to enemy comps
+  the same way increment 1 applied it to blessings. (3) **Trials**
+  (`game/trials.ts`, `ui/TrialsPanel.ts`) — 4 independent, opt-in pre-run
+  difficulty modifiers (Grueling/Swarming/Ironclad Foes/Grim Bosses),
+  chosen from the main menu's new "Trials…" row (backdrop-cancels, unlike
+  BlessingPicker/RunChoicePanel — this is a configuration screen, not a
+  forced choice) alongside the unchanged zero-friction "Start Run" button;
+  each adds to the run's Embers payout (`meta.ts`'s `embersMultiplier`).
+  Verified via typecheck/build/validate-maps/sim (both new maps pass
+  connectivity/spawn checks), a headless script confirming map-pool
+  variety across seeds, Warband/Boss-Duo composition and naming, and all 4
+  Trials' exact numeric effects (level/count/Def/boss-level math checked
+  against the formulas by hand), plus Playwright screenshots of the menu's
+  Trials row, the TrialsPanel (empty and toggled, multiplier updating
+  live), and a real battle booted with a Trial active showing the phase
+  text's "1 Trial" indicator.
 - 2026-09-06 Claude: Roguelike-mode redesign, increment 2 — run structure +
   meta-progression, continuing from increment 1's blessing-pool rework, per
   the repo owner's "Continue run structure and meta progression". Gives the

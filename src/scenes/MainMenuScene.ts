@@ -4,12 +4,13 @@ import { PLAYER_START_LEVEL } from '../game/classes';
 import { CAMPAIGN_CHAPTERS, ANIMATED_HERO_TEST_STAGE } from '../game/maps';
 import { HEAD_START_COST, loadMetaProgress, saveMetaProgress, type MetaProgress } from '../game/meta';
 import { loadCampaignSave } from '../game/save';
-import type { BlessingHouse } from '../game/types';
+import type { BlessingHouse, TrialId } from '../game/types';
 import { browserStorage } from '../systems/storage';
 import { battleStyleLabel, loadSettings, nextBattleStyle, saveSettings } from '../systems/settings';
 import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { GAME_VERSION } from '../version';
 import { Button, Card, COLORS, FONT_FAMILY } from '../ui/kit';
+import { TrialsPanel } from '../ui/TrialsPanel';
 import { drawMenuBackground, preloadMenuBackground } from './menuBackground';
 import type { TacticalSceneData } from './TacticalScene';
 
@@ -71,6 +72,8 @@ function houseLabel(house: BlessingHouse): string {
  * real game mode.
  */
 export class MainMenuScene extends Scene {
+  private trialsPanel!: TrialsPanel;
+
   constructor() {
     super('MainMenu');
   }
@@ -90,7 +93,8 @@ export class MainMenuScene extends Scene {
     const save = loadCampaignSave(browserStorage);
     const campaignRowCount = 2 + (save ? 1 : 0); // New Game + Chapter Select, plus Load Game when a save exists
     const devRowCount = 2; // Sprite Test + Hero Anim Test
-    const roguelikeSectionHeight = HEADING_HEIGHT + ROW_HEIGHT;
+    const roguelikeRowCount = 2; // Start Run + Trials
+    const roguelikeSectionHeight = HEADING_HEIGHT + roguelikeRowCount * ROW_HEIGHT + Math.max(0, roguelikeRowCount - 1) * ROW_GAP;
     const campaignSectionHeight = HEADING_HEIGHT + campaignRowCount * ROW_HEIGHT + Math.max(0, campaignRowCount - 1) * ROW_GAP;
     const embersRowCount = 2; // balance readout + Head Start unlock/toggle
     const embersSectionHeight = HEADING_HEIGHT + embersRowCount * ROW_HEIGHT + Math.max(0, embersRowCount - 1) * ROW_GAP;
@@ -163,6 +167,7 @@ export class MainMenuScene extends Scene {
 
     addHeading('ROGUELIKE');
     addRow('Start Run', () => this.startRoguelike(), '15px', true);
+    addRow('Trials…', () => this.trialsPanel.show((activeTrials) => this.startRoguelike(activeTrials)), '13px');
     addDivider();
 
     addHeading('CAMPAIGN');
@@ -231,6 +236,8 @@ export class MainMenuScene extends Scene {
         resolution: DPR,
       })
       .setOrigin(1, 1);
+
+    this.trialsPanel = new TrialsPanel(this);
   }
 
   /**
@@ -244,8 +251,8 @@ export class MainMenuScene extends Scene {
    * Menu's Main Menu option (found 2026-08-28, real bug: the repo owner hit
    * this in the actual build).
    */
-  private startRoguelike(): void {
-    const data: TacticalSceneData = { mode: 'roguelike' };
+  private startRoguelike(activeTrials: TrialId[] = []): void {
+    const data: TacticalSceneData = { mode: 'roguelike', activeTrials };
     this.scene.start('Tactical', data);
   }
 

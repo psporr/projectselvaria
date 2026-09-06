@@ -353,7 +353,8 @@ export class UIScene extends Scene {
         : isPlayerTurn
           ? 'Player Phase'
           : 'Enemy Phase';
-    const nextPhaseText = `${G.chapterShortName}   Wave ${G.wave}   ${phase}`;
+    const trialsSuffix = G.activeTrials.length > 0 ? `   ${G.activeTrials.length} Trial${G.activeTrials.length > 1 ? 's' : ''}` : '';
+    const nextPhaseText = `${G.chapterShortName}   Wave ${G.wave}   ${phase}${trialsSuffix}`;
     if (this.phaseText.text !== nextPhaseText) {
       this.phaseText.setText(nextPhaseText);
     }

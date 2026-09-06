@@ -1,7 +1,7 @@
 import { Client } from 'boardgame.io/client';
 import { createSelvariaGame } from '../game/game';
 import type { CampaignCarryOver, ChapterDef } from '../game/maps';
-import type { BlessingHouse, GameMode, GameState } from '../game/types';
+import type { BlessingHouse, GameMode, GameState, TrialId } from '../game/types';
 
 /**
  * The vanilla (non-React) boardgame.io client, constructed once outside any
@@ -32,8 +32,9 @@ export function createGameClient(
   carryOver?: CampaignCarryOver,
   baseLevel?: number,
   headStartHouse?: BlessingHouse | null,
+  activeTrials?: TrialId[],
 ): GameClient {
-  const game = createSelvariaGame(mode, chapter, carryOver, baseLevel, headStartHouse);
+  const game = createSelvariaGame(mode, chapter, carryOver, baseLevel, headStartHouse, activeTrials);
   // boardgame.io's built-in debug panel is a React/DOM overlay meant for
   // developing the Game definition itself — not part of the shipped game,
   // and it visually collides with TacticalScene's own HUD.

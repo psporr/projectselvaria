@@ -3,9 +3,9 @@ import { INVALID_MOVE } from 'boardgame.io/core';
 
 import type { CampaignCarryOver, ChapterDef } from './maps';
 import type { ClassName } from './classes';
-import type { BlessingHouse, CombatBeat, GameMode, GameState, ItemSlot, Team, Unit } from './types';
+import type { BlessingHouse, CombatBeat, GameMode, GameState, ItemSlot, Team, TrialId, Unit } from './types';
 import { PLAYER_ID, teamOf } from './types';
-import { buildGameState, CAMPAIGN_CHAPTER_1, RIVER_CROSSING, type ShuffleAPI } from './maps';
+import { buildGameState, CAMPAIGN_CHAPTER_1, RIVER_CROSSING, ROGUELIKE_MAPS, type ShuffleAPI } from './maps';
 import { computeReachable, manhattan, tileKey, unitsOf } from './grid';
 import {
   canCounter,
@@ -848,9 +848,8 @@ export const unequipItem = ({ G, ctx }: { G: GameState; ctx: Ctx }, unitId: stri
  */
 function finishWaveTransition(G: GameState, ctx: Ctx, events: EndTurnAPI, random: ShuffleAPI): void {
   G.wave += 1;
-  if (runPhaseForWave(G.wave) === 'boss') spawnBossWave(G, G.wave, random);
-  else spawnWave(G, G.wave, random);
-  pushLog(G, `— Wave ${G.wave} —`);
+  const warbandName = runPhaseForWave(G.wave) === 'boss' ? spawnBossWave(G, G.wave, random) : spawnWave(G, G.wave, random);
+  pushLog(G, `— Wave ${G.wave}: ${warbandName} —`);
 
   if (teamOf(ctx.currentPlayer) !== 'player') {
     events.endTurn?.();
@@ -1006,10 +1005,19 @@ export function createSelvariaGame(
   baseLevel?: number,
   /** Roguelike-only meta-progression unlock (src/game/meta.ts) — see buildGameState's own doc comment. */
   headStartHouse?: BlessingHouse | null,
+  /** Roguelike-only, chosen at the main menu's Trials panel (src/game/trials.ts). */
+  activeTrials: TrialId[] = [],
 ): Game<GameState> {
   return {
     ...SelvariaGameBase,
-    setup: ({ random }) => buildGameState(chapter, mode, random, carryOver, baseLevel, headStartHouse),
+    // For roguelike, `chapter` is ignored in favor of a uniform draw from
+    // ROGUELIKE_MAPS (maps.ts) — done here, inside setup(), so it goes
+    // through boardgame.io's seeded `random` and stays deterministic/replay-
+    // safe, rather than picked at scene level where no seeded source exists.
+    setup: ({ random }) => {
+      const resolvedChapter = mode === 'roguelike' ? random.Shuffle(ROGUELIKE_MAPS)[0] : chapter;
+      return buildGameState(resolvedChapter, mode, random, carryOver, baseLevel, headStartHouse, activeTrials);
+    },
   };
 }
 
@@ -1064,11 +1072,15 @@ const SelvariaGameBase: Game<GameState> = {
 };
 
 /**
- * The endless wave-survival run, on `RIVER_CROSSING` — its permanent map
- * (2026-09-01, per the repo owner). There's no chapter-select UI for
- * Roguelike, so this is the one active chapter; `CHAPTER_1`, `TEST_MAP_1`,
- * and `TEST_MAP_1_DETAILED` (the earlier concept-test maps this superseded)
- * were removed rather than left as dead code once the decision was final.
+ * The endless wave-survival run. `RIVER_CROSSING` here is a placeholder —
+ * createSelvariaGame's own setup() draws the actual map for a 'roguelike'
+ * game uniformly from `ROGUELIKE_MAPS` (maps.ts's content-pool pass,
+ * 2026-09-06), ignoring whatever's passed as `chapter`. Kept as a literal
+ * argument only because `createSelvariaGame` needs *some* ChapterDef to
+ * satisfy its type; `TacticalScene`'s own default (no scene data at all)
+ * resolves the same way. `CHAPTER_1`, `TEST_MAP_1`, and `TEST_MAP_1_DETAILED`
+ * (the earlier concept-test maps this superseded, 2026-09-01) were removed
+ * rather than left as dead code once that decision was final.
  */
 export const ProjectSelvaria = createSelvariaGame('roguelike', RIVER_CROSSING);
 

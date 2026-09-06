@@ -13,6 +13,7 @@
  */
 
 import type { BlessingHouse, GameState } from './types';
+import { embersMultiplier } from './trials';
 import type { KeyValueStorage } from '../systems/storage';
 
 const META_KEY = 'project-selvaria:meta-progress';
@@ -59,10 +60,13 @@ export const EMBERS_BANK_BONUS = 15;
  * bank something toward the next attempt, reframing a wipe as progress
  * rather than wasted time. `banked` is passed explicitly (rather than read
  * off `G.runBanked`) so the run-choice panel can preview "bank now" numbers
- * before the player actually commits to that choice.
+ * before the player actually commits to that choice. Scaled by
+ * trials.ts's embersMultiplier for whichever Trials the player opted into
+ * at run start (G.activeTrials) — a harder, opt-in run pays out more.
  */
 export function computeEmbersEarned(G: GameState, banked: boolean): number {
   const wavesCleared = banked ? G.wave : Math.max(0, G.wave - 1);
   const base = wavesCleared * EMBERS_PER_WAVE_CLEARED;
-  return banked ? base + EMBERS_BANK_BONUS : base;
+  const withBank = banked ? base + EMBERS_BANK_BONUS : base;
+  return Math.round(withBank * embersMultiplier(G.activeTrials));
 }

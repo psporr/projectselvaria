@@ -23,6 +23,16 @@ export type Team = 'player' | 'enemy';
 export type BlessingHouse = 'vanguard' | 'bulwark' | 'farsight' | 'fortune';
 
 /**
+ * An opt-in, player-chosen difficulty modifier (src/game/trials.ts) — Hades'
+ * Pact of Punishment/Slay the Spire's Ascension adapted to this game: chosen
+ * before a run starts (MainMenuScene's Trials panel), never sprung on the
+ * player mid-run, each contributing a visible Embers bonus in exchange for
+ * a harder run. Lives in types.ts rather than trials.ts for the same
+ * circular-import reason as BlessingHouse above.
+ */
+export type TrialId = 'grueling' | 'swarming' | 'ironclad-foes' | 'grim-bosses';
+
+/**
  * Roguelike is the endless wave-survival run; campaign is a sequence of
  * hand-authored chapters with their own win conditions. Both share every
  * rule below this line — they differ only in how a battle starts and what
@@ -190,6 +200,8 @@ export interface GameState {
   awaitingRunChoice: boolean;
   /** True once the player has chosen to bank the run at a boss-wave checkpoint. endIf reads this as a player win; src/game/meta.ts's computeEmbersEarned reads it to award the bank bonus on top of the same per-wave rate a wipe earns. */
   runBanked: boolean;
+  /** Roguelike-only, chosen before the run starts (empty for campaign): which Trials (src/game/trials.ts) are active this run. Read by waves.ts's spawnWave/spawnBossWave for their effects and by meta.ts's computeEmbersEarned for the matching Embers bonus. */
+  activeTrials: TrialId[];
   /** The 3 blessing ids drawn for the current wave-clear pause; empty until the first one. */
   offeredBlessingIds: string[];
   /** True after a blessing's been picked, while any level-10+ unit still has an unresolved promotion offer for this wave-clear pause. */

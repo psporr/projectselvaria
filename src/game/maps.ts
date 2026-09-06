@@ -1,4 +1,4 @@
-import type { BlessingHouse, EquipmentSlots, GameMode, GameState, Item, ObjectiveType, Team, TerrainType, Unit } from './types';
+import type { BlessingHouse, EquipmentSlots, GameMode, GameState, Item, ObjectiveType, Team, TerrainType, TrialId, Unit } from './types';
 import { ALL_CLASSES, PLAYER_START_LEVEL, statsAtLevel, type ClassName } from './classes';
 import type { DialogueScript, MapEvent } from './story';
 
@@ -157,6 +157,8 @@ export function buildGameState(
    * all (checkWaveCleared only fires for the 'waves' objective).
    */
   headStartHouse?: BlessingHouse | null,
+  /** Roguelike-only, chosen at the main menu's Trials panel before the run starts (src/game/trials.ts). Defaults to none for every other caller (campaign, tests). */
+  activeTrials: TrialId[] = [],
 ): GameState {
   const tiles = parseTiles(chapter.rows);
   const width = tiles[0]?.length ?? 0;
@@ -263,6 +265,7 @@ export function buildGameState(
     promotionEligibleUnitIds: [],
     awaitingRunChoice: false,
     runBanked: false,
+    activeTrials,
     lastCombat: null,
   };
 }
@@ -478,6 +481,99 @@ export const RIVER_CROSSING: ChapterDef = {
     { id: 'bandit-4', name: 'Bandit 4', team: 'enemy', randomClass: true, x: 4, y: 1 },
   ],
 };
+
+/**
+ * Second Roguelike map (2026-09-06, content-pool pass) — no painted
+ * background, flat `TERRAIN_COLOR` fills like the campaign chapters, since
+ * commissioning new map art per pool entry isn't the point of this pass
+ * (procedural-vs-handcrafted.md: hand-author a *pool*, proceduralize which
+ * member is drawn — the map itself still needs to be a real, tested layout,
+ * not generated). Twin wall pillars split the middle third into three
+ * lanes, each flanked by a forest tile for approach cover — a different
+ * tactical shape than River Crossing's scattered water/forest, so the pool
+ * reads as genuinely different maps rather than reskins of one.
+ */
+export const ASHFALL_RIDGE: ChapterDef = {
+  id: 'ashfall-ridge',
+  name: 'Ashfall Ridge',
+  shortName: 'Ashfall Ridge',
+  objective: 'Survive as many waves as you can',
+  objectiveType: 'waves',
+  rows: [
+    '.....##.',
+    '..f...f.',
+    '........',
+    '..#..#..',
+    '..#..#..',
+    '........',
+    '.f....f.',
+    '........',
+    '........',
+  ],
+  units: [
+    { id: 'marisa', name: 'Marisa', team: 'player', className: 'Thief', x: 0, y: 7 },
+    { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Archer', x: 7, y: 7 },
+    { id: 'solen', name: 'Solen', team: 'player', className: 'Mage', x: 1, y: 8 },
+    { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 6, y: 8 },
+    { id: 'jill', name: 'Jill', team: 'player', className: 'Fighter', x: 3, y: 7 },
+    { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 4, y: 7 },
+    { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 0, y: 0 },
+    { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 3, y: 0 },
+    { id: 'bandit-3', name: 'Bandit 3', team: 'enemy', randomClass: true, x: 1, y: 1 },
+    { id: 'bandit-4', name: 'Bandit 4', team: 'enemy', randomClass: true, x: 5, y: 1 },
+  ],
+};
+
+/**
+ * Third Roguelike map (2026-09-06) — a single-tile bridge (row 2) is the
+ * only crossing between the enemy spawn zone (rows 0-1, `waves.ts`'s
+ * `ENEMY_ZONE_ROWS`) and the squad's side, on purpose: every enemy, every
+ * wave, funnels through one tile, turning "hold the bridge" into the map's
+ * whole identity rather than a look-a-like of the other two pool entries.
+ * Ranged units can still fire across the water (attacks check range, not
+ * line-of-sight/terrain-crossing — HANDOFF.md's combat model), so this
+ * favors a front-line tank at the choke backed by ranged support rather
+ * than making the water a hard stop on damage too.
+ */
+export const FROSTGATE_PASS: ChapterDef = {
+  id: 'frostgate-pass',
+  name: 'Frostgate Pass',
+  shortName: 'Frostgate Pass',
+  objective: 'Survive as many waves as you can',
+  objectiveType: 'waves',
+  rows: [
+    '.......',
+    '..f.f..',
+    'www.www',
+    '.......',
+    '.f...f.',
+    '.......',
+    '..#.#..',
+    '.......',
+    '.......',
+  ],
+  units: [
+    { id: 'marisa', name: 'Marisa', team: 'player', className: 'Thief', x: 0, y: 8 },
+    { id: 'lyn2', name: 'Lyn', team: 'player', className: 'Archer', x: 6, y: 8 },
+    { id: 'solen', name: 'Solen', team: 'player', className: 'Mage', x: 1, y: 8 },
+    { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 5, y: 8 },
+    { id: 'jill', name: 'Jill', team: 'player', className: 'Fighter', x: 2, y: 7 },
+    { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 4, y: 7 },
+    { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 1, y: 0 },
+    { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 5, y: 0 },
+    { id: 'bandit-3', name: 'Bandit 3', team: 'enemy', randomClass: true, x: 2, y: 1 },
+    { id: 'bandit-4', name: 'Bandit 4', team: 'enemy', randomClass: true, x: 4, y: 1 },
+  ],
+};
+
+/**
+ * The Roguelike map pool (content-pool pass, 2026-09-06) — a run's map is
+ * drawn once, uniformly, at run setup (game.ts's createSelvariaGame) rather
+ * than always River Crossing. A small, hand-tested pool reused across runs,
+ * per procedural-vs-handcrafted.md's core lesson, rather than a larger
+ * generated one nobody's actually played.
+ */
+export const ROGUELIKE_MAPS: ChapterDef[] = [RIVER_CROSSING, ASHFALL_RIDGE, FROSTGATE_PASS];
 
 /**
  * Animated hero test stage (2026-08-31, per the repo owner; Zoro added
