@@ -71,6 +71,13 @@ export class PathScene extends Scene {
     applyDprZoom(this);
     drawMenuBackground(this);
 
+    // Depth 26: above every panel this scene shows (RunChoicePanel/
+    // NodeChoicePanel/RestPanel/ShopPanel/EquipScreen at 20, BlessingLogPanel
+    // at 25) so this persistent chrome never sits under one of their
+    // full-screen dimming backdrops — the whole point of an "always-
+    // reachable" dock is that it stays legible no matter what's showing.
+    const CHROME_DEPTH = 26;
+
     this.headerText = this.add
       .text(LOGICAL_WIDTH / 2, 44, '', {
         fontFamily: FONT_FAMILY,
@@ -78,7 +85,8 @@ export class PathScene extends Scene {
         color: COLORS.textPrimary,
         resolution: DPR,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(CHROME_DEPTH);
 
     this.runChoicePanel = new RunChoicePanel(this);
     this.nodeChoicePanel = new NodeChoicePanel(this);
@@ -91,11 +99,11 @@ export class PathScene extends Scene {
     this.blessingLogPanel = new BlessingLogPanel(this);
 
     const dockY = LOGICAL_HEIGHT - 56;
-    new Button(this, LOGICAL_WIDTH / 2 - 80, dockY, 140, 48, 'Squad', () => this.equipScreen.show());
+    new Button(this, LOGICAL_WIDTH / 2 - 80, dockY, 140, 48, 'Squad', () => this.equipScreen.show()).setDepth(CHROME_DEPTH);
     new Button(this, LOGICAL_WIDTH / 2 + 80, dockY, 140, 48, 'Blessings', () => {
       const state = this.client.getState();
       if (state) this.blessingLogPanel.show(state.G);
-    });
+    }).setDepth(CHROME_DEPTH);
 
     this.renderCurrentState();
     const unsubscribe = this.client.subscribe(() => {
