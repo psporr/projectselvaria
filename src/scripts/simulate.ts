@@ -15,6 +15,15 @@
  * Batch mode runs N *seeded* battles (via boardgame.io's Game.seed, so each
  * one is independently reproducible) and reports the distribution instead of
  * one anecdote.
+ *
+ * CHANGED for the branching-path pass (2026-09-06): the run is no longer
+ * "clear wave -> auto-advance" — every node clear pauses on
+ * `awaitingNodeChoice` for a real pick among `G.nodeChoices` (this batch
+ * always takes the first option, favoring depth over caution the same way
+ * it already auto-promotes and always Descends), and Rest/Shop nodes open
+ * their own pause (this batch always takes the beneficial Rest option and
+ * immediately leaves the Shop, spending no Gold — the sim exists to
+ * exercise combat/AI/scaling, not model shopping decisions).
  */
 import { Client } from 'boardgame.io/client';
 
@@ -50,7 +59,6 @@ function runOnce(seed: string | number): RunResult {
   client.start();
 
   let actions = 0;
-  let lastWave = 0;
 
   while (actions < MAX_ACTIONS) {
     const state = client.getState();
@@ -58,17 +66,14 @@ function runOnce(seed: string | number): RunResult {
     if (state.ctx.gameover) break;
 
     const { G, ctx } = state;
-
-    if (G.wave !== lastWave) lastWave = G.wave;
+    if (G.wave > WAVE_CAP) break;
 
     if (G.awaitingBlessing) {
-      // Only 3 of the 20-strong pool are actually offered each wave-clear —
-      // pick the first one actually on offer rather than cycling blindly.
+      // Only 3-4 of the pool are actually offered each wave-clear — pick
+      // the first one actually on offer rather than cycling blindly.
       const offeredId = G.offeredBlessingIds[0];
       const blessing = BLESSINGS.find((candidate) => candidate.id === offeredId) ?? BLESSINGS[0];
       client.moves.chooseBlessing(blessing.id);
-      const waveAfter = client.getState()?.G.wave ?? G.wave;
-      if (waveAfter > WAVE_CAP) break;
       continue;
     }
 
@@ -81,11 +86,8 @@ function runOnce(seed: string | number): RunResult {
       // level instead of level 1), declining would be the unrealistic
       // choice — a player has no reason not to promote once eligible, so
       // this batch shouldn't either. Without SOME response here the run
-      // stalls forever: awaitingPromotion pauses wave advancement
-      // (game.ts's chooseBlessing/resolvePromotions) the same way
-      // awaitingBlessing does, but a stale enemy-side turn with no enemies
-      // left (the new wave hasn't spawned yet) never naturally ends on its
-      // own.
+      // stalls forever: awaitingPromotion pauses the run the same way
+      // awaitingBlessing does.
       client.moves.resolvePromotions(promoteAllIntoFirstBranch(G));
       continue;
     }
@@ -95,6 +97,24 @@ function runOnce(seed: string | number): RunResult {
       // scaling and AI play, not model a real player's stop-or-push
       // decision, and WAVE_CAP already caps how far any of this goes.
       client.moves.chooseRunPath('descend');
+      continue;
+    }
+
+    if (G.awaitingNodeChoice) {
+      // Always take the first offered node — see this file's own doc
+      // comment for why (favors depth over caution, same as auto-promote
+      // and always-Descend).
+      client.moves.chooseMapNode(G.nodeChoices[0].id);
+      continue;
+    }
+
+    if (G.awaitingRest) {
+      client.moves.chooseRest('heal');
+      continue;
+    }
+
+    if (G.awaitingShop) {
+      client.moves.leaveShop();
       continue;
     }
 
@@ -136,6 +156,7 @@ function runVerboseOnce(): void {
     if (state.ctx.gameover) break;
 
     const { G, ctx } = state;
+    if (G.wave > WAVE_CAP) break;
 
     if (G.wave !== lastWave) {
       lastWave = G.wave;
@@ -147,8 +168,6 @@ function runVerboseOnce(): void {
       const blessing = BLESSINGS.find((candidate) => candidate.id === offeredId) ?? BLESSINGS[0];
       console.log(`  choosing blessing: ${blessing.name}`);
       client.moves.chooseBlessing(blessing.id);
-      const waveAfter = client.getState()?.G.wave ?? G.wave;
-      if (waveAfter > WAVE_CAP) break;
       continue;
     }
 
@@ -162,8 +181,27 @@ function runVerboseOnce(): void {
 
     if (G.awaitingRunChoice) {
       // Always push into the Depths — see runOnce's matching branch for why.
-      console.log(`  boss wave ${G.wave} cleared — descending`);
+      console.log(`  boss node cleared — descending`);
       client.moves.chooseRunPath('descend');
+      continue;
+    }
+
+    if (G.awaitingNodeChoice) {
+      const chosen = G.nodeChoices[0];
+      console.log(`  path choice: ${G.nodeChoices.map((n) => n.type).join(' / ')} -> taking ${chosen.type}`);
+      client.moves.chooseMapNode(chosen.id);
+      continue;
+    }
+
+    if (G.awaitingRest) {
+      console.log('  rest node: healing');
+      client.moves.chooseRest('heal');
+      continue;
+    }
+
+    if (G.awaitingShop) {
+      console.log(`  shop node: leaving without buying (${G.gold} Gold on hand)`);
+      client.moves.leaveShop();
       continue;
     }
 

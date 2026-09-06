@@ -19,8 +19,8 @@ export interface RunChoiceInfo {
 /**
  * The run structure's one real checkpoint (tactics-roguelike-design's
  * run-structure.md/risk-reward-and-difficulty-pacing.md): offered every
- * time a Boss wave falls (waves.ts's runPhaseForWave), never just once.
- * Two equally-weighted choices, no backdrop-cancel — same "the player must
+ * time a Boss node falls (game/runMap.ts's SEGMENT_LENGTH), never just
+ * once. Two equally-weighted choices, no backdrop-cancel — same "the player must
  * pick one" convention BlessingPicker uses, since neither option here is a
  * neutral "nevermind" the way ConfirmDialog's Cancel is. The Embers number
  * is shown up front so the risk (push on with no guaranteed payoff yet) and

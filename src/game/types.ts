@@ -33,6 +33,23 @@ export type BlessingHouse = 'vanguard' | 'bulwark' | 'farsight' | 'fortune';
 export type TrialId = 'grueling' | 'swarming' | 'ironclad-foes' | 'grim-bosses';
 
 /**
+ * A node on the run's branching path (src/game/runMap.ts) — Slay the
+ * Spire's map, adapted: 'battle'/'elite' are fights (Elite is a harder
+ * Warband with a guaranteed better blessing reward), 'rest' is a heal-or-
+ * permanent-upgrade choice, 'shop' spends the run's Gold on blessings,
+ * 'boss' is the segment's checkpoint (game.ts's existing Bank/Descend
+ * choice). Lives in types.ts for the same circular-import reason as
+ * BlessingHouse/TrialId above.
+ */
+export type MapNodeType = 'battle' | 'elite' | 'rest' | 'shop' | 'boss';
+
+/** One of the choices offered at a path junction (GameState's `nodeChoices`) — `id` is only unique within that one offer, not across the run. */
+export interface MapNodeOption {
+  id: string;
+  type: MapNodeType;
+}
+
+/**
  * Roguelike is the endless wave-survival run; campaign is a sequence of
  * hand-authored chapters with their own win conditions. Both share every
  * rule below this line — they differ only in how a battle starts and what
@@ -196,12 +213,28 @@ export interface GameState {
   housePicks: Record<BlessingHouse, number>;
   /** Player units that have died this run, kept around for The Fallen to revive. */
   fallenUnits: Unit[];
-  /** True right after clearing a boss wave (waves.ts's runPhaseForWave), while the player chooses to bank the run's Embers or push into the Depths — see game.ts's chooseRunPath. */
+  /** True right after clearing a Boss node's blessing pick (game/runMap.ts's SEGMENT_LENGTH), while the player chooses to bank the run's Embers or push into the Depths — see game.ts's chooseRunPath. */
   awaitingRunChoice: boolean;
-  /** True once the player has chosen to bank the run at a boss-wave checkpoint. endIf reads this as a player win; src/game/meta.ts's computeEmbersEarned reads it to award the bank bonus on top of the same per-wave rate a wipe earns. */
+  /** True once the player has chosen to bank the run at a Boss-node checkpoint. endIf reads this as a player win; src/game/meta.ts's computeEmbersEarned reads it to award the bank bonus on top of the same per-wave rate a wipe earns. */
   runBanked: boolean;
   /** Roguelike-only, chosen before the run starts (empty for campaign): which Trials (src/game/trials.ts) are active this run. Read by waves.ts's spawnWave/spawnBossWave for their effects and by meta.ts's computeEmbersEarned for the matching Embers bonus. */
   activeTrials: TrialId[];
+  /** How many junctions resolved since the current path segment began (game/runMap.ts). 0 means "just entered a fresh segment" — the next junction offered is battle-only, a safe re-entry after a Boss. Resets to 0 on Descend (chooseRunPath) so the run reads as one continuous path rather than a new, separate map. */
+  segmentDepth: number;
+  /** The type of the node currently being resolved (a fight in progress, or Rest/Shop open) — null while awaitingNodeChoice is true, between nodes. */
+  currentNodeType: MapNodeType | null;
+  /** True while the player is choosing which of `nodeChoices` to enter next — the run's branching-path decision point. */
+  awaitingNodeChoice: boolean;
+  /** The 2-3 node options currently on offer; empty unless awaitingNodeChoice. */
+  nodeChoices: MapNodeOption[];
+  /** Per-run currency (src/game/runMap.ts) — resets to 0 every run, earned clearing battle/elite/Boss nodes, spent at Shop nodes. Distinct from Embers (meta.ts), which persists across runs. */
+  gold: number;
+  /** True while a Shop node's offer is open. */
+  awaitingShop: boolean;
+  /** Blessing ids currently offered at the open Shop — same shape as offeredBlessingIds, priced by rarity (blessings.ts's SHOP_PRICE_BY_RARITY). Bought ids are removed as they're purchased. */
+  shopOfferIds: string[];
+  /** True while a Rest node's heal-or-upgrade choice is open. */
+  awaitingRest: boolean;
   /** The 3 blessing ids drawn for the current wave-clear pause; empty until the first one. */
   offeredBlessingIds: string[];
   /** True after a blessing's been picked, while any level-10+ unit still has an unresolved promotion offer for this wave-clear pause. */

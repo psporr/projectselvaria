@@ -7,32 +7,6 @@ import { terrainAt } from './grid';
 const BASE_ENEMY_COUNT = 4;
 const MAX_ENEMIES = 6;
 
-/**
- * Run structure (tactics-roguelike-design skill's run-structure.md): the
- * Crossing is a fixed, hand-tunable opening ramp; the Stretch escalates
- * toward the run's first real checkpoint; every 10th wave from then on is a
- * Boss wave — a distinct encounter type (see `spawnBossWave`), not just
- * "another wave" — and clearing one pauses the run on `awaitingRunChoice`
- * (game.ts) so the player can bank their Embers or push into the Depths,
- * the run's opt-in infinite tail. `wave % BOSS_INTERVAL === 0` is checked
- * first, so a Depths wave that lands on a multiple of 10 (20, 30, ...) is
- * still a Boss wave, giving the endless tail the same periodic checkpoint
- * rhythm the finite Crossing/Stretch has, rather than escalating unchecked
- * forever with no chance to stop.
- */
-export type RunPhase = 'crossing' | 'stretch' | 'boss' | 'depths';
-
-const CROSSING_LENGTH = 5;
-const STRETCH_LENGTH = 4;
-const BOSS_INTERVAL = 10;
-
-export function runPhaseForWave(wave: number): RunPhase {
-  if (wave % BOSS_INTERVAL === 0) return 'boss';
-  if (wave <= CROSSING_LENGTH) return 'crossing';
-  if (wave <= CROSSING_LENGTH + STRETCH_LENGTH) return 'stretch';
-  return 'depths';
-}
-
 /** Enemies spawn in the top two rows — mirrors the player's own start rows. */
 const ENEMY_ZONE_ROWS = [0, 1];
 
@@ -104,24 +78,29 @@ function trialDefBonus(activeTrials: TrialId[]): number {
   return activeTrials.includes('ironclad-foes') ? IRONCLAD_DEF_BONUS : 0;
 }
 
+/** How much stronger an Elite node's Warband is than a normal Battle node's — extra levels and one extra unit, rather than a whole separate composition pool. */
+const ELITE_LEVEL_BONUS = 2;
+const ELITE_EXTRA_ENEMY = 1;
+
 /**
  * Spawns a fresh, procedurally composed wave directly into G.units, drawn
  * from a random Warband (see above) rather than each unit rolling its
  * class independently. Enemy level equals the wave number (plus Grueling's
- * bonus, if active) — wave 1 is level 1, matching a fresh recruit — so
- * difficulty scales through the same level/stat system the player squad
- * levels up through. Returns the Warband's name so callers (game.ts's
- * finishWaveTransition) can name the wave in the battle log.
+ * bonus, if active, and Elite's own bonus for an Elite node) — wave 1 is
+ * level 1, matching a fresh recruit — so difficulty scales through the same
+ * level/stat system the player squad levels up through. Returns the
+ * Warband's name so callers (game.ts) can name the encounter in the battle
+ * log.
  */
-export function spawnWave(G: GameState, wave: number, random: ShuffleAPI): string {
-  const count = enemyCountForWave(G, wave);
+export function spawnWave(G: GameState, wave: number, random: ShuffleAPI, isElite = false): string {
+  const count = enemyCountForWave(G, wave) + (isElite ? ELITE_EXTRA_ENEMY : 0);
   const pool = random.Shuffle(enemySpawnPool(G));
   if (pool.length < count) {
     throw new Error(`Not enough enemy spawn tiles (${pool.length}) for a wave of ${count}`);
   }
 
   const warband = random.Shuffle(WARBANDS)[0];
-  const level = wave + trialLevelBonus(G.activeTrials);
+  const level = wave + trialLevelBonus(G.activeTrials) + (isElite ? ELITE_LEVEL_BONUS : 0);
   const defBonus = trialDefBonus(G.activeTrials);
 
   for (let i = 0; i < count; i++) {
@@ -131,7 +110,7 @@ export function spawnWave(G: GameState, wave: number, random: ShuffleAPI): strin
 
     const unit: Unit = {
       id,
-      name: `${className} Shadow`,
+      name: `${className} ${isElite ? 'Elite' : 'Shadow'}`,
       team: 'enemy',
       className,
       x: pool[i].x,
@@ -163,14 +142,14 @@ export function spawnWave(G: GameState, wave: number, random: ShuffleAPI): strin
 }
 
 const BOSS_ENEMY_COUNT = 2;
-/** How far above the wave's own level a Boss wave's units are levelled — fewer, meaningfully stronger units instead of another mob, the "distinct encounter type" the room-grammar guidance (run-structure.md) calls for. */
+/** How far above the wave's own level a Boss node's units are levelled — fewer, meaningfully stronger units instead of another mob, the "distinct encounter type" the room-grammar guidance (run-structure.md) calls for. */
 const BOSS_LEVEL_BONUS = 4;
 /** Grim Bosses (trials.ts): added on top of BOSS_LEVEL_BONUS (and Grueling's own bonus, if also active). */
 const GRIM_BOSS_LEVEL_BONUS = 3;
 
 /**
- * Spawns a Boss wave (runPhaseForWave) — 2 "Warlord"-named units well above
- * the wave's own level rather than the usual capped mob, so a boss
+ * Spawns a Boss node's fight — 2 "Warlord"-named units well above the
+ * wave's own level rather than the usual capped mob, so a boss
  * checkpoint reads as a real spike rather than just a bigger version of a
  * normal wave. Drawn from a themed Boss Duo (see BOSS_DUOS) rather than 2
  * independently-rolled classes, for the same composition-identity reason

@@ -140,37 +140,43 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
   zoom + centering. If you add a new `Scene`, call `applyDprZoom(this)` in
   `create()`; if you add a new `Text` object anywhere, give it
   `resolution: DPR`.
-- **Run structure + meta-progression** (`src/game/waves.ts`'s `runPhaseForWave`,
-  `src/game/meta.ts`) — Roguelike now has real shape instead of one flat
-  escalating wave count: a fixed **Crossing** (waves 1-5) into a **Stretch**
-  (6-9), then a **Boss wave** every 10th wave (a distinct, fewer-but-
-  stronger "Warlord" encounter, not just a bigger mob) opens a real
-  checkpoint — bank the run's **Embers** right there (`RunChoicePanel`) or
-  push into the opt-in, ever-escalating **Depths**. A run banks Embers on
-  either outcome, wipe or bank (a wipe isn't a currency loss, just a smaller
-  payout) — spent from the main menu's **EMBERS** section on one
-  deliberately small, hard-capped unlock so far: **Head Start**, a chosen
-  Blessing House that starts every future run with 1 pick already counted
-  toward its Duo threshold.
-- **Content pools + Trials** (`src/game/maps.ts`'s `ROGUELIKE_MAPS`,
-  `src/game/waves.ts`'s Warbands/Boss Duos, `src/game/trials.ts`) — closes
-  out the roguelike redesign. A run's map is now drawn uniformly from a
-  3-map pool (River Crossing plus two new flat-terrain layouts, Ashfall
-  Ridge and Frostgate Pass — no new art commissioned, per
-  procedural-vs-handcrafted.md's "hand-author the pool, proceduralize the
-  draw") instead of always River Crossing. Every wave's enemy composition
-  is drawn from a named **Warband** (5 for normal waves, 4 "Boss Duo"
-  pairings for Boss waves) instead of independently-rolled classes — real
-  thematic identity ("Iron Vanguard," "Arcane Circle") and the
-  tactics-specific difficulty lever tactics-adaptation.md calls out
-  (composition/count variety, not just bigger numbers), logged by name in
-  the battle log on every wave transition. **Trials** (opt-in, pre-run
-  difficulty modifiers, main menu's new "Trials…" row, `TrialsPanel`) let a
-  player toggle any of 4 independent modifiers (Grueling, Swarming,
-  Ironclad Foes, Grim Bosses) before starting a run, each adding to the
-  run's Embers payout — Hades' Pact of Punishment/Spire's Ascension
-  adapted here, always alongside (never replacing) the zero-friction
-  default "Start Run".
+- **Roguelike run structure — a real branching path** (`src/game/runMap.ts`,
+  2026-09-06, superseding the earlier fixed Crossing/Stretch/Depths wave-
+  number scheme). A run is no longer "clear wave, auto-advance" — every
+  node clear pauses on `awaitingNodeChoice`, offering 2-3 **path choices**
+  (`NodeChoicePanel`) drawn from 5 node types: **Battle** (a standard
+  Warband fight), **Elite** (a harder fight, +1 enemy and +2 levels, that
+  guarantees a legendary-or-better blessing reward), **Rest** (heal to
+  full, or a smaller permanent +HP — never both, `RestPanel`), **Shop**
+  (spend the run's **Gold** — a new per-run currency earned clearing
+  fights, resets every run — on blessings by rarity, `ShopPanel`), and
+  **Boss** (2 much-stronger "Warlord" units, forced as the only option
+  every 7 junctions — `game/runMap.ts`'s `SEGMENT_LENGTH`). Clearing a
+  Boss still opens the existing Bank-or-Descend checkpoint
+  (`RunChoicePanel`) — Descend resets the segment counter to 0 and offers
+  a fresh segment's junction, so the whole run reads as one continuous
+  path rather than resetting into a separate map. Every combat node
+  (including the run's very first fight — no more hand-placed "wave 1")
+  draws its composition from a named **Warband** (5 for Battle/Elite, 4
+  themed "Boss Duo" pairings for Boss) instead of independently-rolled
+  classes, logged by name in the battle log.
+- **Meta-progression, content pools, and Trials** (`src/game/meta.ts`,
+  `src/game/maps.ts`'s `ROGUELIKE_MAPS`, `src/game/trials.ts`) — a run
+  banks **Embers** on either outcome, wipe or Bank (a wipe isn't a
+  currency loss, just a smaller payout), spent from the main menu's
+  **EMBERS** section on one deliberately small, hard-capped unlock so
+  far: **Head Start**, a chosen Blessing House that starts every future
+  run with 1 pick already counted toward its Duo threshold. A run's map
+  is drawn uniformly from a 3-map pool (River Crossing plus two new flat-
+  terrain layouts, Ashfall Ridge and Frostgate Pass — no new art
+  commissioned, per procedural-vs-handcrafted.md's "hand-author the pool,
+  proceduralize the draw"). **Trials** (opt-in, pre-run difficulty
+  modifiers, main menu's "Trials…" row, `TrialsPanel`) let a player
+  toggle any of 4 independent modifiers (Grueling, Swarming, Ironclad
+  Foes, Grim Bosses) before starting a run, each adding to the run's
+  Embers payout — Hades' Pact of Punishment/Spire's Ascension adapted
+  here, always alongside (never replacing) the zero-friction default
+  "Start Run".
 
 ### Not built yet
 
@@ -197,7 +203,49 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
-- 2026-09-06 Claude: Roguelike-mode redesign, increment 3 (final) — content
+- 2026-09-06 Claude: Roguelike-mode redesign, increment 4 — a real
+  branching path (Slay the Spire's map, discussed against Honkai Star
+  Rail's Simulated Universe as a second reference), per the repo owner's
+  explicit spec: "1 shop mid run, 2 6-8, 3. Connected. Go." Supersedes
+  increment 2's fixed Crossing(1-5)/Stretch(6-9)/Boss-every-10-waves
+  scheme entirely. New `src/game/runMap.ts`: `generateNodeChoices`
+  offers 2-3 node options at every junction (Battle/Elite/Rest/Shop,
+  weighted; Boss forced as the sole option every `SEGMENT_LENGTH` (7)
+  junctions) rather than rendering a full node-graph overview — "pick
+  your next stop" cards, a deliberately smaller UI lift than a
+  zoomable map, not a smaller mechanic. New GameState fields
+  (`segmentDepth`, `currentNodeType`, `awaitingNodeChoice`/
+  `nodeChoices`, `gold`, `awaitingShop`/`shopOfferIds`,
+  `awaitingRest`) and moves (`chooseMapNode`, `chooseRest`,
+  `buyShopOffer`, `leaveShop`) drive it; `chooseRunPath`'s Descend now
+  resets `segmentDepth` to 0 and re-offers a junction rather than
+  incrementing a wave counter, satisfying "connected" — no separate
+  map screen between segments. Removed `waves.ts`'s
+  `runPhaseForWave`/`RunPhase`/`finishWaveTransition` (fully
+  superseded) and every roguelike map's hand-placed "wave 1" enemy
+  units — every fight, including the run's first, spawns through the
+  same `spawnWave`/`spawnBossWave` path now. New per-run **Gold**
+  currency (`computeGoldEarned`, scales with wave, resets every run —
+  distinct from the persistent Embers) spent at Shop nodes on
+  blessings priced by rarity (`SHOP_PRICE_BY_RARITY`, reusing
+  `drawBlessings`' own weighted draw for the offer). New UI:
+  `NodeChoicePanel` (color-coded by node type, the same dynamic-card-
+  width fix `BlessingPicker` already had for a variable option count),
+  `RestPanel` (heal-to-full vs. permanent +HP, never both), `ShopPanel`
+  (stays open across multiple purchases, `refresh()`-driven as Gold
+  and remaining offers change, Buy buttons disable when unaffordable).
+  Verified via typecheck/build/validate-maps/sim (rewrote
+  `simulate.ts`'s pause handling for the 3 new `awaiting*` states —
+  the old one would have hung the first time a run hit a Shop/Rest/
+  node-choice pause), a verbose single-run trace confirming wave-vs-
+  Gold-vs-node-type bookkeeping is correct end to end (a Rest/Shop
+  detour doesn't bump the wave counter; Elite/Boss spawn counts and
+  levels matched their formulas exactly), and Playwright screenshots
+  of every new panel — the initial battle-only 3-card junction, a
+  mixed Battle/Elite/Shop junction, the single-card Boss junction, the
+  Rest panel, and the Shop panel with both an affordable and two
+  unaffordable (correctly disabled) offers.
+- 2026-09-06 Claude: Roguelike-mode redesign, increment 3 — content
   pools + Trials, per the repo owner's "Do all next to complete our
   redesign, then we will test and improve from there". Three pieces:
   (1) **Map pool** — `game/maps.ts`'s new `ROGUELIKE_MAPS` (River Crossing

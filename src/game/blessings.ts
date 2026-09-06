@@ -19,6 +19,9 @@ import type { DropRandomAPI } from './equipment';
  */
 export type BlessingRarity = 'common' | 'rare' | 'legendary';
 
+/** Gold cost of a Shop's blessing offer (game/runMap.ts), by rarity — a Duo blessing is 'legendary', so it's priced (and gated by isAvailable) the same as any other legendary. */
+export const SHOP_PRICE_BY_RARITY: Record<BlessingRarity, number> = { common: 20, rare: 40, legendary: 80 };
+
 export interface Blessing {
   id: string;
   name: string;

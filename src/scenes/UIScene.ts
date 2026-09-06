@@ -6,7 +6,7 @@ import type { GameOver } from '../game/game';
 import { terrainAt } from '../game/grid';
 import { CAMPAIGN_CHAPTERS } from '../game/maps';
 import type { DialogueScript } from '../game/story';
-import { teamOf, type GameState, type Unit } from '../game/types';
+import { teamOf, type GameState, type MapNodeOption, type Unit } from '../game/types';
 import type { GameClient } from '../systems/gameClient';
 import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
 import { GAME_VERSION } from '../version';
@@ -18,9 +18,12 @@ import { DialoguePanel } from '../ui/DialoguePanel';
 import { EquipScreen } from '../ui/EquipScreen';
 import { ForecastPanel } from '../ui/ForecastPanel';
 import { LogPanel } from '../ui/LogPanel';
+import { NodeChoicePanel } from '../ui/NodeChoicePanel';
 import { PhaseBanner } from '../ui/PhaseBanner';
 import { PromotionPicker, type PromotionCandidate, type PromotionSelection } from '../ui/PromotionPicker';
+import { RestPanel } from '../ui/RestPanel';
 import { RunChoicePanel, type RunChoiceInfo } from '../ui/RunChoicePanel';
+import { ShopPanel } from '../ui/ShopPanel';
 import { SystemMenu, type SystemMenuChoice, type SystemMenuOption } from '../ui/SystemMenu';
 import { UnitStatusBar } from '../ui/UnitStatusBar';
 import { Button, COLORS, FONT_FAMILY } from '../ui/kit';
@@ -61,6 +64,9 @@ export class UIScene extends Scene {
   blessingPicker!: BlessingPicker;
   promotionPicker!: PromotionPicker;
   runChoicePanel!: RunChoicePanel;
+  nodeChoicePanel!: NodeChoicePanel;
+  restPanel!: RestPanel;
+  shopPanel!: ShopPanel;
   equipScreen!: EquipScreen;
   systemMenu!: SystemMenu;
   phaseBanner!: PhaseBanner;
@@ -211,6 +217,9 @@ export class UIScene extends Scene {
     this.blessingPicker = new BlessingPicker(this);
     this.promotionPicker = new PromotionPicker(this);
     this.runChoicePanel = new RunChoicePanel(this);
+    this.nodeChoicePanel = new NodeChoicePanel(this);
+    this.restPanel = new RestPanel(this);
+    this.shopPanel = new ShopPanel(this);
     this.equipScreen = new EquipScreen(this, this.client);
     this.systemMenu = new SystemMenu(this);
     this.phaseBanner = new PhaseBanner(this);
@@ -223,6 +232,8 @@ export class UIScene extends Scene {
     const unsubscribe = this.client.subscribe(() => {
       this.refreshHud();
       this.equipScreen.refresh();
+      const state = this.client.getState();
+      if (state?.G.awaitingShop) this.shopPanel.refresh(state.G.shopOfferIds, state.G.gold);
     });
     this.events.once('shutdown', unsubscribe);
   }
@@ -354,7 +365,8 @@ export class UIScene extends Scene {
           ? 'Player Phase'
           : 'Enemy Phase';
     const trialsSuffix = G.activeTrials.length > 0 ? `   ${G.activeTrials.length} Trial${G.activeTrials.length > 1 ? 's' : ''}` : '';
-    const nextPhaseText = `${G.chapterShortName}   Wave ${G.wave}   ${phase}${trialsSuffix}`;
+    const goldSuffix = G.mode === 'roguelike' ? `   ${G.gold} Gold` : '';
+    const nextPhaseText = `${G.chapterShortName}   Wave ${G.wave}   ${phase}${goldSuffix}${trialsSuffix}`;
     if (this.phaseText.text !== nextPhaseText) {
       this.phaseText.setText(nextPhaseText);
     }
@@ -393,6 +405,18 @@ export class UIScene extends Scene {
 
   showRunChoice(info: RunChoiceInfo, onChoose: (path: 'bank' | 'descend') => void): void {
     this.runChoicePanel.show(info, onChoose);
+  }
+
+  showNodeChoice(options: MapNodeOption[], segmentDepth: number, onChoose: (id: string) => void): void {
+    this.nodeChoicePanel.show(options, segmentDepth, onChoose);
+  }
+
+  showRest(onChoose: (choice: 'heal' | 'upgrade') => void): void {
+    this.restPanel.show(onChoose);
+  }
+
+  showShop(offeredIds: string[], gold: number, onBuy: (id: string) => void, onLeave: () => void): void {
+    this.shopPanel.show(offeredIds, gold, onBuy, onLeave);
   }
 
   /** Called once by TacticalScene.awardEmbersIfRunEnded() — see embersResult's own doc comment for why this is a direct call rather than a storage read here. */

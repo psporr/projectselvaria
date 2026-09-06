@@ -5,7 +5,7 @@ import type { CampaignCarryOver, ChapterDef } from './maps';
 import type { ClassName } from './classes';
 import type { BlessingHouse, CombatBeat, GameMode, GameState, ItemSlot, Team, TrialId, Unit } from './types';
 import { PLAYER_ID, teamOf } from './types';
-import { buildGameState, CAMPAIGN_CHAPTER_1, RIVER_CROSSING, ROGUELIKE_MAPS, type ShuffleAPI } from './maps';
+import { buildGameState, CAMPAIGN_CHAPTER_1, RIVER_CROSSING, ROGUELIKE_MAPS } from './maps';
 import { computeReachable, manhattan, tileKey, unitsOf } from './grid';
 import {
   canCounter,
@@ -16,8 +16,9 @@ import {
   computeHitChance,
   type AttackChances,
 } from './combat';
-import { BLESSINGS, drawBlessings } from './blessings';
-import { runPhaseForWave, spawnBossWave, spawnWave } from './waves';
+import { BLESSINGS, drawBlessings, SHOP_PRICE_BY_RARITY } from './blessings';
+import { computeGoldEarned, generateNodeChoices } from './runMap';
+import { spawnBossWave, spawnWave } from './waves';
 import { canPromote, EXP_PER_ATTACK, EXP_PER_HEAL, EXP_PER_KILL, grantExp as grantExpToUnit, PROMOTES_TO, promoteUnit } from './classes';
 import { effectiveStats, equippedKillHeal, ITEMS, rollDrop, type DropRandomAPI } from './equipment';
 import {
@@ -115,6 +116,10 @@ function rollAttack(chances: AttackChances, random: DropRandomAPI): RolledAttack
 function checkWaveCleared(G: GameState, random: DropRandomAPI): void {
   if (unitsOf(G, 'enemy').length > 0) return;
   if (G.objectiveType !== 'waves') return;
+
+  const goldEarned = computeGoldEarned(G);
+  G.gold += goldEarned;
+  pushLog(G, `+${goldEarned} Gold`);
 
   G.awaitingBlessing = true;
   G.offeredBlessingIds = drawBlessings(G, random);
@@ -838,57 +843,60 @@ export const unequipItem = ({ G, ctx }: { G: GameState; ctx: Ctx }, unitId: stri
   G.inventory.push(item);
 };
 
-/**
- * Advances the wave counter and spawns the next wave — the shared tail of
- * the wave-clear pause once every step (blessing, and promotion if anyone
- * was eligible) has resolved. If the last enemy fell during the enemy's own
- * turn (e.g. a counterattack), also force-ends that turn so the fresh
- * wave's enemies don't get immediately auto-played by the CPU before the
- * player has a turn.
- */
-function finishWaveTransition(G: GameState, ctx: Ctx, events: EndTurnAPI, random: ShuffleAPI): void {
-  G.wave += 1;
-  const warbandName = runPhaseForWave(G.wave) === 'boss' ? spawnBossWave(G, G.wave, random) : spawnWave(G, G.wave, random);
-  pushLog(G, `— Wave ${G.wave}: ${warbandName} —`);
-
-  if (teamOf(ctx.currentPlayer) !== 'player') {
-    events.endTurn?.();
+/** Repositions the squad to their start tiles and clears their turn state — run once, right before a battle/elite/Boss node's fight actually spawns, not at blessing-pick time (a Rest/Shop node in between has no combat to reset for). Also recharges Guardian Angel, which is meant to refill once per fight, not once per node. */
+function resetSquadForNewNode(G: GameState): void {
+  for (const unit of unitsOf(G, 'player')) {
+    unit.hasMoved = false;
+    unit.hasActed = false;
+    const start = G.playerStart[unit.id];
+    if (start) {
+      unit.x = start.x;
+      unit.y = start.y;
+    }
   }
+  G.modifiers.guardianAngelCharges = G.modifiers.guardianAngelMax;
 }
 
 /**
- * The shared tail once a wave-clear pause (blessing, and promotion if
- * anyone was eligible) has fully resolved — normally just advances to the
- * next wave, but if the wave just cleared was a Boss wave (waves.ts's
- * runPhaseForWave), pauses instead on `awaitingRunChoice` so the player can
- * bank the run's Embers or push into the Depths (chooseRunPath below).
- * Re-checked at every Boss wave, including in the Depths, not just the
- * first one at wave 10 — every checkpoint offers the same choice.
+ * Presents the run's next branching-path decision (game/runMap.ts) —
+ * called once whatever the player was doing at their current node (a
+ * fight's blessing pick, a Rest choice, a Shop visit) has fully resolved.
  */
-function advanceOrPauseForRunChoice(G: GameState, ctx: Ctx, events: EndTurnAPI, random: ShuffleAPI): void {
-  if (runPhaseForWave(G.wave) === 'boss') {
+function offerNextNodeChoice(G: GameState, random: DropRandomAPI): void {
+  G.currentNodeType = null;
+  G.nodeChoices = generateNodeChoices(G.segmentDepth, random);
+  G.awaitingNodeChoice = true;
+}
+
+/**
+ * The shared tail once a combat node's wave-clear pause (blessing, and
+ * promotion if anyone was eligible) has fully resolved. A Boss node pauses
+ * on `awaitingRunChoice` instead of offering the next junction — bank the
+ * run's Embers, or Descend, which resets segmentDepth to 0 and offers a
+ * fresh segment's junction (chooseRunPath) — every other node type goes
+ * straight back to the branching-path choice.
+ */
+function proceedAfterNodeCleared(G: GameState, random: DropRandomAPI): void {
+  if (G.currentNodeType === 'boss') {
     G.awaitingRunChoice = true;
     return;
   }
-  finishWaveTransition(G, ctx, events, random);
+  offerNextNodeChoice(G, random);
 }
 
 /**
- * Applies the chosen blessing and resets the squad to their start tiles.
- * Only valid right after a wave is cleared, and only for one of the 3 ids
- * actually offered this pause (drawn in checkWaveCleared) — not just any id
- * in the full 20-strong pool.
+ * Applies the chosen blessing. Only valid right after a wave is cleared,
+ * and only for one of the ids actually offered this pause (drawn in
+ * checkWaveCleared, or bought at a Shop) — not just any id in the full
+ * pool.
  *
- * Doesn't spawn the next wave directly — if any player unit is now eligible
- * to promote (classes.ts's canPromote), it pauses on `awaitingPromotion`
+ * Doesn't advance the run directly — if any player unit is now eligible to
+ * promote (classes.ts's canPromote), it pauses on `awaitingPromotion`
  * instead so the player can act on that first; resolvePromotions carries on
- * from there via the shared finishWaveTransition tail. If nobody's
+ * from there via the shared proceedAfterNodeCleared tail. If nobody's
  * eligible, this calls it directly, same as before promotion existed.
  */
-export const chooseBlessing = (
-  { G, ctx, events, random }: { G: GameState; ctx: Ctx; events: EndTurnAPI; random: ShuffleAPI },
-  blessingId: string,
-) => {
+export const chooseBlessing = ({ G, random }: { G: GameState; random: DropRandomAPI }, blessingId: string) => {
   if (!G.awaitingBlessing) return INVALID_MOVE;
   if (!G.offeredBlessingIds.includes(blessingId)) return INVALID_MOVE;
 
@@ -901,17 +909,6 @@ export const chooseBlessing = (
   blessing.apply(G);
   if (blessing.house) G.housePicks[blessing.house] += 1;
 
-  for (const unit of unitsOf(G, 'player')) {
-    unit.hasMoved = false;
-    unit.hasActed = false;
-    const start = G.playerStart[unit.id];
-    if (start) {
-      unit.x = start.x;
-      unit.y = start.y;
-    }
-  }
-
-  G.modifiers.guardianAngelCharges = G.modifiers.guardianAngelMax;
   G.awaitingBlessing = false;
   G.offeredBlessingIds = [];
 
@@ -922,7 +919,7 @@ export const chooseBlessing = (
     return;
   }
 
-  advanceOrPauseForRunChoice(G, ctx, events, random);
+  proceedAfterNodeCleared(G, random);
 };
 
 /**
@@ -930,12 +927,12 @@ export const chooseBlessing = (
  * toClass} selection passed (each checked against promotionEligibleUnitIds
  * *and* revalidated against PROMOTES_TO — a stale or forged unitId/toClass
  * pair is silently ignored rather than crashing or promoting into an
- * illegal class), then always continues to the next wave via
- * finishWaveTransition — an empty array is a valid "promote nobody,
- * continue" skip. Only valid while awaitingPromotion.
+ * illegal class), then always continues via proceedAfterNodeCleared — an
+ * empty array is a valid "promote nobody, continue" skip. Only valid while
+ * awaitingPromotion.
  */
 export const resolvePromotions = (
-  { G, ctx, events, random }: { G: GameState; ctx: Ctx; events: EndTurnAPI; random: ShuffleAPI },
+  { G, random }: { G: GameState; random: DropRandomAPI },
   selections: { unitId: string; toClass: ClassName }[],
 ) => {
   if (!G.awaitingPromotion) return INVALID_MOVE;
@@ -952,21 +949,19 @@ export const resolvePromotions = (
 
   G.awaitingPromotion = false;
   G.promotionEligibleUnitIds = [];
-  advanceOrPauseForRunChoice(G, ctx, events, random);
+  proceedAfterNodeCleared(G, random);
 };
 
 /**
- * Resolves the post-Boss-wave pause (advanceOrPauseForRunChoice). 'bank'
- * ends the run right here as a player win — endIf reads G.runBanked, and
+ * Resolves the post-Boss-node pause (proceedAfterNodeCleared). 'bank' ends
+ * the run right here as a player win — endIf reads G.runBanked, and
  * src/game/meta.ts's computeEmbersEarned reads it too, to award the bank
- * bonus on top of the same per-wave rate a wipe earns. 'descend' just
- * continues into the next wave exactly like clearing a non-Boss wave would.
- * Only valid while awaitingRunChoice.
+ * bonus on top of the same per-wave rate a wipe earns. 'descend' resets
+ * segmentDepth to 0 and offers a fresh segment's first junction — the same
+ * "connected path, not a new map" continuation every Descend uses. Only
+ * valid while awaitingRunChoice.
  */
-export const chooseRunPath = (
-  { G, ctx, events, random }: { G: GameState; ctx: Ctx; events: EndTurnAPI; random: ShuffleAPI },
-  path: 'bank' | 'descend',
-) => {
+export const chooseRunPath = ({ G, random }: { G: GameState; random: DropRandomAPI }, path: 'bank' | 'descend') => {
   if (!G.awaitingRunChoice) return INVALID_MOVE;
   G.awaitingRunChoice = false;
 
@@ -974,7 +969,97 @@ export const chooseRunPath = (
     G.runBanked = true;
     return;
   }
-  finishWaveTransition(G, ctx, events, random);
+  G.segmentDepth = 0;
+  offerNextNodeChoice(G, random);
+};
+
+/**
+ * Resolves the run's branching-path choice (game/runMap.ts) — the player's
+ * pick from `G.nodeChoices`. A battle/elite/Boss node resets the squad and
+ * spawns its fight (forcing the current turn to end first if the last
+ * node's wave happened to clear mid-enemy-turn, so the CPU can't auto-play
+ * the fresh spawn before the player gets a turn); Rest/Shop instead open
+ * their own pause with no combat involved. Only valid while
+ * awaitingNodeChoice.
+ */
+export const chooseMapNode = ({ G, ctx, events, random }: { G: GameState; ctx: Ctx; events: EndTurnAPI; random: DropRandomAPI }, nodeId: string) => {
+  if (!G.awaitingNodeChoice) return INVALID_MOVE;
+  const chosen = G.nodeChoices.find((option) => option.id === nodeId);
+  if (!chosen) return INVALID_MOVE;
+
+  G.awaitingNodeChoice = false;
+  G.nodeChoices = [];
+  G.currentNodeType = chosen.type;
+  G.segmentDepth += 1;
+
+  if (chosen.type === 'rest') {
+    G.awaitingRest = true;
+    return;
+  }
+  if (chosen.type === 'shop') {
+    G.awaitingShop = true;
+    G.shopOfferIds = drawBlessings(G, random);
+    return;
+  }
+
+  resetSquadForNewNode(G);
+  G.wave += 1;
+  const isElite = chosen.type === 'elite';
+  if (isElite) G.modifiers.guaranteedLegendaryDraws += 1;
+  const warbandName = chosen.type === 'boss' ? spawnBossWave(G, G.wave, random) : spawnWave(G, G.wave, random, isElite);
+  const label = chosen.type === 'boss' ? 'Boss' : isElite ? 'Elite' : 'Battle';
+  pushLog(G, `— ${label}: ${warbandName} —`);
+
+  if (teamOf(ctx.currentPlayer) !== 'player') {
+    events.endTurn?.();
+  }
+};
+
+/** Rest's "upgrade" option — smaller than a full heal's guaranteed value, since it's competing against certainty. */
+const REST_UPGRADE_HP = 3;
+
+/** A Rest node's choice: full-heal (no permanent gain) or a smaller permanent +HP for the whole squad (no immediate heal-to-full) — Slay the Spire's rest-site trade-off, heal or upgrade, never both. Only valid while awaitingRest. */
+export const chooseRest = ({ G, random }: { G: GameState; random: DropRandomAPI }, choice: 'heal' | 'upgrade') => {
+  if (!G.awaitingRest) return INVALID_MOVE;
+  G.awaitingRest = false;
+
+  if (choice === 'heal') {
+    for (const unit of unitsOf(G, 'player')) unit.hp = unit.maxHp;
+    pushLog(G, 'The squad rests and recovers.');
+  } else {
+    for (const unit of unitsOf(G, 'player')) {
+      unit.maxHp += REST_UPGRADE_HP;
+      unit.hp = Math.min(unit.maxHp, unit.hp + REST_UPGRADE_HP);
+    }
+    pushLog(G, `The squad trains — permanent +${REST_UPGRADE_HP} max HP.`);
+  }
+
+  offerNextNodeChoice(G, random);
+};
+
+/** Buys one Shop offer with Gold — applies the blessing immediately (same effect as picking it after a fight) and removes it from the offer so it can't be bought twice. Doesn't advance the run; the player can buy several before leaveShop. Only valid while awaitingShop. */
+export const buyShopOffer = ({ G }: { G: GameState }, blessingId: string) => {
+  if (!G.awaitingShop) return INVALID_MOVE;
+  if (!G.shopOfferIds.includes(blessingId)) return INVALID_MOVE;
+  const blessing = BLESSINGS.find((candidate) => candidate.id === blessingId);
+  if (!blessing) return INVALID_MOVE;
+
+  const price = SHOP_PRICE_BY_RARITY[blessing.rarity];
+  if (G.gold < price) return INVALID_MOVE;
+
+  G.gold -= price;
+  blessing.apply(G);
+  if (blessing.house) G.housePicks[blessing.house] += 1;
+  G.shopOfferIds = G.shopOfferIds.filter((id) => id !== blessingId);
+  pushLog(G, `Bought ${blessing.name} for ${price} Gold.`);
+};
+
+/** Closes the Shop and returns to the branching-path choice. Only valid while awaitingShop. */
+export const leaveShop = ({ G, random }: { G: GameState; random: DropRandomAPI }) => {
+  if (!G.awaitingShop) return INVALID_MOVE;
+  G.awaitingShop = false;
+  G.shopOfferIds = [];
+  offerNextNodeChoice(G, random);
 };
 
 const moves: MoveMap<GameState> = {
@@ -985,6 +1070,10 @@ const moves: MoveMap<GameState> = {
   chooseBlessing,
   resolvePromotions,
   chooseRunPath,
+  chooseMapNode,
+  chooseRest,
+  buyShopOffer,
+  leaveShop,
   equipItem,
   unequipItem,
 };

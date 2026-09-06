@@ -1,5 +1,7 @@
 import type { BlessingHouse, EquipmentSlots, GameMode, GameState, Item, ObjectiveType, Team, TerrainType, TrialId, Unit } from './types';
 import { ALL_CLASSES, PLAYER_START_LEVEL, statsAtLevel, type ClassName } from './classes';
+import type { DropRandomAPI } from './equipment';
+import { generateNodeChoices } from './runMap';
 import type { DialogueScript, MapEvent } from './story';
 
 /**
@@ -139,7 +141,7 @@ function parseTiles(rows: string[]): TerrainType[][] {
 export function buildGameState(
   chapter: ChapterDef,
   mode: GameMode,
-  random: ShuffleAPI,
+  random: DropRandomAPI,
   carryOver?: CampaignCarryOver,
   /**
    * What a player unit starts at when it has no carry-over entry. Defaults
@@ -172,6 +174,11 @@ export function buildGameState(
 
   const units: Record<string, Unit> = {};
   for (const spec of chapter.units) {
+    // Roguelike enemies are entirely procedural now (game.ts's
+    // chooseMapNode spawns the run's very first fight the same way it
+    // spawns every later one) — a map's authored enemy specs only matter
+    // for campaign's hand-balanced encounters.
+    if (mode === 'roguelike' && spec.team === 'enemy') continue;
     // A unit carried over from a previous campaign chapter picks up where it
     // left off; anyone else — roguelike, a fresh campaign chapter, a unit
     // that fell and wasn't in the carry-over — starts at its authored
@@ -231,8 +238,15 @@ export function buildGameState(
     height: tiles.length,
     tiles,
     units,
-    log: [mode === 'campaign' ? chapter.name : 'Wave 1 Starts'],
-    wave: 1,
+    log: [mode === 'campaign' ? chapter.name : 'Choose your path to begin.'],
+    // Roguelike starts at 0 so chooseMapNode's first G.wave += 1 (game.ts,
+    // right before spawning the run's very first fight) lands on 1 — every
+    // combat node, including the first, is spawned procedurally now, none
+    // of them hand-authored on the map the way old wave 1 used to be.
+    // Campaign's wave never advances past its initial value; kept at 1
+    // (its pre-existing default) purely so the HUD's "Wave N" text — shown
+    // regardless of mode — doesn't read as 0 for a campaign chapter.
+    wave: mode === 'roguelike' ? 0 : 1,
     awaitingBlessing: false,
     inventory: carryOver?.inventory ?? [],
     nextItemInstance: carryOver?.nextItemInstance ?? 0,
@@ -266,6 +280,14 @@ export function buildGameState(
     awaitingRunChoice: false,
     runBanked: false,
     activeTrials,
+    segmentDepth: 0,
+    currentNodeType: null,
+    awaitingNodeChoice: mode === 'roguelike',
+    nodeChoices: mode === 'roguelike' ? generateNodeChoices(0, random) : [],
+    gold: 0,
+    awaitingShop: false,
+    shopOfferIds: [],
+    awaitingRest: false,
     lastCombat: null,
   };
 }
@@ -475,10 +497,11 @@ export const RIVER_CROSSING: ChapterDef = {
     { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 2, y: 7 },
     { id: 'jill', name: 'Jill', team: 'player', className: 'Fighter', x: 3, y: 7 },
     { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 6, y: 7 },
-    { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 0, y: 0 },
-    { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 4, y: 0 },
-    { id: 'bandit-3', name: 'Bandit 3', team: 'enemy', randomClass: true, x: 0, y: 1 },
-    { id: 'bandit-4', name: 'Bandit 4', team: 'enemy', randomClass: true, x: 4, y: 1 },
+    // No enemy specs — every roguelike fight, including the run's first, is
+    // spawned procedurally now (game.ts's chooseMapNode), not hand-placed
+    // on the map. buildGameState skips any enemy spec here for
+    // mode === 'roguelike' regardless, but leaving them out entirely
+    // avoids implying they're ever used.
   ],
 };
 
@@ -517,10 +540,7 @@ export const ASHFALL_RIDGE: ChapterDef = {
     { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 6, y: 8 },
     { id: 'jill', name: 'Jill', team: 'player', className: 'Fighter', x: 3, y: 7 },
     { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 4, y: 7 },
-    { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 0, y: 0 },
-    { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 3, y: 0 },
-    { id: 'bandit-3', name: 'Bandit 3', team: 'enemy', randomClass: true, x: 1, y: 1 },
-    { id: 'bandit-4', name: 'Bandit 4', team: 'enemy', randomClass: true, x: 5, y: 1 },
+    // No enemy specs — see RIVER_CROSSING's own units comment.
   ],
 };
 
@@ -559,10 +579,7 @@ export const FROSTGATE_PASS: ChapterDef = {
     { id: 'natasha', name: 'Natasha', team: 'player', className: 'Cleric', x: 5, y: 8 },
     { id: 'jill', name: 'Jill', team: 'player', className: 'Fighter', x: 2, y: 7 },
     { id: 'ephraim', name: 'Ephraim', team: 'player', className: 'Lancer', x: 4, y: 7 },
-    { id: 'bandit-1', name: 'Bandit 1', team: 'enemy', randomClass: true, x: 1, y: 0 },
-    { id: 'bandit-2', name: 'Bandit 2', team: 'enemy', randomClass: true, x: 5, y: 0 },
-    { id: 'bandit-3', name: 'Bandit 3', team: 'enemy', randomClass: true, x: 2, y: 1 },
-    { id: 'bandit-4', name: 'Bandit 4', team: 'enemy', randomClass: true, x: 4, y: 1 },
+    // No enemy specs — see RIVER_CROSSING's own units comment.
   ],
 };
 

@@ -196,6 +196,12 @@ export class TacticalScene extends Scene {
   private promotionPickerOpen = false;
   /** Same guard, for the bank-or-descend choice at a Boss-wave checkpoint. */
   private runChoicePanelOpen = false;
+  /** Same guard, for the run's branching-path choice (src/game/runMap.ts). */
+  private nodeChoicePanelOpen = false;
+  /** Same guard, for a Rest node's heal-or-upgrade choice. */
+  private restPanelOpen = false;
+  /** Same guard, for an open Shop node. */
+  private shopPanelOpen = false;
   /** One-shot guard so a finished roguelike run's Embers (src/game/meta.ts) are only persisted once — client.subscribe() fires onStateChange() repeatedly while ctx.gameover stays true. */
   private embersAwarded = false;
   /** Set by UIScene while a screen not driven by `mode` (the equip screen) is open, so a board tap underneath does nothing. */
@@ -284,6 +290,9 @@ export class TacticalScene extends Scene {
     this.blessingPickerOpen = false;
     this.promotionPickerOpen = false;
     this.runChoicePanelOpen = false;
+    this.nodeChoicePanelOpen = false;
+    this.restPanelOpen = false;
+    this.shopPanelOpen = false;
     this.embersAwarded = false;
     this.inputSuspended = false;
     this.enemyPhaseIntroDone = null;
@@ -1509,6 +1518,62 @@ export class TacticalScene extends Scene {
           this.runChoicePanelOpen = false;
           this.client.moves.chooseRunPath(path);
         });
+      });
+      return;
+    }
+
+    if (G.awaitingNodeChoice) {
+      if (this.nodeChoicePanelOpen) return;
+      this.nodeChoicePanelOpen = true;
+      this.time.delayedCall(BLESSING_DELAY_MS, () => {
+        const fresh = this.client.getState();
+        if (!fresh || !fresh.G.awaitingNodeChoice) {
+          this.nodeChoicePanelOpen = false;
+          return;
+        }
+        this.ui.showNodeChoice(fresh.G.nodeChoices, fresh.G.segmentDepth, (nodeId) => {
+          this.nodeChoicePanelOpen = false;
+          this.client.moves.chooseMapNode(nodeId);
+        });
+      });
+      return;
+    }
+
+    if (G.awaitingRest) {
+      if (this.restPanelOpen) return;
+      this.restPanelOpen = true;
+      this.time.delayedCall(BLESSING_DELAY_MS, () => {
+        const fresh = this.client.getState();
+        if (!fresh || !fresh.G.awaitingRest) {
+          this.restPanelOpen = false;
+          return;
+        }
+        this.ui.showRest((choice) => {
+          this.restPanelOpen = false;
+          this.client.moves.chooseRest(choice);
+        });
+      });
+      return;
+    }
+
+    if (G.awaitingShop) {
+      if (this.shopPanelOpen) return;
+      this.shopPanelOpen = true;
+      this.time.delayedCall(BLESSING_DELAY_MS, () => {
+        const fresh = this.client.getState();
+        if (!fresh || !fresh.G.awaitingShop) {
+          this.shopPanelOpen = false;
+          return;
+        }
+        this.ui.showShop(
+          fresh.G.shopOfferIds,
+          fresh.G.gold,
+          (blessingId) => this.client.moves.buyShopOffer(blessingId),
+          () => {
+            this.shopPanelOpen = false;
+            this.client.moves.leaveShop();
+          },
+        );
       });
       return;
     }

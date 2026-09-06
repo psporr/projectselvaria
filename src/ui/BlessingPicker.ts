@@ -8,7 +8,8 @@ const CARD_WIDTH = 132;
 const CARD_HEIGHT = 260;
 const CARD_GAP = 12;
 
-const RARITY_COLOR: Record<BlessingRarity, number> = {
+/** Exported for ShopPanel, which renders the same blessing cards with a price tag added. */
+export const RARITY_COLOR: Record<BlessingRarity, number> = {
   common: 0x9099a8,
   rare: 0x4a90d9,
   legendary: 0xf0ad4e,
