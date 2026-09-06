@@ -186,6 +186,10 @@ export interface GameState {
   housePicks: Record<BlessingHouse, number>;
   /** Player units that have died this run, kept around for The Fallen to revive. */
   fallenUnits: Unit[];
+  /** True right after clearing a boss wave (waves.ts's runPhaseForWave), while the player chooses to bank the run's Embers or push into the Depths — see game.ts's chooseRunPath. */
+  awaitingRunChoice: boolean;
+  /** True once the player has chosen to bank the run at a boss-wave checkpoint. endIf reads this as a player win; src/game/meta.ts's computeEmbersEarned reads it to award the bank bonus on top of the same per-wave rate a wipe earns. */
+  runBanked: boolean;
   /** The 3 blessing ids drawn for the current wave-clear pause; empty until the first one. */
   offeredBlessingIds: string[];
   /** True after a blessing's been picked, while any level-10+ unit still has an unresolved promotion offer for this wave-clear pause. */

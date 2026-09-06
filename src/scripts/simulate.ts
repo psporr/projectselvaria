@@ -90,6 +90,14 @@ function runOnce(seed: string | number): RunResult {
       continue;
     }
 
+    if (G.awaitingRunChoice) {
+      // Always push into the Depths — the sim exists to exercise wave
+      // scaling and AI play, not model a real player's stop-or-push
+      // decision, and WAVE_CAP already caps how far any of this goes.
+      client.moves.chooseRunPath('descend');
+      continue;
+    }
+
     const action = decideAction(G, teamOf(ctx.currentPlayer));
     if (!action) {
       client.events.endTurn?.();
@@ -149,6 +157,13 @@ function runVerboseOnce(): void {
       const selections = promoteAllIntoFirstBranch(G);
       console.log(`  promoting ${selections.length} of ${G.promotionEligibleUnitIds.length} eligible unit(s)`);
       client.moves.resolvePromotions(selections);
+      continue;
+    }
+
+    if (G.awaitingRunChoice) {
+      // Always push into the Depths — see runOnce's matching branch for why.
+      console.log(`  boss wave ${G.wave} cleared — descending`);
+      client.moves.chooseRunPath('descend');
       continue;
     }
 

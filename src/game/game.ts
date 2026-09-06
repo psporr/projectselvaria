@@ -3,7 +3,7 @@ import { INVALID_MOVE } from 'boardgame.io/core';
 
 import type { CampaignCarryOver, ChapterDef } from './maps';
 import type { ClassName } from './classes';
-import type { CombatBeat, GameMode, GameState, ItemSlot, Team, Unit } from './types';
+import type { BlessingHouse, CombatBeat, GameMode, GameState, ItemSlot, Team, Unit } from './types';
 import { PLAYER_ID, teamOf } from './types';
 import { buildGameState, CAMPAIGN_CHAPTER_1, RIVER_CROSSING, type ShuffleAPI } from './maps';
 import { computeReachable, manhattan, tileKey, unitsOf } from './grid';
@@ -17,7 +17,7 @@ import {
   type AttackChances,
 } from './combat';
 import { BLESSINGS, drawBlessings } from './blessings';
-import { spawnWave } from './waves';
+import { runPhaseForWave, spawnBossWave, spawnWave } from './waves';
 import { canPromote, EXP_PER_ATTACK, EXP_PER_HEAL, EXP_PER_KILL, grantExp as grantExpToUnit, PROMOTES_TO, promoteUnit } from './classes';
 import { effectiveStats, equippedKillHeal, ITEMS, rollDrop, type DropRandomAPI } from './equipment';
 import {
@@ -848,12 +848,30 @@ export const unequipItem = ({ G, ctx }: { G: GameState; ctx: Ctx }, unitId: stri
  */
 function finishWaveTransition(G: GameState, ctx: Ctx, events: EndTurnAPI, random: ShuffleAPI): void {
   G.wave += 1;
-  spawnWave(G, G.wave, random);
+  if (runPhaseForWave(G.wave) === 'boss') spawnBossWave(G, G.wave, random);
+  else spawnWave(G, G.wave, random);
   pushLog(G, `— Wave ${G.wave} —`);
 
   if (teamOf(ctx.currentPlayer) !== 'player') {
     events.endTurn?.();
   }
+}
+
+/**
+ * The shared tail once a wave-clear pause (blessing, and promotion if
+ * anyone was eligible) has fully resolved — normally just advances to the
+ * next wave, but if the wave just cleared was a Boss wave (waves.ts's
+ * runPhaseForWave), pauses instead on `awaitingRunChoice` so the player can
+ * bank the run's Embers or push into the Depths (chooseRunPath below).
+ * Re-checked at every Boss wave, including in the Depths, not just the
+ * first one at wave 10 — every checkpoint offers the same choice.
+ */
+function advanceOrPauseForRunChoice(G: GameState, ctx: Ctx, events: EndTurnAPI, random: ShuffleAPI): void {
+  if (runPhaseForWave(G.wave) === 'boss') {
+    G.awaitingRunChoice = true;
+    return;
+  }
+  finishWaveTransition(G, ctx, events, random);
 }
 
 /**
@@ -905,7 +923,7 @@ export const chooseBlessing = (
     return;
   }
 
-  finishWaveTransition(G, ctx, events, random);
+  advanceOrPauseForRunChoice(G, ctx, events, random);
 };
 
 /**
@@ -935,6 +953,28 @@ export const resolvePromotions = (
 
   G.awaitingPromotion = false;
   G.promotionEligibleUnitIds = [];
+  advanceOrPauseForRunChoice(G, ctx, events, random);
+};
+
+/**
+ * Resolves the post-Boss-wave pause (advanceOrPauseForRunChoice). 'bank'
+ * ends the run right here as a player win — endIf reads G.runBanked, and
+ * src/game/meta.ts's computeEmbersEarned reads it too, to award the bank
+ * bonus on top of the same per-wave rate a wipe earns. 'descend' just
+ * continues into the next wave exactly like clearing a non-Boss wave would.
+ * Only valid while awaitingRunChoice.
+ */
+export const chooseRunPath = (
+  { G, ctx, events, random }: { G: GameState; ctx: Ctx; events: EndTurnAPI; random: ShuffleAPI },
+  path: 'bank' | 'descend',
+) => {
+  if (!G.awaitingRunChoice) return INVALID_MOVE;
+  G.awaitingRunChoice = false;
+
+  if (path === 'bank') {
+    G.runBanked = true;
+    return;
+  }
   finishWaveTransition(G, ctx, events, random);
 };
 
@@ -945,6 +985,7 @@ const moves: MoveMap<GameState> = {
   useSkill,
   chooseBlessing,
   resolvePromotions,
+  chooseRunPath,
   equipItem,
   unequipItem,
 };
@@ -963,10 +1004,12 @@ export function createSelvariaGame(
   chapter: ChapterDef,
   carryOver?: CampaignCarryOver,
   baseLevel?: number,
+  /** Roguelike-only meta-progression unlock (src/game/meta.ts) — see buildGameState's own doc comment. */
+  headStartHouse?: BlessingHouse | null,
 ): Game<GameState> {
   return {
     ...SelvariaGameBase,
-    setup: ({ random }) => buildGameState(chapter, mode, random, carryOver, baseLevel),
+    setup: ({ random }) => buildGameState(chapter, mode, random, carryOver, baseLevel, headStartHouse),
   };
 }
 
@@ -1014,6 +1057,7 @@ const SelvariaGameBase: Game<GameState> = {
   // chooseBlessing), while 'rout' is won the moment the last enemy falls.
   endIf: ({ G }): GameOver | undefined => {
     if (unitsOf(G, 'player').length === 0) return { winner: 'enemy' };
+    if (G.runBanked) return { winner: 'player' };
     if (G.objectiveType === 'rout' && unitsOf(G, 'enemy').length === 0) return { winner: 'player' };
     return undefined;
   },

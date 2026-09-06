@@ -1,4 +1,4 @@
-import type { EquipmentSlots, GameMode, GameState, Item, ObjectiveType, Team, TerrainType, Unit } from './types';
+import type { BlessingHouse, EquipmentSlots, GameMode, GameState, Item, ObjectiveType, Team, TerrainType, Unit } from './types';
 import { ALL_CLASSES, PLAYER_START_LEVEL, statsAtLevel, type ClassName } from './classes';
 import type { DialogueScript, MapEvent } from './story';
 
@@ -150,6 +150,13 @@ export function buildGameState(
    * for it the way a flat starting level would.
    */
   baseLevel: number = PLAYER_START_LEVEL,
+  /**
+   * A roguelike-only meta-progression unlock (src/game/meta.ts) — the house
+   * a fresh run starts with 1 pick already counted toward its Duo
+   * threshold. Ignored for campaign chapters, which never draw blessings at
+   * all (checkWaveCleared only fires for the 'waves' objective).
+   */
+  headStartHouse?: BlessingHouse | null,
 ): GameState {
   const tiles = parseTiles(chapter.rows);
   const width = tiles[0]?.length ?? 0;
@@ -243,11 +250,19 @@ export function buildGameState(
       phoenixActive: false,
       berserkerBonus: 0,
     },
-    housePicks: { vanguard: 0, bulwark: 0, farsight: 0, fortune: 0 },
+    housePicks: {
+      vanguard: 0,
+      bulwark: 0,
+      farsight: 0,
+      fortune: 0,
+      ...(mode === 'roguelike' && headStartHouse ? { [headStartHouse]: 1 } : {}),
+    },
     fallenUnits: [],
     offeredBlessingIds: [],
     awaitingPromotion: false,
     promotionEligibleUnitIds: [],
+    awaitingRunChoice: false,
+    runBanked: false,
     lastCombat: null,
   };
 }

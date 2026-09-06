@@ -1,7 +1,7 @@
 import { Client } from 'boardgame.io/client';
 import { createSelvariaGame } from '../game/game';
 import type { CampaignCarryOver, ChapterDef } from '../game/maps';
-import type { GameMode, GameState } from '../game/types';
+import type { BlessingHouse, GameMode, GameState } from '../game/types';
 
 /**
  * The vanilla (non-React) boardgame.io client, constructed once outside any
@@ -26,8 +26,14 @@ export type GameClient = ReturnType<typeof Client<GameState>>;
  * through — so the same client factory serves both a roguelike run and any
  * campaign chapter, fresh or resumed from a `CampaignCarryOver`.
  */
-export function createGameClient(mode: GameMode, chapter: ChapterDef, carryOver?: CampaignCarryOver, baseLevel?: number): GameClient {
-  const game = createSelvariaGame(mode, chapter, carryOver, baseLevel);
+export function createGameClient(
+  mode: GameMode,
+  chapter: ChapterDef,
+  carryOver?: CampaignCarryOver,
+  baseLevel?: number,
+  headStartHouse?: BlessingHouse | null,
+): GameClient {
+  const game = createSelvariaGame(mode, chapter, carryOver, baseLevel, headStartHouse);
   // boardgame.io's built-in debug panel is a React/DOM overlay meant for
   // developing the Game definition itself — not part of the shipped game,
   // and it visually collides with TacticalScene's own HUD.

@@ -8,6 +8,7 @@ import { computeReachable, computeThreatTiles, quickAttackPositions, targetsFrom
 import { ITEMS } from '../game/equipment';
 import { CAMPAIGN_CHAPTERS, RIVER_CROSSING, type CampaignCarryOver, type ChapterDef } from '../game/maps';
 import { saveCampaign, clearCampaignSave } from '../game/save';
+import { computeEmbersEarned, loadMetaProgress, saveMetaProgress } from '../game/meta';
 import { canUseSkill, describeSkillEffect, novaBlastCoords, skillTargets, SKILLS, type SkillDef } from '../game/skills';
 import { isTriggerMet, type MapEvent } from '../game/story';
 import { TERRAIN, teamOf, type CombatBeat, type CombatResult, type GameMode, type GameState, type Team, type Unit } from '../game/types';
@@ -191,6 +192,10 @@ export class TacticalScene extends Scene {
   private blessingPickerOpen = false;
   /** Same guard as blessingPickerOpen, for the promotion checklist that can follow it. */
   private promotionPickerOpen = false;
+  /** Same guard, for the bank-or-descend choice at a Boss-wave checkpoint. */
+  private runChoicePanelOpen = false;
+  /** One-shot guard so a finished roguelike run's Embers (src/game/meta.ts) are only persisted once — client.subscribe() fires onStateChange() repeatedly while ctx.gameover stays true. */
+  private embersAwarded = false;
   /** Set by UIScene while a screen not driven by `mode` (the equip screen) is open, so a board tap underneath does nothing. */
   private inputSuspended = false;
   /**
@@ -276,6 +281,8 @@ export class TacticalScene extends Scene {
     this.pendingDestination = null;
     this.blessingPickerOpen = false;
     this.promotionPickerOpen = false;
+    this.runChoicePanelOpen = false;
+    this.embersAwarded = false;
     this.inputSuspended = false;
     this.enemyPhaseIntroDone = null;
     this.turnCounts = { player: 0, enemy: 0 };
@@ -289,7 +296,11 @@ export class TacticalScene extends Scene {
       (mode === 'campaign'
         ? (CAMPAIGN_CHAPTERS.find((candidate) => candidate.id === this.sceneData.chapterId) ?? CAMPAIGN_CHAPTERS[0])
         : RIVER_CROSSING);
-    this.client = createGameClient(mode, chapter, this.sceneData.carryOver, this.sceneData.baseLevel);
+    // Head Start (src/game/meta.ts) only ever matters for roguelike — a
+    // campaign chapter never draws blessings at all — but it's harmless to
+    // read regardless, same as loadSettings(browserStorage) just below.
+    const headStartHouse = mode === 'roguelike' ? loadMetaProgress(browserStorage).headStartHouse : null;
+    this.client = createGameClient(mode, chapter, this.sceneData.carryOver, this.sceneData.baseLevel, headStartHouse);
     this.cameras.main.setBackgroundColor('#111318');
     applyDprZoom(this);
     for (const name of ANIMATED_HERO_NAMES) ensureHeroAnimations(this, name);
@@ -387,6 +398,28 @@ export class TacticalScene extends Scene {
     this.checkForLoot();
     this.refreshThreatOverlay();
     this.scheduleAutoAdvance();
+    this.awardEmbersIfRunEnded();
+  }
+
+  /**
+   * Persists Embers (src/game/meta.ts) the moment a roguelike run ends,
+   * whether by banking at a Boss-wave checkpoint or by wiping — meta-
+   * progression.md's "failing forward": even a lost run should bank
+   * something toward the next attempt. Guarded by embersAwarded since
+   * client.subscribe() keeps firing onStateChange() while ctx.gameover
+   * stays true (the gameover panel itself, restart, etc.).
+   */
+  private awardEmbersIfRunEnded(): void {
+    if (this.embersAwarded) return;
+    const state = this.client.getState();
+    if (!state || !state.ctx.gameover || state.G.mode !== 'roguelike') return;
+    this.embersAwarded = true;
+
+    const earned = computeEmbersEarned(state.G, state.G.runBanked);
+    const meta = loadMetaProgress(browserStorage);
+    meta.embers += earned;
+    saveMetaProgress(browserStorage, meta);
+    this.ui.setEmbersAwarded(earned, meta.embers);
   }
 
   /** Diffs G.nextItemInstance against the last-seen snapshot (same trick syncUnits uses for HP) rather than adding a "pending drop" field to synced G (HANDOFF.md §9) — see the field comment for why not G.inventory.length. */
@@ -1455,6 +1488,23 @@ export class TacticalScene extends Scene {
         this.ui.showPromotionPicker(candidates, (selections) => {
           this.promotionPickerOpen = false;
           this.client.moves.resolvePromotions(selections);
+        });
+      });
+      return;
+    }
+
+    if (G.awaitingRunChoice) {
+      if (this.runChoicePanelOpen) return;
+      this.runChoicePanelOpen = true;
+      this.time.delayedCall(BLESSING_DELAY_MS, () => {
+        const fresh = this.client.getState();
+        if (!fresh || !fresh.G.awaitingRunChoice) {
+          this.runChoicePanelOpen = false;
+          return;
+        }
+        this.ui.showRunChoice({ wave: fresh.G.wave, embersIfBanked: computeEmbersEarned(fresh.G, true) }, (path) => {
+          this.runChoicePanelOpen = false;
+          this.client.moves.chooseRunPath(path);
         });
       });
       return;

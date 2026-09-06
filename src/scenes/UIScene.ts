@@ -20,6 +20,7 @@ import { ForecastPanel } from '../ui/ForecastPanel';
 import { LogPanel } from '../ui/LogPanel';
 import { PhaseBanner } from '../ui/PhaseBanner';
 import { PromotionPicker, type PromotionCandidate, type PromotionSelection } from '../ui/PromotionPicker';
+import { RunChoicePanel, type RunChoiceInfo } from '../ui/RunChoicePanel';
 import { SystemMenu, type SystemMenuChoice, type SystemMenuOption } from '../ui/SystemMenu';
 import { UnitStatusBar } from '../ui/UnitStatusBar';
 import { Button, COLORS, FONT_FAMILY } from '../ui/kit';
@@ -50,6 +51,7 @@ export class UIScene extends Scene {
   private gameOverBackdrop!: GameObjects.Rectangle;
   private gameOverCard!: GameObjects.Rectangle;
   private gameOverText!: GameObjects.Text;
+  private gameOverSubtext!: GameObjects.Text;
   private gameOverRestartButton!: GameObjects.Rectangle;
   private gameOverRestartText!: GameObjects.Text;
 
@@ -58,6 +60,7 @@ export class UIScene extends Scene {
   combatForecastPanel!: CombatForecastPanel;
   blessingPicker!: BlessingPicker;
   promotionPicker!: PromotionPicker;
+  runChoicePanel!: RunChoicePanel;
   equipScreen!: EquipScreen;
   systemMenu!: SystemMenu;
   phaseBanner!: PhaseBanner;
@@ -76,6 +79,15 @@ export class UIScene extends Scene {
    * TacticalScene.create()).
    */
   private lastTurnSeen: number | null = null;
+  /**
+   * Set once by TacticalScene.awardEmbersIfRunEnded() the instant a
+   * roguelike run ends, rather than this scene reading src/game/meta.ts's
+   * storage itself — a direct call is race-free regardless of which
+   * scene's client.subscribe() callback happens to fire first on the same
+   * state change, where a storage read here could occasionally catch the
+   * total before TacticalScene has persisted it.
+   */
+  private embersResult: { earned: number; total: number } | null = null;
 
   constructor() {
     super('UI');
@@ -85,6 +97,7 @@ export class UIScene extends Scene {
     this.client = data.client;
     this.tactical = data.tactical;
     this.lastTurnSeen = null;
+    this.embersResult = null;
     applyDprZoom(this);
 
     // Top status banner
@@ -131,7 +144,7 @@ export class UIScene extends Scene {
       .setVisible(false);
 
     this.gameOverCard = this.add
-      .rectangle(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2, 320, 180, 0x1c2030, 0.97)
+      .rectangle(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2, 320, 220, 0x1c2030, 0.97)
       .setStrokeStyle(2, 0x4a90d9)
       .setDepth(31)
       .setVisible(false);
@@ -148,8 +161,22 @@ export class UIScene extends Scene {
       .setDepth(32)
       .setVisible(false);
 
+    // Roguelike-only Embers readout (src/game/meta.ts) — hidden for a
+    // campaign clear, which has nothing to do with the Embers economy.
+    this.gameOverSubtext = this.add
+      .text(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2 + 8, '', {
+        fontFamily: FONT_FAMILY,
+        fontSize: '12px',
+        color: COLORS.textAccent,
+        align: 'center',
+        resolution: DPR,
+      })
+      .setOrigin(0.5)
+      .setDepth(32)
+      .setVisible(false);
+
     this.gameOverRestartButton = this.add
-      .rectangle(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2 + 36, 180, 40, 0x3a8f4a)
+      .rectangle(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2 + 56, 180, 40, 0x3a8f4a)
       .setStrokeStyle(1, 0x5ab56a)
       .setInteractive({ useHandCursor: true })
       .setDepth(32)
@@ -167,7 +194,7 @@ export class UIScene extends Scene {
       });
 
     this.gameOverRestartText = this.add
-      .text(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2 + 36, 'Restart Battle', {
+      .text(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2 + 56, 'Restart Battle', {
         fontFamily: FONT_FAMILY,
         fontSize: '14px',
         color: '#ffffff',
@@ -183,6 +210,7 @@ export class UIScene extends Scene {
     this.actionMenu = new ActionMenu(this);
     this.blessingPicker = new BlessingPicker(this);
     this.promotionPicker = new PromotionPicker(this);
+    this.runChoicePanel = new RunChoicePanel(this);
     this.equipScreen = new EquipScreen(this, this.client);
     this.systemMenu = new SystemMenu(this);
     this.phaseBanner = new PhaseBanner(this);
@@ -262,10 +290,25 @@ export class UIScene extends Scene {
       const isVictory = gameover.winner === 'player';
       const isCampaignWin = isVictory && G.mode === 'campaign';
       const isLastChapter = isCampaignWin && CAMPAIGN_CHAPTERS[CAMPAIGN_CHAPTERS.length - 1]?.id === G.chapterId;
-      const headline = isCampaignWin ? (isLastChapter ? 'CAMPAIGN\nCOMPLETE' : 'CHAPTER\nCLEAR') : isVictory ? 'VICTORY' : 'DEFEAT';
+      const isRoguelikeRun = G.mode === 'roguelike';
+      const headline = isCampaignWin
+        ? isLastChapter
+          ? 'CAMPAIGN\nCOMPLETE'
+          : 'CHAPTER\nCLEAR'
+        : isVictory
+          ? isRoguelikeRun
+            ? 'RUN BANKED'
+            : 'VICTORY'
+          : 'DEFEAT';
       this.gameOverText.setText(headline);
       this.gameOverText.setColor(isVictory ? '#7cd992' : '#ff6b6b');
       this.gameOverRestartText.setText(isCampaignWin ? (isLastChapter ? 'Chapter Select' : 'Continue') : 'Restart Battle');
+      if (isRoguelikeRun && this.embersResult) {
+        this.gameOverSubtext.setText(`+${this.embersResult.earned} Embers  (${this.embersResult.total} total)`);
+        this.gameOverSubtext.setVisible(true);
+      } else {
+        this.gameOverSubtext.setVisible(false);
+      }
       this.gameOverBackdrop.setVisible(true);
       this.gameOverCard.setVisible(true);
       this.gameOverText.setVisible(true);
@@ -275,6 +318,7 @@ export class UIScene extends Scene {
       this.gameOverBackdrop.setVisible(false);
       this.gameOverCard.setVisible(false);
       this.gameOverText.setVisible(false);
+      this.gameOverSubtext.setVisible(false);
       this.gameOverRestartButton.setVisible(false);
       this.gameOverRestartText.setVisible(false);
     }
@@ -344,6 +388,16 @@ export class UIScene extends Scene {
 
   showPromotionPicker(candidates: PromotionCandidate[], onConfirm: (selections: PromotionSelection[]) => void): void {
     this.promotionPicker.show(candidates, onConfirm);
+  }
+
+  showRunChoice(info: RunChoiceInfo, onChoose: (path: 'bank' | 'descend') => void): void {
+    this.runChoicePanel.show(info, onChoose);
+  }
+
+  /** Called once by TacticalScene.awardEmbersIfRunEnded() — see embersResult's own doc comment for why this is a direct call rather than a storage read here. */
+  setEmbersAwarded(earned: number, total: number): void {
+    this.embersResult = { earned, total };
+    this.refreshHud();
   }
 
   showDialogue(script: DialogueScript, onComplete: () => void): void {

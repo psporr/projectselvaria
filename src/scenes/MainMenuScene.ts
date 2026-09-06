@@ -2,7 +2,9 @@ import { Scene } from 'phaser';
 
 import { PLAYER_START_LEVEL } from '../game/classes';
 import { CAMPAIGN_CHAPTERS, ANIMATED_HERO_TEST_STAGE } from '../game/maps';
+import { HEAD_START_COST, loadMetaProgress, saveMetaProgress, type MetaProgress } from '../game/meta';
 import { loadCampaignSave } from '../game/save';
+import type { BlessingHouse } from '../game/types';
 import { browserStorage } from '../systems/storage';
 import { battleStyleLabel, loadSettings, nextBattleStyle, saveSettings } from '../systems/settings';
 import { applyDprZoom, DPR, LOGICAL_HEIGHT, LOGICAL_WIDTH } from '../systems/viewport';
@@ -23,6 +25,10 @@ const DIVIDER_COLOR = 0x3a4258;
 
 const LOGO_KEY = 'menu-logo';
 const LOGO_DISPLAY_SIZE = 132;
+
+function houseLabel(house: BlessingHouse): string {
+  return house.charAt(0).toUpperCase() + house.slice(1);
+}
 
 /**
  * The main menu — mode selection between Roguelike and Campaign. Campaign
@@ -86,6 +92,8 @@ export class MainMenuScene extends Scene {
     const devRowCount = 2; // Sprite Test + Hero Anim Test
     const roguelikeSectionHeight = HEADING_HEIGHT + ROW_HEIGHT;
     const campaignSectionHeight = HEADING_HEIGHT + campaignRowCount * ROW_HEIGHT + Math.max(0, campaignRowCount - 1) * ROW_GAP;
+    const embersRowCount = 2; // balance readout + Head Start unlock/toggle
+    const embersSectionHeight = HEADING_HEIGHT + embersRowCount * ROW_HEIGHT + Math.max(0, embersRowCount - 1) * ROW_GAP;
     const devSectionHeight = HEADING_HEIGHT + devRowCount * ROW_HEIGHT + Math.max(0, devRowCount - 1) * ROW_GAP;
     const settingsSectionHeight = HEADING_HEIGHT + ROW_HEIGHT;
     const cardHeight =
@@ -93,6 +101,8 @@ export class MainMenuScene extends Scene {
       roguelikeSectionHeight +
       SECTION_GAP +
       campaignSectionHeight +
+      SECTION_GAP +
+      embersSectionHeight +
       SECTION_GAP +
       settingsSectionHeight +
       SECTION_GAP +
@@ -164,6 +174,30 @@ export class MainMenuScene extends Scene {
     addRow('Chapter Select', () => this.scene.start('ChapterSelect'), '13px');
     addDivider();
 
+    // Meta-progression currency (src/game/meta.ts) — earned at the end of
+    // every roguelike run, win or lose (tactics-roguelike-design's
+    // meta-progression.md: "a lost run should still bank something toward
+    // the next attempt"). One spendable unlock so far, kept deliberately
+    // small and hard-capped (a one-time purchase, then free to re-pick):
+    // Head Start, which counts a chosen House's first Duo pick as already
+    // made at the start of every future run. Read fresh each time this
+    // scene opens rather than cached, same as loadCampaignSave/loadSettings
+    // above — nothing here changes while the menu is up except by tapping
+    // these rows.
+    addHeading('EMBERS');
+    const meta = loadMetaProgress(browserStorage);
+    addRow(`Embers: ${meta.embers}`, null, '13px');
+    const headStartLabel = () =>
+      meta.headStartPurchased
+        ? `Head Start: ${meta.headStartHouse ? houseLabel(meta.headStartHouse) : 'None'}`
+        : `Unlock Head Start (${HEAD_START_COST} Embers)`;
+    const headStartRow = addRow(headStartLabel(), null, '13px');
+    headStartRow.setOnTap(() => {
+      this.cycleHeadStart(meta);
+      headStartRow.setLabel(headStartLabel());
+    });
+    addDivider();
+
     // One row, two states, relabelling itself on tap — the same toggle
     // shape the in-battle "Danger: OFF" dock button already uses, rather
     // than a whole settings screen for a single choice. Written straight
@@ -227,6 +261,28 @@ export class MainMenuScene extends Scene {
     if (!save) return;
     const data: TacticalSceneData = { mode: 'campaign', chapterId: save.chapterId, carryOver: save.carryOver };
     this.scene.start('Tactical', data);
+  }
+
+  /**
+   * Cycles the Head Start selection: None -> Vanguard -> Bulwark ->
+   * Farsight -> Fortune -> None. The very first time a house is picked
+   * (headStartPurchased still false), it costs HEAD_START_COST Embers and
+   * flips headStartPurchased permanently true; every re-pick after that
+   * (including landing back on None) is free — the unlock itself was the
+   * one-time purchase, which house it currently points at is just a
+   * preference. A tap that would need spending but can't afford it is a
+   * no-op rather than a partial/negative balance.
+   */
+  private cycleHeadStart(meta: MetaProgress): void {
+    const houses: (BlessingHouse | null)[] = [null, 'vanguard', 'bulwark', 'farsight', 'fortune'];
+    const nextHouse = houses[(houses.indexOf(meta.headStartHouse) + 1) % houses.length];
+    if (!meta.headStartPurchased) {
+      if (meta.embers < HEAD_START_COST) return;
+      meta.embers -= HEAD_START_COST;
+      meta.headStartPurchased = true;
+    }
+    meta.headStartHouse = nextHouse;
+    saveMetaProgress(browserStorage, meta);
   }
 
   /** Same route `?luffyTest=1` gives BootScene — see ANIMATED_HERO_TEST_STAGE's own doc comment (game/maps.ts) for why it's a debugChapter override rather than a real, CAMPAIGN_CHAPTERS-listed chapter. */

@@ -140,9 +140,26 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
   zoom + centering. If you add a new `Scene`, call `applyDprZoom(this)` in
   `create()`; if you add a new `Text` object anywhere, give it
   `resolution: DPR`.
-
+- **Run structure + meta-progression** (`src/game/waves.ts`'s `runPhaseForWave`,
+  `src/game/meta.ts`) — Roguelike now has real shape instead of one flat
+  escalating wave count: a fixed **Crossing** (waves 1-5) into a **Stretch**
+  (6-9), then a **Boss wave** every 10th wave (a distinct, fewer-but-
+  stronger "Warlord" encounter, not just a bigger mob) opens a real
+  checkpoint — bank the run's **Embers** right there (`RunChoicePanel`) or
+  push into the opt-in, ever-escalating **Depths**. A run banks Embers on
+  either outcome, wipe or bank (a wipe isn't a currency loss, just a smaller
+  payout) — spent from the main menu's **EMBERS** section on one
+  deliberately small, hard-capped unlock so far: **Head Start**, a chosen
+  Blessing House that starts every future run with 1 pick already counted
+  toward its Duo threshold.
 ### Not built yet
 
+- Roguelike wave-vs-squad balance — a played-out AI-vs-AI sim never wipes
+  even after 1000+ waves (per-wave blessing stat stacking outpaces the
+  linear enemy level curve). Pre-existing, not something the new run-
+  structure/meta-progression pass (2026-09-06) introduced, but worth a real
+  balance pass before the Depths' escalation reads as an actual difficulty
+  wall rather than just a longer version of the same fight.
 - Terrain tileset — Chapter 1/Chapter 2 render `TacticalScene.ts`'s flat
   `TERRAIN_COLOR` fills again; a first pick shipped 2026-09-01 and was
   removed 2026-09-02, per the repo owner (didn't look good in-game), a
@@ -160,6 +177,35 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-09-06 Claude: Roguelike-mode redesign, increment 2 — run structure +
+  meta-progression, continuing from increment 1's blessing-pool rework, per
+  the repo owner's "Continue run structure and meta progression". Gives the
+  endless wave loop real shape (`waves.ts`'s `runPhaseForWave`): a fixed
+  **Crossing** (waves 1-5) into a **Stretch** (6-9), then a **Boss wave**
+  every 10th wave after — 2 much-stronger "Warlord" units instead of the
+  usual capped-at-6 mob, a real "distinct encounter type" per the
+  tactics-roguelike-design skill's room-grammar guidance, rather than just
+  a bigger version of the same fight. Clearing one opens the run's one real
+  checkpoint (`RunChoicePanel`, no backdrop-cancel — both options are real
+  choices): bank the run's **Embers** right there, or push into the opt-in,
+  ever-escalating **Depths** (same checkpoint re-offered at every later
+  Boss wave, 20/30/..., not just once). New `src/game/meta.ts` handles the
+  currency: a run banks Embers on *either* outcome, wipe or bank — meta-
+  progression.md's "failing forward," a lost run still counts for
+  something — spent from the main menu's new EMBERS section on one
+  deliberately small, hard-capped unlock so far: **Head Start**, a chosen
+  Blessing House that starts every future run with 1 pick already counted
+  toward its Duo threshold. `chooseRunPath` is a new boardgame.io move;
+  `endIf` now also ends the game as a player win on `G.runBanked`. Verified
+  via typecheck/build/validate-maps/sim, a from-scratch headless script
+  that played through 139 consecutive Boss checkpoints confirming the
+  phase/composition math never misfires even at wave 1390+, and Playwright
+  screenshots of the menu's EMBERS rows, the RunChoicePanel, and the
+  gameover panel's Embers readout. Found and logged (see "Not built yet")
+  that the same script's descend-forever run never actually wipes — a
+  pre-existing balance property (blessing stacking outpaces enemy scaling),
+  not something this pass introduced, but a real gap before the Depths
+  read as an actual wall.
 - 2026-09-05 Claude: Roguelike-mode redesign, increment 1 of several (the
   repo owner asked for a skill-tested redesign then said "think of priority
   and start do it now, you can take multiple turns" — this is the first
