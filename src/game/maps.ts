@@ -273,6 +273,7 @@ export function buildGameState(
       fortune: 0,
       ...(mode === 'roguelike' && headStartHouse ? { [headStartHouse]: 1 } : {}),
     },
+    pickedBlessingIds: [],
     fallenUnits: [],
     offeredBlessingIds: [],
     awaitingPromotion: false,

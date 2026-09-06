@@ -908,6 +908,7 @@ export const chooseBlessing = ({ G, random }: { G: GameState; random: DropRandom
   G.modifiers.dropChanceMultiplier = 1;
   blessing.apply(G);
   if (blessing.house) G.housePicks[blessing.house] += 1;
+  G.pickedBlessingIds.push(blessing.id);
 
   G.awaitingBlessing = false;
   G.offeredBlessingIds = [];
@@ -1050,6 +1051,7 @@ export const buyShopOffer = ({ G }: { G: GameState }, blessingId: string) => {
   G.gold -= price;
   blessing.apply(G);
   if (blessing.house) G.housePicks[blessing.house] += 1;
+  G.pickedBlessingIds.push(blessing.id);
   G.shopOfferIds = G.shopOfferIds.filter((id) => id !== blessingId);
   pushLog(G, `Bought ${blessing.name} for ${price} Gold.`);
 };

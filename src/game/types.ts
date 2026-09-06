@@ -211,6 +211,8 @@ export interface GameState {
   modifiers: SquadModifiers;
   /** How many blessings picked so far this run belong to each House — drives Duo-blessing unlocks (blessings.ts's `isAvailable` gates check this). Counts every pick, including repeats; a Duo blessing itself has no `house` and doesn't bump its own House's count. */
   housePicks: Record<BlessingHouse, number>;
+  /** Every blessing id picked so far this run, in order (repeats included) — free (chooseBlessing) or bought (buyShopOffer). Presentation-only, like lastCombat: nothing in game/ reads this back, it exists purely for PathScene's Blessings review to show what the run has actually collected, since housePicks/modifiers alone can't reconstruct "which blessings" from their aggregate totals. */
+  pickedBlessingIds: string[];
   /** Player units that have died this run, kept around for The Fallen to revive. */
   fallenUnits: Unit[];
   /** True right after clearing a Boss node's blessing pick (game/runMap.ts's SEGMENT_LENGTH), while the player chooses to bank the run's Embers or push into the Depths — see game.ts's chooseRunPath. */

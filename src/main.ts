@@ -3,6 +3,7 @@ import { BootScene } from './scenes/BootScene';
 import { ChapterSelectScene } from './scenes/ChapterSelectScene';
 import { CombatOverlayScene } from './scenes/CombatOverlayScene';
 import { MainMenuScene } from './scenes/MainMenuScene';
+import { PathScene } from './scenes/PathScene';
 import { SpriteTestScene } from './scenes/SpriteTestScene';
 import { TacticalScene } from './scenes/TacticalScene';
 import { UIScene } from './scenes/UIScene';
@@ -45,7 +46,7 @@ const config: Types.Core.GameConfig = {
         width: LOGICAL_WIDTH * DPR,
         height: LOGICAL_HEIGHT * DPR
     },
-    scene: [BootScene, MainMenuScene, ChapterSelectScene, TacticalScene, UIScene, CombatOverlayScene, SpriteTestScene]
+    scene: [BootScene, MainMenuScene, ChapterSelectScene, TacticalScene, UIScene, PathScene, CombatOverlayScene, SpriteTestScene]
 };
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -155,6 +155,14 @@ export interface TacticalSceneData {
   debugChapter?: ChapterDef;
   /** Roguelike-only, chosen at the main menu's Trials panel (src/game/trials.ts) before starting the run. Undefined/omitted (the plain "Start Run" button) means no Trials. */
   activeTrials?: TrialId[];
+  /**
+   * Set only by PathScene handing off to the next fight on an in-progress
+   * roguelike run — reuses this SAME client (same G, same run) instead of
+   * `create()` building a fresh one, which would otherwise silently start
+   * a brand new run every time the player returns from the path-choice
+   * hub. Every other field above is ignored when this is set.
+   */
+  existingClient?: GameClient;
 }
 
 /**
@@ -194,14 +202,6 @@ export class TacticalScene extends Scene {
   private blessingPickerOpen = false;
   /** Same guard as blessingPickerOpen, for the promotion checklist that can follow it. */
   private promotionPickerOpen = false;
-  /** Same guard, for the bank-or-descend choice at a Boss-wave checkpoint. */
-  private runChoicePanelOpen = false;
-  /** Same guard, for the run's branching-path choice (src/game/runMap.ts). */
-  private nodeChoicePanelOpen = false;
-  /** Same guard, for a Rest node's heal-or-upgrade choice. */
-  private restPanelOpen = false;
-  /** Same guard, for an open Shop node. */
-  private shopPanelOpen = false;
   /** One-shot guard so a finished roguelike run's Embers (src/game/meta.ts) are only persisted once — client.subscribe() fires onStateChange() repeatedly while ctx.gameover stays true. */
   private embersAwarded = false;
   /** Set by UIScene while a screen not driven by `mode` (the equip screen) is open, so a board tap underneath does nothing. */
@@ -289,10 +289,6 @@ export class TacticalScene extends Scene {
     this.pendingDestination = null;
     this.blessingPickerOpen = false;
     this.promotionPickerOpen = false;
-    this.runChoicePanelOpen = false;
-    this.nodeChoicePanelOpen = false;
-    this.restPanelOpen = false;
-    this.shopPanelOpen = false;
     this.embersAwarded = false;
     this.inputSuspended = false;
     this.enemyPhaseIntroDone = null;
@@ -301,7 +297,11 @@ export class TacticalScene extends Scene {
     this.firedStoryEventIds = new Set();
     this.storyDialogueOpen = false;
 
-    const mode: GameMode = this.sceneData.mode ?? 'roguelike';
+    // A PathScene hand-off is always mid-roguelike-run, never a fresh
+    // start or a campaign chapter — forcing mode here skips the campaign-
+    // intro branch below the same way a resumed run has no fresh-start
+    // dialogue to show.
+    const mode: GameMode = this.sceneData.existingClient ? 'roguelike' : (this.sceneData.mode ?? 'roguelike');
     const chapter: ChapterDef =
       this.sceneData.debugChapter ??
       (mode === 'campaign'
@@ -312,7 +312,12 @@ export class TacticalScene extends Scene {
     // read regardless, same as loadSettings(browserStorage) just below.
     const headStartHouse = mode === 'roguelike' ? loadMetaProgress(browserStorage).headStartHouse : null;
     const activeTrials: TrialId[] = mode === 'roguelike' ? (this.sceneData.activeTrials ?? []) : [];
-    this.client = createGameClient(mode, chapter, this.sceneData.carryOver, this.sceneData.baseLevel, headStartHouse, activeTrials);
+    // Reuse PathScene's client outright when handing back into an
+    // in-progress run — building a fresh one here would silently start a
+    // brand new run instead of continuing this one (chapter/carryOver/
+    // baseLevel/headStartHouse/activeTrials are all moot in that case,
+    // since the client already carries the real, live G).
+    this.client = this.sceneData.existingClient ?? createGameClient(mode, chapter, this.sceneData.carryOver, this.sceneData.baseLevel, headStartHouse, activeTrials);
     this.cameras.main.setBackgroundColor('#111318');
     applyDprZoom(this);
     for (const name of ANIMATED_HERO_NAMES) ensureHeroAnimations(this, name);
@@ -332,6 +337,15 @@ export class TacticalScene extends Scene {
 
     const unsubscribe = this.client.subscribe(() => this.onStateChange());
     this.events.once('shutdown', unsubscribe);
+    // Covers arriving here already-gameover (PathScene hands off right
+    // after a Bank move ends the run) — client.subscribe() only fires on
+    // *future* state changes, so without this explicit initial check
+    // Embers would never get awarded/persisted if nothing changes G again.
+    // Deferred to UIScene's own 'create' the same way the intro-dialogue
+    // branch below is — this.ui's fields (setEmbersAwarded touches
+    // gameOverSubtext) don't exist until UIScene's own create() has
+    // actually run, which scene.launch() above only queued, not executed.
+    this.ui.events.once('create', () => this.awardEmbersIfRunEnded());
 
     if (mode === 'campaign' && chapter.intro && chapter.intro.length > 0) {
       const intro = chapter.intro;
@@ -1329,6 +1343,18 @@ export class TacticalScene extends Scene {
   }
 
   /**
+   * Hands off to the between-fights hub (Bank/Descend, the branching-path
+   * choice, Rest, Shop, Squad/equipment, Blessings) — the SAME live
+   * `client`, not a fresh one; PathScene resolves whichever of those pauses
+   * is active and eventually hands back to `create()`'s `existingClient`
+   * path (TacticalSceneData) to spawn the next fight on this same run.
+   */
+  private goToPathScene(): void {
+    this.scene.stop('UI');
+    this.scene.start('Path', { client: this.client });
+  }
+
+  /**
    * Campaign chapter cleared (UIScene's game-over "Continue"/"Chapter
    * Select" button, campaign-mode branch) — shows the cleared chapter's
    * outro dialogue first if it has one, then builds a CampaignCarryOver
@@ -1505,76 +1531,13 @@ export class TacticalScene extends Scene {
       return;
     }
 
-    if (G.awaitingRunChoice) {
-      if (this.runChoicePanelOpen) return;
-      this.runChoicePanelOpen = true;
-      this.time.delayedCall(BLESSING_DELAY_MS, () => {
-        const fresh = this.client.getState();
-        if (!fresh || !fresh.G.awaitingRunChoice) {
-          this.runChoicePanelOpen = false;
-          return;
-        }
-        this.ui.showRunChoice({ wave: fresh.G.wave, embersIfBanked: computeEmbersEarned(fresh.G, true) }, (path) => {
-          this.runChoicePanelOpen = false;
-          this.client.moves.chooseRunPath(path);
-        });
-      });
-      return;
-    }
-
-    if (G.awaitingNodeChoice) {
-      if (this.nodeChoicePanelOpen) return;
-      this.nodeChoicePanelOpen = true;
-      this.time.delayedCall(BLESSING_DELAY_MS, () => {
-        const fresh = this.client.getState();
-        if (!fresh || !fresh.G.awaitingNodeChoice) {
-          this.nodeChoicePanelOpen = false;
-          return;
-        }
-        this.ui.showNodeChoice(fresh.G.nodeChoices, fresh.G.segmentDepth, (nodeId) => {
-          this.nodeChoicePanelOpen = false;
-          this.client.moves.chooseMapNode(nodeId);
-        });
-      });
-      return;
-    }
-
-    if (G.awaitingRest) {
-      if (this.restPanelOpen) return;
-      this.restPanelOpen = true;
-      this.time.delayedCall(BLESSING_DELAY_MS, () => {
-        const fresh = this.client.getState();
-        if (!fresh || !fresh.G.awaitingRest) {
-          this.restPanelOpen = false;
-          return;
-        }
-        this.ui.showRest((choice) => {
-          this.restPanelOpen = false;
-          this.client.moves.chooseRest(choice);
-        });
-      });
-      return;
-    }
-
-    if (G.awaitingShop) {
-      if (this.shopPanelOpen) return;
-      this.shopPanelOpen = true;
-      this.time.delayedCall(BLESSING_DELAY_MS, () => {
-        const fresh = this.client.getState();
-        if (!fresh || !fresh.G.awaitingShop) {
-          this.shopPanelOpen = false;
-          return;
-        }
-        this.ui.showShop(
-          fresh.G.shopOfferIds,
-          fresh.G.gold,
-          (blessingId) => this.client.moves.buyShopOffer(blessingId),
-          () => {
-            this.shopPanelOpen = false;
-            this.client.moves.leaveShop();
-          },
-        );
-      });
+    // Bank/Descend, the branching-path choice, Rest, and Shop are all
+    // "between fights" moments — handled on a separate, calmer PathScene
+    // (2026-09-06, per the repo owner: a menu where the player can take a
+    // break, review Squad/equipment/blessings, before picking the next
+    // fight) rather than as overlays over the live battle board.
+    if (G.awaitingRunChoice || G.awaitingNodeChoice || G.awaitingRest || G.awaitingShop) {
+      this.goToPathScene();
       return;
     }
 

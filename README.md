@@ -140,10 +140,13 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
   zoom + centering. If you add a new `Scene`, call `applyDprZoom(this)` in
   `create()`; if you add a new `Text` object anywhere, give it
   `resolution: DPR`.
-- **Roguelike run structure — a real branching path** (`src/game/runMap.ts`,
-  2026-09-06, superseding the earlier fixed Crossing/Stretch/Depths wave-
-  number scheme). A run is no longer "clear wave, auto-advance" — every
-  node clear pauses on `awaitingNodeChoice`, offering 2-3 **path choices**
+- **Roguelike run structure — a real branching path, on its own screen**
+  (`src/game/runMap.ts`, `src/scenes/PathScene.ts`, 2026-09-06, superseding
+  the earlier fixed Crossing/Stretch/Depths wave-number scheme). A run is
+  no longer "clear wave, auto-advance" — every node clear hands off from
+  the live battle to **PathScene**, a separate between-fights hub (no
+  board, just the choice at hand plus an always-reachable Squad/Blessings
+  dock), which pauses on `awaitingNodeChoice`, offering 2-3 **path choices**
   (`NodeChoicePanel`) drawn from 5 node types: **Battle** (a standard
   Warband fight), **Elite** (a harder fight, +1 enemy and +2 levels, that
   guarantees a legendary-or-better blessing reward), **Rest** (heal to
@@ -203,6 +206,48 @@ https://psporr.github.io/projectselvaria/ (auto-deploys on every push to
 
 ### Recent changes
 
+- 2026-09-06 Claude: Roguelike-mode redesign, increment 5 — the branching-
+  path choice (increment 4) is now a real separate screen, per the repo
+  owner: "Need a separate screen for choosing path, so we can have a menu
+  to have player have a break and view squad, adjust equipment, view
+  blessing." New `PathScene` (registered in `main.ts`) is where
+  Bank-or-Descend, the path-choice cards, Rest, and Shop now render —
+  moved wholesale out of `TacticalScene`'s board-overlay panels, which
+  used to show them right on top of the live battle. `TacticalScene`
+  hands off (`goToPathScene()`) the instant a fight's blessing/promotion
+  resolves into any of those four pauses; PathScene hands back
+  (`scene.start('Tactical', { existingClient })`) the moment the player
+  picks a Battle/Elite/Boss node or Bank ends the run. Critically, this
+  reuses the SAME live `client` across the hand-off in both directions —
+  `TacticalSceneData` gained an `existingClient` field specifically so
+  `create()` doesn't build a fresh one and silently start a new run. A
+  persistent dock (Squad/Blessings) sits on PathScene itself, always
+  reachable while the player's between fights: **Squad** reuses
+  `EquipScreen` as-is (it was already scene-agnostic); **Blessings** is a
+  new `BlessingLogPanel` showing which permanent bonuses are currently
+  active (a plain-language summary of `SquadModifiers`) and which
+  blessings earned them, tallied by name — needed a new `GameState`
+  field, `pickedBlessingIds`, since the old aggregate-only modifiers/
+  housePicks counts can't reconstruct "which blessings" on their own.
+  `RunChoicePanel`/`NodeChoicePanel`/`RestPanel`/`ShopPanel` needed zero
+  changes — they were already scene-agnostic `Container`s, so PathScene
+  just instantiates its own copies; `UIScene` had the same four fields/
+  show-methods stripped out as dead code since it's never the one
+  showing them anymore. Verified via typecheck/build/validate-maps/sim
+  (headless play is scene-agnostic, so unaffected by a Phaser-layer
+  refactor) and a real-browser Playwright pass: confirmed only the
+  `Path` scene is active right after Start Run (no `Tactical`/`UI`
+  running underneath it at all), Squad/Blessings open and close
+  correctly from PathScene, picking a Battle node correctly hands off to
+  a live `Tactical`+`UI` on the same run (right wave number, right
+  squad, right map), and — catching a real bug found along the way, a
+  synthetic two-panels-visible-at-once test that doesn't reflect real
+  play — confirmed RunChoicePanel/RestPanel/ShopPanel each render
+  correctly full-screen once the panel before them has actually hidden
+  (which every panel already does via its own pick/choose/leave method,
+  same as real play, so not an actual bug — just a lesson about not
+  over-trusting a synthetic test that skips a step real gameplay never
+  skips).
 - 2026-09-06 Claude: Roguelike-mode redesign, increment 4 — a real
   branching path (Slay the Spire's map, discussed against Honkai Star
   Rail's Simulated Universe as a second reference), per the repo owner's
